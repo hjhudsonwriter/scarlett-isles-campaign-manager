@@ -7,7 +7,7 @@ Though culturally aligned with Aurush, Molten devotion is pragmatic rather than 
 Where others wage war or prayer, Clan Molten invests.
 
 ## Sigil
-![Clan sigil](../../assets/images/molten.png)
+![Clan sigil](../../assets/images/MoltenSigil.png)
 
 ## Key NPCs
 - **Consul Verena Molten** – Merchant-ruler, politically agile and quietly wary of religious extremism.
