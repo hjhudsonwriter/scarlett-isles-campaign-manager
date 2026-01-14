@@ -1,8 +1,10 @@
 {
   "order": [
+    "session-002",
     "session-001"
   ],
   "labels": {
-    "session-001": "Session 001"
+    "session-001": "Session 001",
+    "session-002": "Session 002"
   }
 }
