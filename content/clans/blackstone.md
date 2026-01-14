@@ -7,19 +7,23 @@ Centuries ago, Clan Blackstone worked alongside Tellurian adepts and Stoneborn m
 Today, Blackstone leadership fears reckless intervention above all else. Fire, fanaticism, and haste have doomed cities before — and Nightwood sits directly atop the consequences of such mistakes.
 
 ## Sigil
-![Clan sigil](../../assets/images/blackstone.png)
+
+![Clan sigil](/assets/images/BlackstoneSigil.png)
 
 ## Key NPCs
-- **Chief Boris Blackstone** – Returning war-chief, pragmatic and fiercely protective of Nightwood. Believes reckless action will collapse both city and forest.
-- **Aldric Blackstone** – Son and heir to the Chief. Politically sharp, information-driven, and far more dangerous than he appears.
-- **The Blackstone Wardens** – Veteran defenders trained to prioritise civilian safety over religious doctrine.
+
+* **Chief Boris Blackstone** – Returning war-chief, pragmatic and fiercely protective of Nightwood. Believes reckless action will collapse both city and forest.
+* **Aldric Blackstone** – Son and heir to the Chief. Politically sharp, information-driven, and far more dangerous than he appears.
+* **The Blackstone Wardens** – Veteran defenders trained to prioritise civilian safety over religious doctrine.
 
 ## Ideals
-- Stability before ambition  
-- Restraint over zealotry  
-- Leadership is stewardship, not dominion  
+
+* Stability before ambition  
+* Restraint over zealotry  
+* Leadership is stewardship, not dominion  
 
 ## Secrets
-- The forest was bound once — not cursed.
-- Old tunnel networks and pressure-release chambers exist beneath Nightwood.
-- Clan records describing the original containment were intentionally destroyed.
+
+* The forest was bound once — not cursed.
+* Old tunnel networks and pressure-release chambers exist beneath Nightwood.
+* Clan records describing the original containment were intentionally destroyed.
