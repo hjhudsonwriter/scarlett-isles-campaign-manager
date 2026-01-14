@@ -7,7 +7,7 @@ Their Pelagos faith is raw and elemental. The sea takes what it will, without ap
 Karr warriors raid not for cruelty, but necessity — and they speak truths others refuse to voice.
 
 ## Sigil
-![Clan sigil](../../assets/images/karr.png)
+![Clan sigil](../../assets/images/KarrSigil.png)
 
 ## Key NPCs
 - **Chief Freya Karr** – Raider-queen, blunt, pragmatic, and fiercely honest.
