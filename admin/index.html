@@ -4,16 +4,20 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Campaign Admin</title>
+  </head>
+
+  <body>
+    <!-- Decap mounts into this element -->
+    <div id="nc-root"></div>
 
     <!-- REQUIRED for Netlify Identity login -->
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 
-    <!-- Decap CMS -->
+    <!-- Decap CMS (load AFTER body exists) -->
     <script src="https://unpkg.com/decap-cms@^3.0.0/dist/decap-cms.js"></script>
-  </head>
-  <body>
+
     <script>
-      // Optional: after login, stay in /admin
+      // Keep user inside /admin after login
       if (window.netlifyIdentity) {
         window.netlifyIdentity.on("init", (user) => {
           if (!user) {
