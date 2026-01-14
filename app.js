@@ -44,9 +44,18 @@ const TOOL_PAGES = [
 ];
 
 // Story recap list (starter, we’ll expand later via CMS):
-const RECAP_PAGES = [
-  { id: "session-001", title: "Session 001", file: "./content/story/recaps/session-001.md" },
-];
+async function getRecapPages() {
+  // index.json controls sidebar order + labels
+  const idx = await fetch("./content/story/recaps/index.json", { cache: "no-store" }).then(r => r.json());
+  const order = idx.order || [];
+  const labels = idx.labels || {};
+
+  return order.map((id) => ({
+    id,
+    title: labels[id] || id,
+    file: `./content/story/recaps/${id}.md`
+  }));
+}
 
 // ---- Rendering helpers ----
 function setActiveLinks(container, activeId) {
@@ -250,12 +259,16 @@ async function router() {
     }
 
     if (tab === "story") {
-      const active = page || "session-001";
-      renderSideList("Session Recaps", RECAP_PAGES, active, "story");
-      const item = RECAP_PAGES.find(x => x.id === active) || RECAP_PAGES[0];
-      view.innerHTML = await loadMarkdown(item.file);
-      return;
-    }
+  const pages = await getRecapPages();
+  const defaultId = pages[0]?.id || "session-001";
+  const active = page || defaultId;
+
+  renderSideList("Session Recaps", pages, active, "story");
+  const item = pages.find(x => x.id === active) || pages[0];
+
+  view.innerHTML = item ? await loadMarkdown(item.file) : "<h1>No recaps yet</h1>";
+  return;
+}
 
     if (tab === "tools") {
       const active = page || "bastion";
