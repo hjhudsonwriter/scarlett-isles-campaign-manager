@@ -7,7 +7,7 @@ They believe the world must be kept clean, even if that requires destruction. Co
 To Clan Farmer, the Heartwood is an abomination that should never have been allowed to sleep.
 
 ## Sigil
-![Clan sigil](../../assets/images/farmer.png)
+<img src="../../assets/images/FarmerSigil.png" style="max-width:220px;width:100%;border-radius:16px;border:1px solid #28303a;">
 
 ## Key NPCs
 - **Sunward Inquisitor Dannick Vale** – Calm, unyielding, and terrifyingly sincere.
