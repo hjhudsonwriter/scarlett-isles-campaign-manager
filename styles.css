@@ -143,3 +143,57 @@ input, select{
   color:var(--text);
 }
 small{color:var(--muted)}
+/* ---------- Bastion Manager UI ---------- */
+.grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+@media (max-width: 980px){ .grid2{ grid-template-columns:1fr; } }
+
+.card {
+  border:1px solid var(--border);
+  border-radius:18px;
+  background: rgba(18,22,27,.55);
+  padding:14px;
+}
+
+.card h2, .card h3 { margin: 0 0 10px 0; }
+.muted { opacity:.85; }
+.small { font-size: 12px; opacity:.85; }
+
+.inputRow { display:flex; gap:10px; flex-wrap:wrap; align-items:end; }
+.inputRow > label { display:flex; flex-direction:column; gap:6px; min-width: 220px; }
+
+input[type="number"], input[type="text"], textarea, select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(10,12,16,.85);
+  color: var(--text);
+}
+
+.table {
+  width:100%;
+  border-collapse: collapse;
+}
+.table th, .table td{
+  border-bottom:1px solid rgba(255,255,255,.08);
+  padding:8px;
+  vertical-align: top;
+}
+.table th{ text-align:left; opacity:.9; font-weight:600; }
+
+.pill{
+  display:inline-block;
+  padding:4px 10px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.14);
+  background: rgba(0,0,0,.15);
+  font-size: 12px;
+  opacity:.95;
+}
+
+.traffic-green { background: rgba(0,255,120,.08); border-color: rgba(0,255,120,.22); }
+.traffic-amber { background: rgba(255,190,0,.08); border-color: rgba(255,190,0,.25); }
+.traffic-red   { background: rgba(255,0,80,.08); border-color: rgba(255,0,80,.25); }
+
+.btnRow { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+button[disabled]{ opacity:.45; cursor:not-allowed; }
