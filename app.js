@@ -2,6 +2,37 @@ const topNav = document.getElementById("topNav");
 const sideTitle = document.getElementById("sideTitle");
 const sideList = document.getElementById("sideList");
 const view = document.getElementById("view");
+// ---------- GitHub Pages base-path helper ----------
+const BASE = (() => {
+  // Works for both:
+  // - https://username.github.io/repo/
+  // - custom domains at /
+  const parts = location.pathname.split("/").filter(Boolean);
+  return parts.length ? `/${parts[0]}/` : "/";
+})();
+
+function withBase(url) {
+  if (!url) return url;
+  if (url.startsWith("http") || url.startsWith("data:") || url.startsWith("blob:")) return url;
+
+  // Normalize to relative like "assets/..." not "/assets/..."
+  if (url.startsWith("./")) url = url.slice(2);
+  if (url.startsWith("/")) url = url.slice(1);
+
+  return BASE + url;
+}
+
+function rewriteAssetUrls(containerEl) {
+  containerEl.querySelectorAll("img").forEach(img => {
+    const src = img.getAttribute("src");
+    if (src) img.setAttribute("src", withBase(src));
+  });
+
+  containerEl.querySelectorAll("a").forEach(a => {
+    const href = a.getAttribute("href");
+    if (href) a.setAttribute("href", withBase(href));
+  });
+}
 
 // Base URL for GitHub Pages project sites: "/<repo>/"
 const BASE = document.querySelector('base')?.getAttribute('href') || (() => {
@@ -456,47 +487,24 @@ async function router() {
 
   try {
     if (tab === "clans") {
-      const active = page || "blackstone";
-      renderSideList("The Clans", CLAN_PAGES, active, "clans");
-      const item = CLAN_PAGES.find(x => x.id === active) || CLAN_PAGES[0];
-      view.innerHTML = await loadMarkdown(item.file);
-rewriteAssetUrls(view);
-      function rewriteAssetUrls(containerEl) {
-  containerEl.querySelectorAll("img").forEach(img => {
-    const src = img.getAttribute("src");
-    if (src) img.setAttribute("src", withBase(src));
-  });
-  containerEl.querySelectorAll("a").forEach(a => {
-    const href = a.getAttribute("href");
-    if (href && (href.endsWith(".pdf") || href.startsWith("assets/") || href.startsWith("./assets/"))) {
-      a.setAttribute("href", withBase(href));
-    }
-  });
+  const active = page || "blackstone";
+  renderSideList("The Clans", CLAN_PAGES, active, "clans");
+  const item = CLAN_PAGES.find(x => x.id === active) || CLAN_PAGES[0];
+
+  view.innerHTML = await loadMarkdown(item.file);
+  rewriteAssetUrls(view);
+  return;
 }
-      return;
-    }
 
     if (tab === "temples") {
-      const active = page || "telluria";
-      renderSideList("The Temples", TEMPLE_PAGES, active, "temples");
-      const item = TEMPLE_PAGES.find(x => x.id === active) || TEMPLE_PAGES[0];
-      view.innerHTML = await loadMarkdown(item.file);
-rewriteAssetUrls(view);
-      function rewriteAssetUrls(containerEl) {
-  containerEl.querySelectorAll("img").forEach(img => {
-    const src = img.getAttribute("src");
-    if (src) img.setAttribute("src", withBase(src));
-  });
-  containerEl.querySelectorAll("a").forEach(a => {
-    const href = a.getAttribute("href");
-    if (href && (href.endsWith(".pdf") || href.startsWith("assets/") || href.startsWith("./assets/"))) {
-      a.setAttribute("href", withBase(href));
-    }
-  });
-}
-      return;
-    }
+  const active = page || "telluria";
+  renderSideList("The Temples", TEMPLE_PAGES, active, "temples");
+  const item = TEMPLE_PAGES.find(x => x.id === active) || TEMPLE_PAGES[0];
 
+  view.innerHTML = await loadMarkdown(item.file);
+  rewriteAssetUrls(view);
+  return;
+}
     if (tab === "heroes") {
       const active = page || HEROES[0].id;
       await renderHero(active);
