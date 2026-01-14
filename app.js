@@ -390,23 +390,751 @@ async function renderHero(activeId) {
 }
 
 // ---------- Tools ----------
+// ---------- Bastion Manager (Ironbow) ----------
+const BASTION_CONFIG_PATH = "./data/bastion.json";
+const BASTION_STORE_KEY = "bastion.ironbow.v1";
+
+function safeNum(v, fallback = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
+
+function deepClone(obj){ return JSON.parse(JSON.stringify(obj)); }
+
+function loadBastionSave() {
+  try {
+    const raw = localStorage.getItem(BASTION_STORE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+function saveBastionSave(saveObj) {
+  localStorage.setItem(BASTION_STORE_KEY, JSON.stringify(saveObj));
+}
+
+function rollDie(sides) {
+  return Math.floor(Math.random() * sides) + 1;
+}
+
+// Supports strings like "1d6*25", "2d4+3", "1d100"
+function rollDiceExpr(expr) {
+  if (typeof expr !== "string") return 0;
+  const cleaned = expr.replace(/\s+/g, "");
+
+  // handle NdM optionally followed by *K and/or +K
+  // e.g. 1d6*25, 2d4+3
+  const m = cleaned.match(/^(\d+)d(\d+)(\*(\d+))?(\+(\d+))?$/i);
+  if (!m) return 0;
+
+  const count = safeNum(m[1], 1);
+  const sides = safeNum(m[2], 6);
+  const mult = m[4] ? safeNum(m[4], 1) : 1;
+  const add = m[6] ? safeNum(m[6], 0) : 0;
+
+  let sum = 0;
+  for (let i=0; i<count; i++) sum += rollDie(sides);
+  return sum * mult + add;
+}
+
+function computeUpkeep(config, runtimeState) {
+  const phaseId = config?.economy?.activeUpkeepPhaseId;
+  const phase = (config?.economy?.upkeepPhases || []).find(p => p.id === phaseId);
+  const base = safeNum(phase?.partyPaysFlatGPPertTurn, 0);
+
+  const rep = String(safeNum(runtimeState?.state?.bastionReputation, 1));
+  const repEffects = runtimeState?.state?.reputationEffects || {};
+  const mult = safeNum(repEffects?.[rep]?.upkeepMultiplier, 1);
+
+  // future upkeep add effects (from events)
+  const mods = runtimeState?.state?.pendingUpkeepAdds || [];
+  const addGP = mods.reduce((a, x) => a + safeNum(x?.gp, 0), 0);
+
+  return Math.ceil((base + addGP) * mult);
+}
+
+function trafficLightClass(config, treasuryGP, nextUpkeep) {
+  const cfg = config?.state?.treasury?.trafficLightConfig;
+  const greenTurns = safeNum(cfg?.greenIfRemainingGPGreaterOrEqualTo?.turns, 2);
+  const amberTurns = safeNum(cfg?.amberIfRemainingGPGreaterOrEqualTo?.turns, 1);
+
+  const remaining = treasuryGP - nextUpkeep;
+  if (remaining >= nextUpkeep * greenTurns) return "traffic-green";
+  if (remaining >= nextUpkeep * amberTurns) return "traffic-amber";
+  return "traffic-red";
+}
+
+function ensureRuntimeState(config, saved) {
+  // Runtime state contains:
+  // - config (immutable-ish)
+  // - state (mutable and persisted)
+  const base = deepClone(config);
+
+  // Add extra runtime-only fields if missing
+  base.state.turnCount = safeNum(base.state.turnCount, 0);
+  base.state.lastEventTurn = safeNum(base.state.lastEventTurn, 0);
+  base.state.pendingUpkeepAdds = Array.isArray(base.state.pendingUpkeepAdds) ? base.state.pendingUpkeepAdds : [];
+  base.state.ordersInProgress = Array.isArray(base.state.ordersInProgress) ? base.state.ordersInProgress : [];
+  base.state.constructionInProgress = Array.isArray(base.state.constructionInProgress) ? base.state.constructionInProgress : [];
+  base.state.warehouse = base.state.warehouse || { items: [], editable: true };
+  base.state.warehouse.items = Array.isArray(base.state.warehouse.items) ? base.state.warehouse.items : [];
+
+  if (!saved) return base;
+
+  // Merge saved.state into base.state safely (keep schema additions from config)
+  const merged = deepClone(base);
+  merged.state = { ...merged.state, ...(saved.state || {}) };
+
+  // ensure arrays still arrays
+  merged.state.warehouse = merged.state.warehouse || { items: [], editable: true };
+  merged.state.warehouse.items = Array.isArray(merged.state.warehouse.items) ? merged.state.warehouse.items : [];
+  merged.state.ordersInProgress = Array.isArray(merged.state.ordersInProgress) ? merged.state.ordersInProgress : [];
+  merged.state.constructionInProgress = Array.isArray(merged.state.constructionInProgress) ? merged.state.constructionInProgress : [];
+  merged.state.pendingUpkeepAdds = Array.isArray(merged.state.pendingUpkeepAdds) ? merged.state.pendingUpkeepAdds : [];
+  merged.state.turnCount = safeNum(merged.state.turnCount, 0);
+  merged.state.lastEventTurn = safeNum(merged.state.lastEventTurn, 0);
+
+  // facilities currentLevel is stored in config.facilities[] in your spec,
+  // so we also merge currentLevel values from saved.facilities into merged.facilities.
+  if (Array.isArray(saved.facilities) && Array.isArray(merged.facilities)) {
+    const byId = new Map(saved.facilities.map(f => [f.id, f]));
+    merged.facilities = merged.facilities.map(f => {
+      const s = byId.get(f.id);
+      if (!s) return f;
+      return { ...f, currentLevel: safeNum(s.currentLevel, f.currentLevel) };
+    });
+  }
+
+  return merged;
+}
+
+function exportBastion(runtimeState) {
+  const out = deepClone(runtimeState);
+  return JSON.stringify(out, null, 2);
+}
+
+function parseJsonSafe(text) {
+  try { return JSON.parse(text); } catch { return null; }
+}
+
+function findFacility(config, facilityId) {
+  return (config.facilities || []).find(f => f.id === facilityId) || null;
+}
+
+function facilityLevelData(facility, lvl) {
+  if (!facility?.levels) return null;
+  return facility.levels[String(lvl)] || null;
+}
+
+function isUnderConstruction(runtimeState, facilityId) {
+  return (runtimeState.state.constructionInProgress || []).some(c => c.facilityId === facilityId);
+}
+
+function startUpgrade(runtimeState, facilityId) {
+  const fac = findFacility(runtimeState, facilityId);
+  if (!fac) return { ok:false, msg:"Facility not found." };
+
+  const current = safeNum(fac.currentLevel, 0);
+  const max = safeNum(fac.maxLevel, current);
+  if (current >= max) return { ok:false, msg:"Already at max level." };
+  if (isUnderConstruction(runtimeState, facilityId)) return { ok:false, msg:"Already under construction." };
+
+  const next = current + 1;
+  const lvl = facilityLevelData(fac, next);
+  const cost = safeNum(lvl?.construction?.costGP, 0);
+  const turns = safeNum(lvl?.construction?.turns, 0);
+
+  const treasury = safeNum(runtimeState.state?.treasury?.gp, 0);
+  if (treasury < cost) return { ok:false, msg:"Not enough GP in treasury." };
+
+  runtimeState.state.treasury.gp = treasury - cost;
+  runtimeState.state.constructionInProgress.push({
+    facilityId,
+    targetLevel: next,
+    remainingTurns: turns
+  });
+
+  return { ok:true };
+}
+
+function startFunctionOrder(runtimeState, facilityId, fnId) {
+  const fac = findFacility(runtimeState, facilityId);
+  if (!fac) return { ok:false, msg:"Facility not found." };
+
+  const lvl = safeNum(fac.currentLevel, 0);
+  const lvlData = facilityLevelData(fac, lvl);
+  const fns = lvlData?.functions || [];
+  const fn = fns.find(x => x.id === fnId);
+  if (!fn) return { ok:false, msg:"Function not found for current level." };
+
+  if (isUnderConstruction(runtimeState, facilityId)) {
+    // Still can use current level functions while building next tier in many systems,
+    // but your spec says "prevent using the new tier until complete" – current tier is fine.
+    // So we allow orders here.
+  }
+
+  // prevent duplicate same order in progress
+  const exists = (runtimeState.state.ordersInProgress || []).some(o => o.facilityId === facilityId && o.functionId === fnId);
+  if (exists) return { ok:false, msg:"That function is already active." };
+
+  // cost handling
+  const cost = safeNum(fn.costGP, 0);
+  const treasury = safeNum(runtimeState.state?.treasury?.gp, 0);
+  if (treasury < cost) return { ok:false, msg:"Not enough GP for that function." };
+  runtimeState.state.treasury.gp = treasury - cost;
+
+  runtimeState.state.ordersInProgress.push({
+    facilityId,
+    functionId: fnId,
+    label: fn.label,
+    remainingTurns: safeNum(fn.durationTurns, 1),
+    outputsToWarehouse: Array.isArray(fn.outputsToWarehouse) ? fn.outputsToWarehouse : [],
+    notes: fn.notes || []
+  });
+
+  return { ok:true };
+}
+
+function applyOutputsToWarehouse(runtimeState, outputs) {
+  const items = runtimeState.state.warehouse.items;
+
+  outputs.forEach(out => {
+    if (!out || typeof out !== "object") return;
+
+    // Resolve dice gp outputs
+    if (out.type === "coin" && typeof out.gp === "string") {
+      const gp = rollDiceExpr(out.gp);
+      items.push({ type: "coin", qty: 1, gp, notes: `Rolled ${out.gp}` });
+      return;
+    }
+
+    // Trade goods with max value
+    if (out.type === "trade_goods") {
+      const v = safeNum(out.valueGPMax, 0);
+      items.push({ type: "trade_goods", qty: safeNum(out.qty, 1), gpValueMax: v, notes: "DM chooses trade goods." });
+      return;
+    }
+
+    // Generic item objects
+    items.push(deepClone(out));
+  });
+}
+
+function rollEvent(runtimeState) {
+  const table = runtimeState?.events?.d100Table || [];
+  const roll = rollDie(100);
+  const hit = table.find(e => roll >= safeNum(e.range?.[0], 1) && roll <= safeNum(e.range?.[1], 100)) || null;
+
+  return { roll, event: hit };
+}
+
+function applyEventEffects(runtimeState, eventObj) {
+  if (!eventObj?.effects) return;
+
+  for (const eff of eventObj.effects) {
+    if (!eff || typeof eff !== "object") continue;
+
+    if (eff.type === "future_upkeep_add") {
+      runtimeState.state.pendingUpkeepAdds.push({
+        gp: safeNum(eff.gp, 0),
+        remainingTurns: safeNum(eff.durationTurns, 1)
+      });
+    }
+
+    if (eff.type === "treasury_gain") {
+      const gp = typeof eff.gp === "string" ? rollDiceExpr(eff.gp) : safeNum(eff.gp, 0);
+      runtimeState.state.treasury.gp = safeNum(runtimeState.state.treasury.gp, 0) + gp;
+    }
+
+    if (eff.type === "warehouse_add" && eff.item) {
+      runtimeState.state.warehouse.items.push(deepClone(eff.item));
+    }
+
+    // other effects are displayed as notes for DM handling
+  }
+}
+
+function advanceTurnPipeline(runtimeState, opts = { maintainIssued:false }) {
+  // 1) calculate upkeep
+  const nextUpkeep = computeUpkeep(runtimeState, runtimeState);
+
+  // 2) auto deduct upkeep
+  const auto = !!runtimeState?.turnSystem?.upkeep?.autoDeductFromTreasury;
+  const treasury = safeNum(runtimeState.state?.treasury?.gp, 0);
+
+  runtimeState.state.flags = runtimeState.state.flags || {};
+
+  if (auto) {
+    if (treasury >= nextUpkeep) {
+      runtimeState.state.treasury.gp = treasury - nextUpkeep;
+      runtimeState.state.flags.upkeep_unpaid = false;
+    } else {
+      // insufficient
+      const setFlag = runtimeState?.turnSystem?.upkeep?.ifInsufficientFunds?.setFlag || "upkeep_unpaid";
+      runtimeState.state.flags[setFlag] = true;
+      // optional: do not deduct to zero by default
+    }
+  }
+
+  // 3) decrement construction timers, complete upgrades at 0
+  runtimeState.state.constructionInProgress = (runtimeState.state.constructionInProgress || []).map(c => ({
+    ...c,
+    remainingTurns: safeNum(c.remainingTurns, 0) - 1
+  }));
+
+  const completedCon = runtimeState.state.constructionInProgress.filter(c => safeNum(c.remainingTurns, 0) <= 0);
+  runtimeState.state.constructionInProgress = runtimeState.state.constructionInProgress.filter(c => safeNum(c.remainingTurns, 0) > 0);
+
+  completedCon.forEach(c => {
+    const fac = findFacility(runtimeState, c.facilityId);
+    if (fac) fac.currentLevel = safeNum(c.targetLevel, fac.currentLevel);
+  });
+
+  // 4) decrement order timers
+  runtimeState.state.ordersInProgress = (runtimeState.state.ordersInProgress || []).map(o => ({
+    ...o,
+    remainingTurns: safeNum(o.remainingTurns, 0) - 1
+  }));
+
+  // 5) resolve completed outputs
+  const completedOrders = runtimeState.state.ordersInProgress.filter(o => safeNum(o.remainingTurns, 0) <= 0);
+  runtimeState.state.ordersInProgress = runtimeState.state.ordersInProgress.filter(o => safeNum(o.remainingTurns, 0) > 0);
+
+  completedOrders.forEach(o => {
+    applyOutputsToWarehouse(runtimeState, o.outputsToWarehouse || []);
+  });
+
+  // decrement pending upkeep adds duration
+  runtimeState.state.pendingUpkeepAdds = (runtimeState.state.pendingUpkeepAdds || [])
+    .map(x => ({ ...x, remainingTurns: safeNum(x.remainingTurns, 0) - 1 }))
+    .filter(x => safeNum(x.remainingTurns, 0) > 0);
+
+  // 6) monthly events every 4 turns OR maintain issued
+  runtimeState.state.turnCount = safeNum(runtimeState.state.turnCount, 0) + 1;
+  const turnCount = runtimeState.state.turnCount;
+
+  let didRoll = false;
+  let rolled = null;
+
+  const monthly = runtimeState?.events?.frequency === "monthly";
+  const dueMonthly = monthly && (turnCount % 4 === 0);
+
+  if (opts.maintainIssued || dueMonthly) {
+    const r = rollEvent(runtimeState);
+    rolled = r;
+    didRoll = true;
+    runtimeState.state.lastEventTurn = turnCount;
+
+    if (r.event) applyEventEffects(runtimeState, r.event);
+
+    runtimeState.state.lastEventResult = {
+      turn: turnCount,
+      roll: r.roll,
+      key: r.event?.key || null,
+      label: r.event?.label || null,
+      notes: r.event?.notes || null,
+      effects: r.event?.effects || []
+    };
+  }
+
+  return { nextUpkeep, didRoll, rolled };
+}
+
+function fmtJSON(obj) {
+  try { return JSON.stringify(obj, null, 2); } catch { return String(obj); }
+}
+
 async function renderBastionManager() {
-  const bastion = await fetch("./data/bastion.json", { cache: "no-store" }).then(r => r.json());
+  // Load config
+  let config;
+  try {
+    const res = await fetch(BASTION_CONFIG_PATH, { cache: "no-store" });
+    if (!res.ok) throw new Error(`Could not load ${BASTION_CONFIG_PATH}`);
+    config = await res.json();
+  } catch (e) {
+    view.innerHTML = `<h1>Bastion Manager</h1><p class="badge">Error loading bastion.json</p><pre>${String(e)}</pre>`;
+    return;
+  }
 
+  // Load saved state (localStorage) or seed from config
+  const saved = loadBastionSave();
+  const runtimeState = ensureRuntimeState(config, saved);
+
+  // Precompute upkeep + traffic light
+  const treasuryGP = safeNum(runtimeState.state?.treasury?.gp, 0);
+  const nextUpkeep = computeUpkeep(runtimeState, runtimeState);
+  const tlClass = trafficLightClass(runtimeState, treasuryGP, nextUpkeep);
+
+  const rep = String(safeNum(runtimeState.state?.bastionReputation, 1));
+  const repInfo = runtimeState.state?.reputationEffects?.[rep];
+
+  // Map image
+  const mapPath = runtimeState?.meta?.mapImage?.defaultPath || "";
+  const mapTitle = runtimeState?.meta?.mapImage?.title || "Bastion Map";
+
+  // Facilities display
+  const facilities = runtimeState.facilities || [];
+
+  // Orders / construction
+  const orders = runtimeState.state.ordersInProgress || [];
+  const constructions = runtimeState.state.constructionInProgress || [];
+
+  // Last event
+  const lastEvent = runtimeState.state.lastEventResult;
+
+  // Render UI
   view.innerHTML = `
-    <h1>Bastion Management</h1>
-    <p class="badge">${bastion.bastion_name} • Reputation: ${bastion.reputation}</p>
+    <h1>Bastion Manager</h1>
+    <p class="badge">${runtimeState?.meta?.name || "Bastion"} • ${runtimeState?.meta?.type || ""}</p>
 
-    <hr />
+    <div class="card">
+      <h2>${mapTitle}</h2>
+      ${mapPath ? `<img src="${mapPath}" alt="${mapTitle}" style="width:100%;border-radius:18px;border:1px solid var(--border);">` : `<p class="small">No mapImage.defaultPath set.</p>`}
+      <p class="small muted">Path: <code>${mapPath || "(none)"}</code></p>
+    </div>
 
-    <h2>Bastion Map</h2>
-    <img src="./assets/images/bastion-map.png" alt="Bastion Map" />
+    <div class="grid2" style="margin-top:12px;">
+      <div class="card">
+        <h2>State</h2>
+        <div class="inputRow">
+          <label>Player Level
+            <input id="bm_playerLevel" type="number" min="1" max="20" value="${safeNum(runtimeState.state.playerLevel, 1)}">
+          </label>
+          <label>Bastion Reputation
+            <input id="bm_rep" type="number" min="-2" max="2" value="${safeNum(runtimeState.state.bastionReputation, 1)}">
+          </label>
+        </div>
+        <div style="margin-top:10px;">
+          <span class="pill">Reputation: <b>${repInfo?.label || "Unknown"}</b></span>
+          <span class="pill">Upkeep Multiplier: <b>${safeNum(repInfo?.upkeepMultiplier, 1).toFixed(2)}</b></span>
+        </div>
+        <div class="small muted" style="margin-top:10px;">
+          ${(repInfo?.notes || []).map(n => `<div>• ${n}</div>`).join("") || `<div>• No notes.</div>`}
+        </div>
+      </div>
 
-    <hr />
+      <div class="card ${tlClass}">
+        <h2>Treasury</h2>
+        <div class="inputRow">
+          <label>GP
+            <input id="bm_treasury" type="number" min="0" step="1" value="${treasuryGP}">
+          </label>
+        </div>
+        <div style="margin-top:10px;">
+          <span class="pill">Next Upkeep: <b>${nextUpkeep} gp</b></span>
+          <span class="pill">After Upkeep: <b>${treasuryGP - nextUpkeep} gp</b></span>
+        </div>
+        <div class="small muted" style="margin-top:10px;">
+          Traffic light is computed from <code>(treasury - nextUpkeep)</code>.
+        </div>
+      </div>
+    </div>
 
-    <h2>Upkeep Phase</h2>
-    <p><small>These values are currently read from data/bastion.json.</small></p>
+    <div class="grid2" style="margin-top:12px;">
+      <div class="card">
+        <h2>Warehouse</h2>
+        <p class="small muted">DM editable. Function outputs append here automatically when completed.</p>
+        <table class="table">
+          <thead><tr><th>Item (JSON)</th><th style="width:110px;">Actions</th></tr></thead>
+          <tbody id="bm_wh_rows"></tbody>
+        </table>
+        <div class="btnRow">
+          <button id="bm_wh_add">Add Item</button>
+          <button id="bm_wh_save">Save Warehouse</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Import / Export</h2>
+        <div class="btnRow">
+          <button id="bm_export">Export State JSON</button>
+          <button id="bm_import_btn">Import JSON</button>
+          <input id="bm_import_file" type="file" accept="application/json" style="display:none;">
+          <button id="bm_reset">Reset From Spec</button>
+        </div>
+        <p class="small muted">Saved under <code>${BASTION_STORE_KEY}</code> in localStorage.</p>
+        ${lastEvent ? `
+          <hr />
+          <h3>Last Event</h3>
+          <div class="pill">Turn <b>${lastEvent.turn}</b></div>
+          <div class="pill">Roll <b>${lastEvent.roll}</b></div>
+          <p style="margin-top:10px;"><b>${lastEvent.label || "Event"}</b></p>
+          <p class="small muted">${lastEvent.notes || ""}</p>
+          <details>
+            <summary class="small">Effects JSON</summary>
+            <pre class="small">${fmtJSON(lastEvent.effects || [])}</pre>
+          </details>
+        ` : `
+          <p class="small muted">No events rolled yet.</p>
+        `}
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <h2>Facilities</h2>
+      <p class="small muted">Upgrade costs are deducted immediately. Construction timers tick down on Bastion Turns.</p>
+      <div id="bm_facilities"></div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <h2>Current Upkeep</h2>
+      <div class="pill">Per Bastion Turn: <b>${nextUpkeep} gp</b></div>
+      <div class="pill">Bastion Turns Taken: <b>${safeNum(runtimeState.state.turnCount, 0)}</b></div>
+      <div class="small muted" style="margin-top:10px;">
+        Monthly events roll every <b>4</b> Bastion Turns (and optionally on Maintain).
+      </div>
+
+      <div class="btnRow" style="margin-top:12px; align-items:center;">
+        <label style="display:flex;gap:10px;align-items:center;">
+          <input id="bm_maintain" type="checkbox">
+          <span>Issue “Maintain” this turn (forces event roll)</span>
+        </label>
+      </div>
+
+      <div class="btnRow" style="margin-top:12px;">
+        <button id="bm_takeTurn" style="padding:12px 16px;">${runtimeState?.turnSystem?.takeTurnButtonLabel || "Take Bastion Turn"}</button>
+      </div>
+
+      <div id="bm_turnResult" class="small muted" style="margin-top:10px;"></div>
+    </div>
   `;
+
+  // ----- Warehouse rows -----
+  const whTbody = document.getElementById("bm_wh_rows");
+  function renderWarehouseRows() {
+    whTbody.innerHTML = runtimeState.state.warehouse.items.map((it, idx) => `
+      <tr data-idx="${idx}">
+        <td>
+          <textarea class="bm_item" style="min-height:72px;">${fmtJSON(it)}</textarea>
+        </td>
+        <td>
+          <button class="bm_del" type="button">Remove</button>
+        </td>
+      </tr>
+    `).join("");
+  }
+  renderWarehouseRows();
+
+  whTbody.addEventListener("click", (e) => {
+    const btn = e.target.closest(".bm_del");
+    if (!btn) return;
+    const tr = e.target.closest("tr");
+    const idx = safeNum(tr?.dataset?.idx, -1);
+    if (idx >= 0) {
+      runtimeState.state.warehouse.items.splice(idx, 1);
+      renderWarehouseRows();
+    }
+  });
+
+  document.getElementById("bm_wh_add").addEventListener("click", () => {
+    runtimeState.state.warehouse.items.push({ type: "note", qty: 1, notes: "New item" });
+    renderWarehouseRows();
+  });
+
+  document.getElementById("bm_wh_save").addEventListener("click", () => {
+    const rows = [...whTbody.querySelectorAll("tr")];
+    const next = [];
+    for (const r of rows) {
+      const ta = r.querySelector("textarea.bm_item");
+      const parsed = parseJsonSafe(ta.value);
+      if (!parsed) {
+        alert("One warehouse item is invalid JSON. Fix it before saving.");
+        return;
+      }
+      next.push(parsed);
+    }
+    runtimeState.state.warehouse.items = next;
+    saveBastionSave(runtimeState);
+    alert("Warehouse saved.");
+  });
+
+  // ----- Top state fields save on change -----
+  const pl = document.getElementById("bm_playerLevel");
+  const repInput = document.getElementById("bm_rep");
+  const treasuryInput = document.getElementById("bm_treasury");
+
+  function saveTopFields() {
+    runtimeState.state.playerLevel = clamp(safeNum(pl.value, 1), 1, 20);
+    runtimeState.state.bastionReputation = clamp(safeNum(repInput.value, 1), -2, 2);
+    runtimeState.state.treasury.gp = Math.max(0, safeNum(treasuryInput.value, 0));
+    saveBastionSave(runtimeState);
+  }
+
+  pl.addEventListener("change", () => { saveTopFields(); renderBastionManager(); });
+  repInput.addEventListener("change", () => { saveTopFields(); renderBastionManager(); });
+  treasuryInput.addEventListener("change", () => { saveTopFields(); renderBastionManager(); });
+
+  // ----- Facilities rendering -----
+  const facWrap = document.getElementById("bm_facilities");
+
+  function renderFacilities() {
+    facWrap.innerHTML = facilities.map(f => {
+      const lvl = safeNum(f.currentLevel, 0);
+      const lvlData = facilityLevelData(f, lvl);
+      const nextLvl = lvl + 1;
+      const nextData = facilityLevelData(f, nextLvl);
+
+      const underCon = constructions.find(c => c.facilityId === f.id);
+      const isBuilding = !!underCon;
+
+      const upgradeCost = safeNum(nextData?.construction?.costGP, 0);
+      const upgradeTurns = safeNum(nextData?.construction?.turns, 0);
+      const canUpgrade = nextData && !isBuilding && safeNum(runtimeState.state.treasury.gp,0) >= upgradeCost;
+
+      const fns = lvlData?.functions || [];
+      const activeOrders = orders.filter(o => o.facilityId === f.id);
+
+      return `
+        <div class="card" style="margin-top:12px;">
+          <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <div>
+              <h3>${f.mapKey ? `<span class="pill">${f.mapKey}</span> ` : ""}${f.name}</h3>
+              <div class="small muted">Level <b>${lvl}</b> / ${safeNum(f.maxLevel,lvl)}</div>
+              ${lvlData?.label ? `<div class="pill" style="margin-top:8px;">${lvlData.label}</div>` : ""}
+              ${isBuilding ? `<div class="pill" style="margin-top:8px;">Under Construction: <b>Level ${underCon.targetLevel}</b> • ${safeNum(underCon.remainingTurns,0)} turns left</div>` : ""}
+            </div>
+            <div style="min-width:280px;">
+              <div class="pill">Hirelings: <b>${safeNum(f.staffing?.hirelings, safeNum(f.staffing?.hirelingsBase, 0))}</b></div>
+              <div class="small muted" style="margin-top:8px;">
+                ${(f.staffing?.notes || []).map(n => `• ${n}`).join("<br>")}
+              </div>
+            </div>
+          </div>
+
+          <hr />
+
+          <h4>Benefits</h4>
+          <div class="small muted">
+            ${(lvlData?.benefits || []).map(b => `• ${b}`).join("<br>") || "No benefits listed."}
+          </div>
+
+          <hr />
+
+          <h4>Functions</h4>
+          ${fns.length ? `
+            <table class="table">
+              <thead><tr><th>Function</th><th>Duration</th><th>Outputs</th><th>Action</th></tr></thead>
+              <tbody>
+                ${fns.map(fn => {
+                  const active = activeOrders.find(o => o.functionId === fn.id);
+                  const outputs = (fn.outputsToWarehouse || []).length ? fn.outputsToWarehouse.map(o => `<code>${o.type || "item"}</code>`).join(" ") : "<span class='small muted'>None</span>";
+                  return `
+                    <tr>
+                      <td>
+                        <b>${fn.label}</b><br>
+                        <span class="small muted">${(fn.notes||[]).join(" • ")}</span>
+                      </td>
+                      <td>${safeNum(fn.durationTurns,1)} turn(s)</td>
+                      <td>${outputs}</td>
+                      <td>
+                        ${active
+                          ? `<span class="pill">Active • ${safeNum(active.remainingTurns,0)} left</span>`
+                          : `<button class="bm_startFn" data-fid="${f.id}" data-fnid="${fn.id}">Start</button>`
+                        }
+                      </td>
+                    </tr>
+                  `;
+                }).join("")}
+              </tbody>
+            </table>
+          ` : `<p class="small muted">No functions at this level.</p>`}
+
+          <hr />
+
+          <h4>Upgrade</h4>
+          ${nextData ? `
+            <div class="small muted">Next: <b>${nextData.label || `Level ${nextLvl}`}</b></div>
+            <div style="margin-top:8px;">
+              <span class="pill">Cost: <b>${upgradeCost} gp</b></span>
+              <span class="pill">Time: <b>${upgradeTurns} turns</b></span>
+            </div>
+            <div class="btnRow" style="margin-top:10px;">
+              <button class="bm_upgrade" data-fid="${f.id}" ${canUpgrade ? "" : "disabled"}>Apply Upgrade</button>
+              ${!canUpgrade ? `<span class="small muted">${isBuilding ? "Already building." : (safeNum(runtimeState.state.treasury.gp,0) < upgradeCost ? "Insufficient treasury." : "")}</span>` : ""}
+            </div>
+          ` : `<p class="small muted">No further upgrades (max level).</p>`}
+        </div>
+      `;
+    }).join("");
+  }
+
+  renderFacilities();
+
+  facWrap.addEventListener("click", (e) => {
+    const up = e.target.closest(".bm_upgrade");
+    if (up) {
+      const fid = up.dataset.fid;
+      const r = startUpgrade(runtimeState, fid);
+      if (!r.ok) alert(r.msg || "Could not start upgrade.");
+      saveBastionSave(runtimeState);
+      renderBastionManager();
+      return;
+    }
+
+    const st = e.target.closest(".bm_startFn");
+    if (st) {
+      const fid = st.dataset.fid;
+      const fnid = st.dataset.fnid;
+      const r = startFunctionOrder(runtimeState, fid, fnid);
+      if (!r.ok) alert(r.msg || "Could not start function.");
+      saveBastionSave(runtimeState);
+      renderBastionManager();
+      return;
+    }
+  });
+
+  // ----- Import / Export -----
+  document.getElementById("bm_export").addEventListener("click", () => {
+    const blob = new Blob([exportBastion(runtimeState)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "ironbow-bastion-save.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  const importBtn = document.getElementById("bm_import_btn");
+  const importFile = document.getElementById("bm_import_file");
+  importBtn.addEventListener("click", () => importFile.click());
+
+  importFile.addEventListener("change", async () => {
+    const file = importFile.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    const parsed = parseJsonSafe(text);
+    if (!parsed) return alert("Invalid JSON file.");
+    saveBastionSave(parsed);
+    alert("Imported. Reloading Bastion Manager...");
+    renderBastionManager();
+  });
+
+  document.getElementById("bm_reset").addEventListener("click", () => {
+    localStorage.removeItem(BASTION_STORE_KEY);
+    alert("Reset to spec baseline. Reloading...");
+    renderBastionManager();
+  });
+
+  // ----- Take Bastion Turn -----
+  document.getElementById("bm_takeTurn").addEventListener("click", () => {
+    saveTopFields(); // make sure latest inputs are stored
+    const maintain = !!document.getElementById("bm_maintain").checked;
+
+    const result = advanceTurnPipeline(runtimeState, { maintainIssued: maintain });
+    saveBastionSave(runtimeState);
+
+    const out = document.getElementById("bm_turnResult");
+    out.innerHTML = `
+      Turn processed. Next upkeep was <b>${result.nextUpkeep} gp</b>.
+      ${result.didRoll ? `<br>Event roll: <b>${result.rolled.roll}</b> (${result.rolled.event?.label || "No event"})` : ""}
+    `;
+
+    renderBastionManager();
+  });
+
+  // Persist after initial render (so turnCount seeds etc)
+  saveBastionSave(runtimeState);
 }
 
 async function renderEventRoller() {
