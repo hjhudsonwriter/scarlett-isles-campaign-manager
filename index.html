@@ -31,7 +31,18 @@
         <h3 id="sideTitle">Browse</h3>
         <div class="list" id="sideList"></div>
         <hr />
-        <div class="badge">Admin: <a href="./admin/" target="_blank" rel="noopener">/admin</a></div>
+        <div class="badge">Mode: <span id="modeLabel">View</span></div>
+
+<div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+  <button id="btnToggleEdit" type="button">Toggle Edit Mode</button>
+  <button id="btnExport" type="button">Export My Edits</button>
+  <button id="btnImport" type="button">Import Edits</button>
+  <input id="importFile" type="file" accept="application/json" style="display:none;">
+</div>
+
+<p style="margin:10px 0 0 0"><small>
+Edits are saved on this device only. Export if you want to move them.
+</small></p>
       </aside>
 
       <section class="card content">
