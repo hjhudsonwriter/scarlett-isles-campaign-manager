@@ -3,6 +3,22 @@ const sideTitle = document.getElementById("sideTitle");
 const sideList = document.getElementById("sideList");
 const view = document.getElementById("view");
 
+// Base URL for GitHub Pages project sites: "/<repo>/"
+const BASE = document.querySelector('base')?.getAttribute('href') || (() => {
+  const p = location.pathname;
+  // if deployed at /repo/... then base is "/repo/"
+  const parts = p.split("/").filter(Boolean);
+  return parts.length ? `/${parts[0]}/` : "/";
+})();
+
+function withBase(url) {
+  // only rewrite local paths
+  if (!url || url.startsWith("http") || url.startsWith("data:") || url.startsWith("blob:")) return url;
+  if (url.startsWith("./")) url = url.slice(2);
+  if (url.startsWith("/")) url = url.slice(1);
+  return BASE + url;
+}
+
 // ---------- Simple local "admin" ----------
 const LOCAL_KEY = "scarlettIsles.localEdits.v1";
 const EDIT_FLAG = "scarlettIsles.editMode";
@@ -444,6 +460,19 @@ async function router() {
       renderSideList("The Clans", CLAN_PAGES, active, "clans");
       const item = CLAN_PAGES.find(x => x.id === active) || CLAN_PAGES[0];
       view.innerHTML = await loadMarkdown(item.file);
+rewriteAssetUrls(view);
+      function rewriteAssetUrls(containerEl) {
+  containerEl.querySelectorAll("img").forEach(img => {
+    const src = img.getAttribute("src");
+    if (src) img.setAttribute("src", withBase(src));
+  });
+  containerEl.querySelectorAll("a").forEach(a => {
+    const href = a.getAttribute("href");
+    if (href && (href.endsWith(".pdf") || href.startsWith("assets/") || href.startsWith("./assets/"))) {
+      a.setAttribute("href", withBase(href));
+    }
+  });
+}
       return;
     }
 
@@ -452,6 +481,19 @@ async function router() {
       renderSideList("The Temples", TEMPLE_PAGES, active, "temples");
       const item = TEMPLE_PAGES.find(x => x.id === active) || TEMPLE_PAGES[0];
       view.innerHTML = await loadMarkdown(item.file);
+rewriteAssetUrls(view);
+      function rewriteAssetUrls(containerEl) {
+  containerEl.querySelectorAll("img").forEach(img => {
+    const src = img.getAttribute("src");
+    if (src) img.setAttribute("src", withBase(src));
+  });
+  containerEl.querySelectorAll("a").forEach(a => {
+    const href = a.getAttribute("href");
+    if (href && (href.endsWith(".pdf") || href.startsWith("assets/") || href.startsWith("./assets/"))) {
+      a.setAttribute("href", withBase(href));
+    }
+  });
+}
       return;
     }
 
