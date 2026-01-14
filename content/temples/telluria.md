@@ -7,7 +7,7 @@ Beneath the visible temple lies an altar far older than the structure above it, 
 Tellurian doctrine teaches that the land endures pain silently until it can no longer bear it. The earth does not scream — it *remembers*. And when it finally moves, it does so with purpose.
 
 ## Crest
-![Temple crest](../../assets/images/telluriacrest.png)
+![Temple crest](../../assets/images/Telluriacrest.png)
 
 ## Tenets
 - Endurance is sacred  
