@@ -1,0 +1,132 @@
+{
+  "bastion_name": "The Ironbow",
+  "reputation": 1,
+  "upkeep_phase": 1,
+  "reputation_states": {
+    "2": { "name": "Respected", "effect": "-10% upkeep, bonus events" },
+    "1": { "name": "Stable", "effect": "Normal operation" },
+    "0": { "name": "Strained", "effect": "+10% upkeep next month" },
+    "-1": { "name": "Troubled", "effect": "One facility benefit suspended" },
+    "-2": { "name": "Failing", "effect": "Faction intervention triggered" }
+  },
+  "upkeep_phases": {
+    "1": {
+      "name": "Subsidised Stewardship",
+      "monthly_cost": 35,
+      "breakdown": [
+        ["Staff wages", 15],
+        ["Supplies & maintenance", 10],
+        ["Signals, tools, repairs", 10]
+      ]
+    },
+    "2": {
+      "name": "Shared Responsibility",
+      "monthly_cost": 55,
+      "breakdown": [
+        ["Staff wages", 25],
+        ["Supplies", 15],
+        ["Repairs & logistics", 15]
+      ]
+    },
+    "3": {
+      "name": "Independent Bastion",
+      "monthly_cost": 100,
+      "breakdown": [
+        ["Expanded staff", 45],
+        ["Supplies & logistics", 30],
+        ["Repairs, defence, admin", 25]
+      ]
+    }
+  },
+  "staffing": {
+    "early_tier_total": "4–5 NPCs",
+    "roles": [
+      ["Caretaker / Quartermaster", 1, "Reports to patron faction"],
+      ["Wardens / Lookouts", 2, "Bows, light armour"],
+      ["General Hands", "1–2", "Maintenance, signalling"]
+    ]
+  },
+  "structures": {
+    "dock": {
+      "label": "Dock",
+      "key": "A",
+      "level": 1,
+      "tiers": {
+        "1": { "cost": 0, "benefits": ["Safe landing"], "built": true },
+        "2": { "cost": 300, "benefits": ["Trade access"] },
+        "3": { "cost": 700, "benefits": ["Ship ownership unlock"] }
+      }
+    },
+    "watchtower": {
+      "label": "Watchtower",
+      "key": "B",
+      "level": 1,
+      "tiers": {
+        "1": { "cost": 0, "benefits": ["Early warning"], "built": true },
+        "2": { "cost": 300, "benefits": ["Defended status"] },
+        "3": { "cost": 600, "benefits": ["Call for military aid (1/arc)"] }
+      }
+    },
+    "armoury": {
+      "label": "Armoury",
+      "key": "C",
+      "level": 1,
+      "tiers": {
+        "1": { "cost": 0, "benefits": ["Free repairs"], "built": true },
+        "2": { "cost": 350, "benefits": ["Secure magic storage"] },
+        "3": { "cost": 700, "benefits": ["Custom gear"] }
+      }
+    },
+    "barracks": {
+      "label": "Barracks",
+      "key": "D",
+      "level": 0,
+      "tiers": {
+        "0": { "cost": 0, "benefits": ["Not built"], "built": false },
+        "1": { "cost": 200, "benefits": ["Staff capacity"] },
+        "2": { "cost": 400, "benefits": ["Trained defenders"] },
+        "3": { "cost": 800, "benefits": ["Standing force"] }
+      }
+    },
+    "workshop": {
+      "label": "Workshop",
+      "key": "E",
+      "level": 1,
+      "tiers": {
+        "1": { "cost": 0, "benefits": ["Repairs, tools"], "built": true },
+        "2": { "cost": 300, "benefits": ["Crafting"] },
+        "3": { "cost": 600, "benefits": ["Specialist output"] }
+      }
+    },
+    "ranger_lodge": {
+      "label": "Ranger Lodge",
+      "key": "Forest",
+      "level": 0,
+      "tiers": {
+        "0": { "cost": 0, "benefits": ["Not built"], "built": false },
+        "1": { "cost": 120, "benefits": ["Tracking advantage"] },
+        "2": { "cost": 300, "benefits": ["No surprise"] },
+        "3": { "cost": 650, "benefits": ["Animal assets"] }
+      }
+    }
+  },
+  "travel": {
+    "access": "shared",
+    "notes": [
+      "Party does not own a ship",
+      "Patron faction provides a manned vessel",
+      "Passage is guaranteed but scheduled"
+    ],
+    "rules": [
+      "Travel requires notice",
+      "Weather may delay arrival",
+      "Vessel cannot be commanded freely",
+      "No piracy, blockades, or unilateral naval action"
+    ],
+    "dependencies": [
+      ["Reliable scheduling", "Dock Level II"],
+      ["Emergency passage", "Bastion Reputation +2"],
+      ["Ship ownership", "Dock Level III + political approval"]
+    ]
+  }
+}
