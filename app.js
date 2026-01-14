@@ -51,6 +51,16 @@ async function idbGet(key) {
     req.onsuccess = () => resolve(req.result || null);
     req.onerror = () => reject(req.error);
   });
+  
+}
+async function idbDel(key) {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, "readwrite");
+    tx.objectStore(DB_STORE).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
 }
 
 function blobToObjectURL(blob) {
@@ -324,7 +334,10 @@ async function renderHero(activeId) {
       <input id="heroPdfInput" type="file" accept="application/pdf" />
       <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
         <button id="btnSaveHeroPdf">Save PDF</button>
-        <button id="btnClearHeroPdf">Revert to repo PDF</button>
+        document.getElementById("btnClearHeroPdf")?.addEventListener("click", async () => {
+  await idbDel(heroPdfKey(hero.id));
+  router();
+});
       </div>
     ` : ``}
 
