@@ -1,0 +1,14 @@
+[
+  { "range": [1, 20], "title": "Quiet Operations", "text": "Minor repairs, routine patrols." },
+  { "range": [21, 30], "title": "Maintenance Issue", "text": "+10 gp next month or lose one benefit temporarily." },
+  { "range": [31, 40], "title": "Visitor", "text": "Merchant, inspector, pilgrim, scout." },
+  { "range": [41, 50], "title": "Opportunity", "text": "Discounted upgrade, rare material, favourable contract." },
+  { "range": [51, 60], "title": "Environmental Threat", "text": "Storm damage, wildlife intrusion, shoreline erosion." },
+  { "range": [61, 70], "title": "Political Pressure", "text": "Inspection, demand, or warning from patron faction." },
+  { "range": [71, 80], "title": "Reputation Shift", "text": "+1 or −1 Bastion Reputation depending on response." },
+  { "range": [81, 85], "title": "External Threat", "text": "Raid attempt, sabotage, hostile scouts." },
+  { "range": [86, 90], "title": "Ally Request", "text": "Escort, storage, secrecy, or emergency shelter." },
+  { "range": [91, 95], "title": "Major Opportunity", "text": "Trade route, alliance, rare NPC arrival." },
+  { "range": [96, 99], "title": "Major Complication", "text": "Bastion Reputation test or faction ultimatum." },
+  { "range": [100, 100], "title": "Pivotal Event", "text": "Permanent change to island status." }
+]
