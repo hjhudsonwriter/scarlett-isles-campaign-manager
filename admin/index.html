@@ -17,16 +17,21 @@
     <script src="https://unpkg.com/decap-cms@^3.0.0/dist/decap-cms.js"></script>
 
     <script>
-      // Keep user inside /admin after login
-      if (window.netlifyIdentity) {
-        window.netlifyIdentity.on("init", (user) => {
-          if (!user) {
-            window.netlifyIdentity.on("login", () => {
-              document.location.href = "/admin/";
-            });
-          }
+  if (window.netlifyIdentity) {
+    window.netlifyIdentity.on("init", (user) => {
+      if (!user) {
+        window.netlifyIdentity.on("login", () => {
+          document.location.href = "/admin/";
         });
       }
-    </script>
+    });
+
+    // THIS is the important part
+    window.netlifyIdentity.on("error", console.error);
+    window.netlifyIdentity.on("logout", () => {
+      document.location.href = "/";
+    });
+  }
+</script>
   </body>
 </html>
