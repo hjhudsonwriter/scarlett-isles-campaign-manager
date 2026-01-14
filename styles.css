@@ -16,8 +16,8 @@ body::before{
   background-image:url("./assets/images/logo.png");
   background-repeat:no-repeat;
   background-position:center;
-  background-size:min(1200px, 90vw);
-  opacity:0.08; /* tweak: 0.05–0.12 */
+  background-size:cover;   /* fill screen */
+  opacity:0.04;            /* lower opacity */
   pointer-events:none;
   z-index:-1;
 }
