@@ -4,9 +4,6 @@ const sideList = document.getElementById("sideList");
 const view = document.getElementById("view");
 // ---------- GitHub Pages base-path helper ----------
 const BASE = (() => {
-  // Works for both:
-  // - https://username.github.io/repo/
-  // - custom domains at /
   const parts = location.pathname.split("/").filter(Boolean);
   return parts.length ? `/${parts[0]}/` : "/";
 })();
@@ -14,11 +11,8 @@ const BASE = (() => {
 function withBase(url) {
   if (!url) return url;
   if (url.startsWith("http") || url.startsWith("data:") || url.startsWith("blob:")) return url;
-
-  // Normalize to relative like "assets/..." not "/assets/..."
   if (url.startsWith("./")) url = url.slice(2);
   if (url.startsWith("/")) url = url.slice(1);
-
   return BASE + url;
 }
 
@@ -27,27 +21,10 @@ function rewriteAssetUrls(containerEl) {
     const src = img.getAttribute("src");
     if (src) img.setAttribute("src", withBase(src));
   });
-
   containerEl.querySelectorAll("a").forEach(a => {
     const href = a.getAttribute("href");
     if (href) a.setAttribute("href", withBase(href));
   });
-}
-
-// Base URL for GitHub Pages project sites: "/<repo>/"
-const BASE = document.querySelector('base')?.getAttribute('href') || (() => {
-  const p = location.pathname;
-  // if deployed at /repo/... then base is "/repo/"
-  const parts = p.split("/").filter(Boolean);
-  return parts.length ? `/${parts[0]}/` : "/";
-})();
-
-function withBase(url) {
-  // only rewrite local paths
-  if (!url || url.startsWith("http") || url.startsWith("data:") || url.startsWith("blob:")) return url;
-  if (url.startsWith("./")) url = url.slice(2);
-  if (url.startsWith("/")) url = url.slice(1);
-  return BASE + url;
 }
 
 // ---------- Simple local "admin" ----------
