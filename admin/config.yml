@@ -1,0 +1,117 @@
+backend:
+  name: git-gateway
+  branch: main
+
+media_folder: "assets/images"
+public_folder: "/assets/images"
+
+collections:
+  - name: "clans"
+    label: "Clans"
+    files:
+      - label: "Blackstone"
+        name: "blackstone"
+        file: "content/clans/blackstone.md"
+        fields:
+          - { label: "Body", name: "body", widget: "markdown" }
+      - label: "Bacca"
+        name: "bacca"
+        file: "content/clans/bacca.md"
+        fields:
+          - { label: "Body", name: "body", widget: "markdown" }
+      - label: "Molten"
+        name: "molten"
+        file: "content/clans/molten.md"
+        fields:
+          - { label: "Body", name: "body", widget: "markdown" }
+      - label: "Slade"
+        name: "slade"
+        file: "content/clans/slade.md"
+        fields:
+          - { label: "Body", name: "body", widget: "markdown" }
+      - label: "Rowthorn"
+        name: "rowthorn"
+        file: "content/clans/rowthorn.md"
+        fields:
+          - { label: "Body", name: "body", widget: "markdown" }
+      - label: "Karr"
+        name: "karr"
+        file: "content/clans/karr.md"
+        fields:
+          - { label: "Body", name: "body", widget: "markdown" }
+      - label: "Farmer"
+        name: "farmer"
+        file: "content/clans/farmer.md"
+        fields:
+          - { label: "Body", name: "body", widget: "markdown" }
+
+  - name: "temples"
+    label: "Temples"
+    files:
+      - label: "Telluria"
+        name: "telluria"
+        file: "content/temples/telluria.md"
+        fields:
+          - { label: "Body", name: "body", widget: "markdown" }
+      - label: "Aurush"
+        name: "aurush"
+        file: "content/temples/aurush.md"
+        fields:
+          - { label: "Body", name: "body", widget: "markdown" }
+      - label: "Pelagos"
+        name: "pelagos"
+        file: "content/temples/pelagos.md"
+        fields:
+          - { label: "Body", name: "body", widget: "markdown" }
+
+  - name: "heroes"
+    label: "Heroes"
+    files:
+      - label: "Kaelen of Wolfhaven"
+        name: "kaelen"
+        file: "content/heroes/kaelen-of-wolfhaven.md"
+        fields:
+          - { label: "Body", name: "body", widget: "markdown" }
+      - label: "Umbrys"
+        name: "umbrys"
+        file: "content/heroes/umbrys.md"
+        fields:
+          - { label: "Body", name: "body", widget: "markdown" }
+      - label: "Magnus Ironward"
+        name: "magnus"
+        file: "content/heroes/magnus-ironward.md"
+        fields:
+          - { label: "Body", name: "body", widget: "markdown" }
+      - label: "Elara Varrus"
+        name: "elara"
+        file: "content/heroes/elara-varrus.md"
+        fields:
+          - { label: "Body", name: "body", widget: "markdown" }
+      - label: "Charles Vect"
+        name: "charles"
+        file: "content/heroes/charles-vect.md"
+        fields:
+          - { label: "Body", name: "body", widget: "markdown" }
+
+  - name: "recaps"
+    label: "Session Recaps"
+    folder: "content/story/recaps"
+    create: true
+    slug: "{{slug}}"
+    fields:
+      - { label: "Title", name: "title", widget: "string" }
+      - { label: "Body", name: "body", widget: "markdown" }
+
+  - name: "data"
+    label: "Tool Data"
+    files:
+      - label: "Bastion Settings"
+        name: "bastion"
+        file: "data/bastion.json"
+        fields:
+          - { label: "JSON", name: "json", widget: "code", default_language: "json" }
+      - label: "Bastion Events"
+        name: "bastion_events"
+        file: "data/bastion-events.json"
+        fields:
+          - { label: "JSON", name: "json", widget: "code", default_language: "json" }
