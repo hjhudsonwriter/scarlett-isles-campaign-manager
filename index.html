@@ -1,1 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Scarlett Isles Campaign Manager</title>
+  <link rel="stylesheet" href="./styles.css" />
 
+  <!-- Markdown renderer -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="brand">
+        <div class="sigil"></div>
+        <div>
+          Scarlett Isles Campaign Manager<br />
+          <small>Wiki + Tools</small>
+        </div>
+      </div>
+
+      <nav id="topNav"></nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="grid">
+      <aside class="card sidebar">
+        <h3 id="sideTitle">Browse</h3>
+        <div class="list" id="sideList"></div>
+        <hr />
+        <div class="badge">Admin: <a href="./admin/" target="_blank" rel="noopener">/admin</a></div>
+      </aside>
+
+      <section class="card content">
+        <div id="view"></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
