@@ -115,3 +115,11 @@ collections:
         file: "data/bastion-events.json"
         fields:
           - { label: "JSON", name: "json", widget: "code", default_language: "json" }
+  - name: "story_index"
+    label: "Story Sidebar Order"
+    files:
+      - label: "Recap Sidebar Index"
+        name: "recap_index"
+        file: "content/story/recaps/index.json"
+        fields:
+          - { label: "JSON", name: "body", widget: "code", default_language: "json" }
