@@ -8,6 +8,29 @@
   --accent2:#d6b25e;
   --border:#28303a;
 }
+/* Full-page background logo */
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  background-image:url("./assets/images/logo.png");
+  background-repeat:no-repeat;
+  background-position:center;
+  background-size:min(1200px, 90vw);
+  opacity:0.08; /* tweak: 0.05–0.12 */
+  pointer-events:none;
+  z-index:-1;
+}
+
+/* Header logo image */
+.brand .sigil{
+  width:30px;
+  height:30px;
+  border-radius:10px;
+  object-fit:cover;
+  border:1px solid var(--border);
+  background: rgba(18,22,27,.6);
+}
 
 *{box-sizing:border-box}
 html,body{height:100%}
