@@ -389,7 +389,23 @@ const BASTION_CONFIG_PATH = "./data/bastion.json";
 const BASTION_STORE_KEY = "bastion.ironbow.v1";
 const UI_COIN_ICON = "./assets/ui/coin.svg";
 const UI_TIMER_ICON = "./assets/ui/timer.svg";
-const FACILITY_IMG = (id) => `./assets/facilities/${id}.png`;
+// Facility images (match your actual filenames in /assets/facilities/)
+const FACILITY_IMG_MAP = {
+  dock: "./assets/facilities/dock.png",
+  watchtower: "./assets/facilities/watchtower.png",
+  barracks: "./assets/facilities/barracks.jpg",
+  workshop: "./assets/facilities/workshop.jpg",
+  warehouse: "./assets/facilities/warehouse.jpg",
+  treasury: "./assets/facilities/treasury.png",
+
+  // IMPORTANT: your file is "armoury.jpg" (UK spelling)
+  armory: "./assets/facilities/armoury.jpg",
+  armoury: "./assets/facilities/armoury.jpg",
+};
+
+function FACILITY_IMG(id) {
+  return FACILITY_IMG_MAP[id] || "./assets/facilities/warehouse.jpg";
+}
 
 function safeNum(v, fallback = 0) {
   const n = Number(v);
@@ -1023,9 +1039,7 @@ async function renderBastionManager() {
             <div style="display:flex; gap:14px; align-items:center;">
               <img class="facImg" src="${FACILITY_IMG(f.id)}" alt="${f.name}">
               <div>
-                <h3 style="margin:0;">
-                  ${f.mapKey ? `<span class="pill">${f.mapKey}</span> ` : ""}${f.name}
-                </h3>
+                <h3 style="margin:0;">${f.name}</h3>
                 <div class="small muted">Level <b>${lvl}</b> / ${safeNum(f.maxLevel,lvl)}</div>
                 ${lvlData?.label ? `<div class="pill" style="margin-top:8px;">${lvlData.label}</div>` : ""}
                 ${isBuilding ? `<div class="pill" style="margin-top:8px;">Under Construction: <b>Level ${underCon.targetLevel}</b> • ${safeNum(underCon.remainingTurns,0)} turns left</div>` : ""}
