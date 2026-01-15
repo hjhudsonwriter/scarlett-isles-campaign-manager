@@ -404,7 +404,27 @@ const FACILITY_IMG_MAP = {
 };
 
 function FACILITY_IMG(id) {
-  return FACILITY_IMG_MAP[id] || "./assets/facilities/warehouse.jpg";
+  // Normalise IDs like "dock_A", "Watchtower_B", "armory-C" -> "dock", "watchtower", "armory"
+  const raw = String(id || "").trim();
+
+  // Lowercase
+  let key = raw.toLowerCase();
+
+  // If it contains an underscore (dock_A), keep the left side
+  if (key.includes("_")) key = key.split("_")[0];
+
+  // If it contains a space, keep the first chunk
+  if (key.includes(" ")) key = key.split(" ")[0];
+
+  // If it contains a hyphen and ends in "-a" style, keep the left side
+  // (safe: if your IDs are like "training-yard" this won't break because it only trims single-letter suffix)
+  const parts = key.split("-");
+  if (parts.length > 1 && parts[parts.length - 1].length === 1) {
+    parts.pop();
+    key = parts.join("-");
+  }
+
+  return FACILITY_IMG_MAP[key] || "./assets/facilities/warehouse.jpg";
 }
 
 function safeNum(v, fallback = 0) {
