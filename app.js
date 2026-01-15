@@ -1322,6 +1322,7 @@ function renderExplorer() {
         <span class="explorer-divider"></span>
 
         <button class="btn" id="explorerGridToggle" type="button">Hex Grid: On</button>
+        <button class="btn ghost" id="explorerSnapToggle" type="button">Snap: Off</button>
 
         <div class="explorer-group">
           <button class="btn ghost" id="explorerGridSm" type="button">Hex −</button>
@@ -1366,6 +1367,30 @@ function renderExplorer() {
 
       <div class="hint" style="margin-top:10px">
   Tips: ...
+</div>
+<div class="explorer-travel" id="explorerTravel">
+  <div class="explorer-travelRow">
+    <div class="explorer-travelLeft">
+      <div class="explorer-travelLine">
+        <strong id="explorerDayLabel">Day 1</strong>
+        <span class="muted tiny">•</span>
+        <span class="tiny">Miles: <strong id="explorerMilesUsed">0</strong>/30</span>
+        <span class="muted tiny">•</span>
+        <span class="tiny">Remaining: <strong id="explorerMilesLeft">30</strong></span>
+      </div>
+
+      <div class="explorer-travelLine tiny">
+        <span class="muted">Mode:</span>
+        <strong id="explorerMode">—</strong>
+        <span class="muted">• Effects:</span>
+        <span id="explorerEffects">—</span>
+      </div>
+    </div>
+
+    <div class="explorer-travelRight">
+      <button class="btn" id="explorerMakeCamp" type="button">Make Camp</button>
+    </div>
+  </div>
 </div>
 </div> <!-- end explorer-fswrap -->
 </div> <!-- end explorer-wrap -->
