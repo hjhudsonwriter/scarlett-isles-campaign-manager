@@ -864,20 +864,17 @@ async function renderBastionManager() {
         <p class="small muted">Saved under <code>${BASTION_STORE_KEY}</code> in localStorage.</p>
         ${lastEvent ? `
           <hr />
-          <h3>Last Event</h3>
-          <div class="pill">Turn <b>${lastEvent.turn}</b></div>
-          <div class="pill">Roll <b>${lastEvent.roll}</b></div>
-          <p style="margin-top:10px;"><b>${lastEvent.label || "Event"}</b></p>
-          <p class="small muted">${lastEvent.notes || ""}</p>
-          <details>
-            <summary class="small">Effects JSON</summary>
-            <pre class="small">${fmtJSON(lastEvent.effects || [])}</pre>
-          </details>
-        ` : `
-          <p class="small muted">No events rolled yet.</p>
-        `}
-      </div>
-    </div>
+          <div style="display:flex; gap:14px; align-items:center;">
+  <img class="facImg" src="${FACILITY_IMG(f.id)}" alt="${f.name}">
+  <div>
+    <h3 style="margin:0;">
+      ${f.mapKey ? `<span class="pill">${f.mapKey}</span> ` : ""}${f.name}
+    </h3>
+    <div class="small muted">Level <b>${lvl}</b> / ${safeNum(f.maxLevel,lvl)}</div>
+    ${lvlData?.label ? `<div class="pill" style="margin-top:8px;">${lvlData.label}</div>` : ""}
+    ${isBuilding ? `<div class="pill" style="margin-top:8px;">Under Construction: <b>Level ${underCon.targetLevel}</b> • ${safeNum(underCon.remainingTurns,0)} turns left</div>` : ""}
+  </div>
+</div>
 
     <div class="card" style="margin-top:12px;">
       <h2>Facilities</h2>
@@ -1051,8 +1048,14 @@ whTbody.addEventListener("click", (e) => {
       const fns = lvlData?.functions || [];
       const activeOrders = orders.filter(o => o.facilityId === f.id);
 
+      const UI_COIN_ICON = "./assets/ui/coin.svg";
+const UI_TIMER_ICON = "./assets/ui/timer.svg";
+
+// Facility images by facility.id (match your JSON ids)
+const FACILITY_IMG = (id) => `./assets/facilities/${id}.png`;
+
       return `
-        <div class="card" style="margin-top:12px;">
+        <div class="card facCard" style="margin-top:12px;">
           <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
             <div>
               <h3>${f.mapKey ? `<span class="pill">${f.mapKey}</span> ` : ""}${f.name}</h3>
@@ -1112,8 +1115,16 @@ whTbody.addEventListener("click", (e) => {
           ${nextData ? `
             <div class="small muted">Next: <b>${nextData.label || `Level ${nextLvl}`}</b></div>
             <div style="margin-top:8px;">
-              <span class="pill">Cost: <b>${upgradeCost} gp</b></span>
-              <span class="pill">Time: <b>${upgradeTurns} turns</b></span>
+              <div class="iconLine">
+  <div class="pill iconStat">
+    <img src="${UI_COIN_ICON}" alt="Cost">
+    <b>${upgradeCost}gp</b>
+  </div>
+  <div class="pill iconStat">
+    <img src="${UI_TIMER_ICON}" alt="Time">
+    <b>${upgradeTurns} turns</b>
+  </div>
+</div>
             </div>
             <div class="btnRow" style="margin-top:10px;">
               <button class="bm_upgrade" data-fid="${f.id}" ${canUpgrade ? "" : "disabled"}>Apply Upgrade</button>
