@@ -1459,13 +1459,15 @@ if (saved.travel) state.travel = { ...state.travel, ...saved.travel };
       const prev = byId.get(t.id);
       if (!prev) return t;
       return {
-        ...t,
-        x: Number.isFinite(prev.x) ? prev.x : t.x,
-        y: Number.isFinite(prev.y) ? prev.y : t.y,
-        size: Number.isFinite(prev.size) ? prev.size : t.size,
-        groupId: prev.groupId || null
-      };
-    });
+  ...t,
+  x: Number.isFinite(prev.x) ? prev.x : t.x,
+  y: Number.isFinite(prev.y) ? prev.y : t.y,
+  size: Number.isFinite(prev.size) ? prev.size : t.size,
+  groupId: prev.groupId || null,
+  axial: prev.axial && Number.isFinite(prev.axial.q) && Number.isFinite(prev.axial.r)
+    ? { q: prev.axial.q, r: prev.axial.r }
+    : null
+};
   }
 
   // Selection state (not persisted)
@@ -1654,30 +1656,72 @@ function updateTravelUI() {
   }
 
   function renderTokens() {
-    tokenLayer.innerHTML = "";
-    const { w, h } = stageDims();
+  tokenLayer.innerHTML = "";
+  const { w, h } = stageDims();
 
+  // Group tokens by hex when snap is on (using t.axial if present)
+  const groups = new Map();
+  if (state.snap.enabled) {
     state.tokens.forEach(t => {
-      const token = document.createElement("div");
-      token.className = "explorer-token";
-      token.dataset.id = t.id;
-
-      if (selected.has(t.id)) token.classList.add("isSelected");
-      if (t.groupId) token.dataset.groupId = t.groupId;
-
-      token.style.width = `${t.size}px`;
-      token.style.height = `${t.size}px`;
-
-      const px = normToPx(t.x, t.y);
-      const x = explorerClamp(px.x, 0, Math.max(0, w - t.size));
-      const y = explorerClamp(px.y, 0, Math.max(0, h - t.size));
-      token.style.left = `${x}px`;
-      token.style.top = `${y}px`;
-
-      token.innerHTML = `<span>${t.initial}</span>`;
-      tokenLayer.appendChild(token);
+      if (!t.axial) return;
+      const key = `${t.axial.q},${t.axial.r}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(t);
     });
   }
+
+  state.tokens.forEach(t => {
+    const token = document.createElement("div");
+    token.className = "explorer-token";
+    token.dataset.id = t.id;
+
+    if (selected.has(t.id)) token.classList.add("isSelected");
+    if (t.groupId) token.dataset.groupId = t.groupId;
+
+    token.style.width = `${t.size}px`;
+    token.style.height = `${t.size}px`;
+
+    let x, y;
+
+    // If snap is on and this token has an axial hex, draw it as a "cluster" within the hex
+    if (state.snap.enabled && t.axial) {
+      const key = `${t.axial.q},${t.axial.r}`;
+      const cluster = groups.get(key) || [t];
+      const idx = cluster.findIndex(tt => tt.id === t.id);
+
+      // Hex center in pixels
+      const center = axialToPixel(t.axial.q, t.axial.r);
+
+      // Spread tokens around the center so they’re readable
+      const n = Math.max(1, cluster.length);
+      const angle = (Math.PI * 2 * idx) / n;
+
+      // Radius of spread inside the hex
+      const spread = Math.min(hexSize() * 0.45, t.size * 0.85);
+
+      const cx = center.x + Math.cos(angle) * spread;
+      const cy = center.y + Math.sin(angle) * spread;
+
+      x = cx - t.size / 2;
+      y = cy - t.size / 2;
+    } else {
+      // Normal rendering
+      const px = normToPx(t.x, t.y);
+      x = px.x;
+      y = px.y;
+    }
+
+    // Clamp to stage
+    x = explorerClamp(x, 0, Math.max(0, w - t.size));
+    y = explorerClamp(y, 0, Math.max(0, h - t.size));
+
+    token.style.left = `${x}px`;
+    token.style.top = `${y}px`;
+
+    token.innerHTML = `<span>${t.initial}</span>`;
+    tokenLayer.appendChild(token);
+  });
+}
 
   function rerenderAll() {
     // Map
@@ -1701,7 +1745,7 @@ function updateTravelUI() {
 
   // Initial render
   rerenderAll();
-  updateTravelUI();
+  
   // ---------- Snap toggle ----------
 function updateSnapButton() {
   btnSnapToggle.textContent = `Snap: ${state.snap.enabled ? "On" : "Off"}`;
@@ -1712,31 +1756,7 @@ btnSnapToggle.addEventListener("click", () => {
   state.snap.enabled = !state.snap.enabled;
   saveNow();
   updateSnapButton();
-
-  // If turning snap on, snap all tokens immediately
-  if (state.snap.enabled) {
-    const { w, h } = stageDims();
-    state.tokens.forEach(t => {
-      const px = normToPx(t.x, t.y);
-      const center = { x: px.x + t.size/2, y: px.y + t.size/2 };
-      const a = axialRound(pixelToAxial(center.x, center.y));
-      const p = axialToPixel(a.q, a.r);
-      const topLeft = { x: p.x - t.size/2, y: p.y - t.size/2 };
-
-      const clamped = {
-        x: explorerClamp(topLeft.x, 0, Math.max(0, w - t.size)),
-        y: explorerClamp(topLeft.y, 0, Math.max(0, h - t.size))
-      };
-
-      const n = pxToNorm(clamped.x, clamped.y);
-      t.x = n.x;
-      t.y = n.y;
-      t.axial = a;
-    });
-
-    saveNow();
-    rerenderAll();
-  }
+  rerenderAll();
 });
 
   // ---------- Map upload / clear ----------
@@ -1799,8 +1819,9 @@ btnSnapToggle.addEventListener("click", () => {
 }
 // Toggle when button clicked (only really relevant in fullscreen, but harmless outside)
 btnHideUi?.addEventListener("click", () => {
-  if (!fsWrap) return;
-  setUiHidden(!fsWrap.classList.contains("uiHidden"));
+  const target = document.fullscreenElement || fsWrap;
+  if (!target) return;
+  setUiHidden(!target.classList.contains("uiHidden"));
 });
 
 // Handy keyboard toggle while fullscreen: press H
@@ -1816,40 +1837,6 @@ window.addEventListener("keydown", onKeyToggleUi);
   const onResize = () => rerenderAll();
   window.addEventListener("resize", onResize);
   document.addEventListener("fullscreenchange", onResize);
-
-  // ---------- Snap toggle ----------
-function updateSnapButton() {
-  btnSnapToggle.textContent = `Snap: ${state.snap.enabled ? "On" : "Off"}`;
-}
-updateSnapButton();
-
-btnSnapToggle.addEventListener("click", () => {
-  state.snap.enabled = !state.snap.enabled;
-  saveNow();
-  updateSnapButton();
-
-  // If turning snap on, snap all tokens immediately
-  if (state.snap.enabled) {
-    const { w, h } = stageDims();
-    state.tokens.forEach(t => {
-      const px = normToPx(t.x, t.y);
-      const center = { x: px.x + t.size/2, y: px.y + t.size/2 };
-      const a = axialRound(pixelToAxial(center.x, center.y));
-      const p = axialToPixel(a.q, a.r);
-      const topLeft = { x: p.x - t.size/2, y: p.y - t.size/2 };
-      const clamped = {
-        x: explorerClamp(topLeft.x, 0, Math.max(0, w - t.size)),
-        y: explorerClamp(topLeft.y, 0, Math.max(0, h - t.size))
-      };
-      const n = pxToNorm(clamped.x, clamped.y);
-      t.x = n.x;
-      t.y = n.y;
-      t.axial = a;
-    });
-    saveNow();
-    rerenderAll();
-  }
-});
 
   // ---------- Grid controls ----------
   btnGridToggle.addEventListener("click", () => {
@@ -2139,8 +2126,67 @@ if (state.snap.enabled) {
   renderTokens();
 });
   
-  tokenLayer.addEventListener("pointerup", () => {
+  function onTokenPointerUp() {
   if (!drag) return;
+
+  // SNAP MODE: compute miles used from anchor movement in hexes
+  if (state.snap.enabled && drag.startAxial) {
+    const anchorTok = getTokenById(drag.anchorId);
+    if (anchorTok) {
+      const px = normToPx(anchorTok.x, anchorTok.y);
+      const center = { x: px.x + anchorTok.size/2, y: px.y + anchorTok.size/2 };
+      const endAx = axialRound(pixelToAxial(center.x, center.y));
+
+      const hexesMoved = hexDistance(drag.startAxial, endAx);
+      const milesMoved = Math.round(hexesMoved * 6);
+
+      const usedBefore = Number(state.travel.milesUsed) || 0;
+      const usedAfter = usedBefore + milesMoved;
+
+      if (usedAfter > 30) {
+        if (drag.startAxials) {
+          const { w, h } = stageDims();
+          drag.ids.forEach(tokId => {
+            const tok = getTokenById(tokId);
+            const startA = drag.startAxials.get(tokId);
+            if (!tok || !startA) return;
+
+            const p = axialToPixel(startA.q, startA.r);
+            const topLeft = { x: p.x - tok.size/2, y: p.y - tok.size/2 };
+            const clamped = {
+              x: explorerClamp(topLeft.x, 0, Math.max(0, w - tok.size)),
+              y: explorerClamp(topLeft.y, 0, Math.max(0, h - tok.size))
+            };
+            const n = pxToNorm(clamped.x, clamped.y);
+            tok.x = n.x;
+            tok.y = n.y;
+            tok.axial = startA;
+          });
+        }
+
+        alert("That move would exceed 30 miles for the day. Make Camp to travel further.");
+        drag = null;
+        rerenderAll();
+        return;
+      }
+
+      state.travel.milesUsed = usedAfter;
+    }
+  }
+
+  drag = null;
+  saveNow();
+  rerenderAll();
+
+  if ((Number(state.travel.milesUsed) || 0) >= 30) {
+    tokenLayer.style.pointerEvents = "none";
+    alert("You’ve reached 30 miles for the day. Make Camp to reset travel.");
+  }
+}
+
+tokenLayer.addEventListener("pointerup", onTokenPointerUp);
+window.addEventListener("pointerup", onTokenPointerUp);
+    
 
   // SNAP MODE: compute miles used from anchor movement in hexes
   if (state.snap.enabled && drag.startAxial) {
@@ -2218,6 +2264,7 @@ if (state.snap.enabled) {
   window.removeEventListener("resize", onResize);
   document.removeEventListener("fullscreenchange", onResize);
   window.removeEventListener("keydown", onKeyToggleUi);
+  window.removeEventListener("pointerup", onTokenPointerUp);
 };
 }
 // ---------- Router ----------
