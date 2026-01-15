@@ -197,3 +197,153 @@ input[type="number"], input[type="text"], textarea, select {
 
 .btnRow { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
 button[disabled]{ opacity:.45; cursor:not-allowed; }
+
+/* ===== Scarlett Isles Theme Upgrade ===== */
+
+/* Fonts: medieval headline + readable body */
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=IM+Fell+English:ital@0;1&display=swap");
+
+:root{
+  --bg: #07080a;
+  --panel: rgba(10,12,16,.78);
+  --panel2: rgba(14,16,22,.68);
+
+  --gold: #d6b15d;
+  --gold2:#b8943d;
+  --scarlet:#b01522;
+  --scarlet2:#7a0f1a;
+
+  --text: #e7e3d8;
+  --muted: rgba(231,227,216,.78);
+  --border: rgba(214,177,93,.35); /* default gold border */
+  --border-strong: rgba(214,177,93,.6);
+}
+
+/* Darker overall */
+body{
+  background: var(--bg);
+  color: var(--text);
+  font-family: "IM Fell English", ui-serif, Georgia, serif;
+}
+
+/* Headings feel “campaign book” */
+h1,h2,h3,h4,.brand, .nav a{
+  font-family: "Cinzel", ui-serif, Georgia, serif;
+  letter-spacing: .5px;
+}
+
+/* Background logo: full-screen + barely there */
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  background-image:url("./assets/images/logo.png");
+  background-repeat:no-repeat;
+  background-position:center;
+  background-size:cover;  /* full width/height */
+  opacity:0.02;          /* almost invisible */
+  pointer-events:none;
+  z-index:-1;
+  filter: saturate(.9) contrast(1.05);
+}
+
+/* Panels/cards: gold edge + subtle inner glow */
+.card, .panel, .sidebar, .topbar{
+  border: 1px solid var(--border);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.45) inset,
+    0 0 18px rgba(0,0,0,.35);
+  background: var(--panel);
+}
+
+/* Accent dividers */
+hr{
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(214,177,93,.45), transparent);
+  margin: 16px 0;
+}
+
+/* Buttons: scarlet + gold */
+button{
+  border: 1px solid rgba(214,177,93,.45);
+  background: radial-gradient(circle at 20% 20%, rgba(176,21,34,.35), rgba(10,12,16,.65));
+  color: var(--gold);
+  border-radius: 999px;
+  padding: 10px 14px;
+}
+button:hover{
+  border-color: rgba(214,177,93,.75);
+  box-shadow: 0 0 0 2px rgba(176,21,34,.18);
+}
+button[disabled]{
+  opacity:.45;
+  background: rgba(10,12,16,.55);
+  color: rgba(214,177,93,.45);
+}
+
+/* Pills */
+.pill{
+  border: 1px solid rgba(214,177,93,.35);
+  background: rgba(0,0,0,.18);
+  color: var(--text);
+}
+
+/* Table headers a touch gold */
+.table th{
+  color: rgba(214,177,93,.95);
+}
+
+/* Traffic lights: keep but richer */
+.traffic-green{ border-color: rgba(0,255,120,.25) !important; }
+.traffic-amber{ border-color: rgba(255,190,0,.28) !important; }
+.traffic-red  { border-color: rgba(255,0,80,.28) !important; }
+
+/* Bastion facility cards: textured vibe */
+.facCard{
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  background:
+    radial-gradient(circle at 30% 10%, rgba(176,21,34,.18), transparent 55%),
+    radial-gradient(circle at 70% 90%, rgba(214,177,93,.10), transparent 55%),
+    linear-gradient(180deg, rgba(10,12,16,.78), rgba(6,7,10,.82));
+}
+.facCard::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background-image: linear-gradient(135deg, rgba(255,255,255,.03), transparent 40%, rgba(0,0,0,.15));
+  pointer-events:none;
+}
+
+/* Circular facility image */
+.facImg{
+  width:88px;
+  height:88px;
+  border-radius:999px;
+  border:3px solid rgba(0,0,0,.6);
+  outline:1px solid rgba(214,177,93,.55);
+  object-fit:cover;
+  background: rgba(0,0,0,.25);
+}
+
+/* Cost/time icon line */
+.iconLine{
+  display:flex;
+  gap:16px;
+  align-items:center;
+  flex-wrap:wrap;
+  margin-top:10px;
+}
+.iconStat{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  color: var(--text);
+}
+.iconStat img{
+  width:18px;
+  height:18px;
+  opacity:.95;
+}
