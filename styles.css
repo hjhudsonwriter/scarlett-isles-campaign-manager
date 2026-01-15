@@ -624,3 +624,50 @@ button[disabled]{
 .explorer-fswrap.uiHidden:fullscreen #explorerHideUi{
   display: inline-flex !important;
 }
+/* Travel panel (bottom) */
+.explorer-travel{
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(40,48,58,0.9);
+  background: rgba(15,18,22,0.65);
+}
+
+.explorer-travelRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.explorer-travelLine{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  flex-wrap: wrap;
+}
+
+.explorer-travelRight{
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+
+.tiny{ font-size: 12px; }
+
+/* In fullscreen: pin travel panel to bottom like a HUD */
+.explorer-fswrap:fullscreen .explorer-travel{
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  z-index: 55;
+  margin-top: 0;
+  background: rgba(10,12,16,0.75);
+  backdrop-filter: blur(10px);
+}
+
+/* If UI is hidden, keep travel panel visible (still shows Make Camp + info) */
+.explorer-fswrap.uiHidden:fullscreen .explorer-travel{
+  display: block !important;
+}
