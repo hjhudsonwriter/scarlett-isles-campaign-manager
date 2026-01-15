@@ -393,6 +393,9 @@ async function renderHero(activeId) {
 // ---------- Bastion Manager (Ironbow) ----------
 const BASTION_CONFIG_PATH = "./data/bastion.json";
 const BASTION_STORE_KEY = "bastion.ironbow.v1";
+const UI_COIN_ICON = "./assets/ui/coin.svg";
+const UI_TIMER_ICON = "./assets/ui/timer.svg";
+const FACILITY_IMG = (id) => `./assets/facilities/${id}.png`;
 
 function safeNum(v, fallback = 0) {
   const n = Number(v);
