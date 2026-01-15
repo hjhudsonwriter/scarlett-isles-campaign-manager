@@ -358,10 +358,7 @@ async function renderHero(activeId) {
       <input id="heroPdfInput" type="file" accept="application/pdf" />
       <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
         <button id="btnSaveHeroPdf">Save PDF</button>
-        document.getElementById("btnClearHeroPdf")?.addEventListener("click", async () => {
-  await idbDel(heroPdfKey(hero.id));
-  router();
-});
+<button id="btnClearHeroPdf">Clear Override</button>
       </div>
     ` : ``}
 
@@ -380,12 +377,9 @@ async function renderHero(activeId) {
     });
 
     document.getElementById("btnClearHeroPdf")?.addEventListener("click", async () => {
-      // Clear by storing null? easiest: overwrite with empty, or remove store not implemented.
-      // We simulate remove by setting undefined blob not possible; use a special empty Blob marker.
-      await idbSet(heroPdfKey(hero.id), new Blob([], { type: "application/pdf" }));
-      // If empty blob, treat as no override:
-      router();
-    });
+  await idbDel(heroPdfKey(hero.id));
+  router();
+});
   }
 }
 
@@ -867,9 +861,11 @@ async function renderBastionManager() {
         <p class="small muted">Saved under <code>${BASTION_STORE_KEY}</code> in localStorage.</p>
         ${lastEvent ? `
           <hr />
-          <div style="display:flex; gap:14px; align-items:center;">
-  <img class="facImg" src="${FACILITY_IMG(f.id)}" alt="${f.name}">
-  <div>
+          <div class="card" style="margin-top:10px; background: rgba(18,22,27,.55)">
+  <p class="badge">Last Event (Turn ${safeNum(lastEvent.turn,0)})</p>
+  <p><b>Roll:</b> ${safeNum(lastEvent.roll,0)} • <b>${lastEvent.label || "No event"}</b></p>
+  ${lastEvent.notes ? `<p class="small muted">${lastEvent.notes}</p>` : ``}
+</div>
     <h3 style="margin:0;">
       ${f.mapKey ? `<span class="pill">${f.mapKey}</span> ` : ""}${f.name}
     </h3>
@@ -906,6 +902,7 @@ async function renderBastionManager() {
 
       <div id="bm_turnResult" class="small muted" style="margin-top:10px;"></div>
     </div>
+    `;
 
   // ----- Warehouse rows (clean editor) -----
 const whTbody = document.getElementById("bm_wh_rows");
@@ -964,27 +961,6 @@ document.getElementById("bm_wh_add").addEventListener("click", () => {
   renderWarehouseRows();
 });
 
-document.getElementById("bm_wh_save").addEventListener("click", () => {
-  const rows = [...whTbody.querySelectorAll("tr")];
-  const items = runtimeState.state.warehouse.items || [];
-  const next = [];
-
-  for (const r of rows) {
-    const idx = safeNum(r.dataset.idx, -1);
-    const original = items[idx] || {};
-
-    const label = r.querySelector(".bm_wh_label")?.value?.trim() || "Item";
-    const qty = r.querySelector(".bm_wh_qty")?.value;
-    const gp = r.querySelector(".bm_wh_gp")?.value;
-    const notes = r.querySelector(".bm_wh_notes")?.value || "";
-
-    next.push(fieldsToItem(original, { label, qty, gp, notes, type: original.type || "item" }));
-  }
-
-  runtimeState.state.warehouse.items = next;
-  saveBastionSave(runtimeState);
-  alert("Warehouse saved.");
-});
 
 whTbody.addEventListener("click", (e) => {
   const btn = e.target.closest(".bm_del");
