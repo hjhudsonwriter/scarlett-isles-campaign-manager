@@ -906,7 +906,6 @@ async function renderBastionManager() {
 
       <div id="bm_turnResult" class="small muted" style="margin-top:10px;"></div>
     </div>
-  `;
 
   // ----- Warehouse rows (clean editor) -----
 const whTbody = document.getElementById("bm_wh_rows");
