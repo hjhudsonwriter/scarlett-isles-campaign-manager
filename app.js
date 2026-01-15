@@ -1307,7 +1307,7 @@ function renderExplorer() {
   }
 
   // Build UI
-  view.innerHTML = `
+  view.innerHTML = `;
     <div class="explorer-wrap">
       <div class="explorer-head">
         <div>
@@ -2295,11 +2295,13 @@ window.addEventListener("pointerup", onTokenPointerUp);
   }, { passive: false });
 
   // Cleanup when navigating away
-  window.__explorerCleanup = () => {
+  // Cleanup when navigating away
+window.__explorerCleanup = () => {
   window.removeEventListener("resize", onResize);
   document.removeEventListener("fullscreenchange", onResize);
   window.removeEventListener("keydown", onKeyToggleUi);
   window.removeEventListener("pointerup", onTokenPointerUp);
+  tokenLayer.removeEventListener("pointerup", onTokenPointerUp);
 };
 }
 // ---------- Router ----------
