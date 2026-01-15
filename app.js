@@ -1695,28 +1695,45 @@ function updateTravelUI() {
 
     let x, y;
 
-    // If snap is on and this token has an axial hex, draw it as a "cluster" within the hex
-    if (state.snap.enabled && t.axial) {
-      const key = `${t.axial.q},${t.axial.r}`;
-      const cluster = groups.get(key) || [t];
-      const idx = cluster.findIndex(tt => tt.id === t.id);
+    // If snap is on and this token has an axial hex, draw it as a tight cluster INSIDE the hex
+if (state.snap.enabled && t.axial) {
+  const key = `${t.axial.q},${t.axial.r}`;
+  const cluster = (groups.get(key) || [t]).slice();
 
-      // Hex center in pixels
-      const center = axialToPixel(t.axial.q, t.axial.r);
+  // Put the "anchor" token first if we are currently dragging
+  const anchorId = drag?.anchorId || null;
+  if (anchorId) {
+    cluster.sort((a, b) => (a.id === anchorId ? -1 : b.id === anchorId ? 1 : 0));
+  }
 
-      // Spread tokens around the center so they’re readable
-      const n = Math.max(1, cluster.length);
-      const angle = (Math.PI * 2 * idx) / n;
+  const idx = cluster.findIndex(tt => tt.id === t.id);
+  const n = Math.max(1, cluster.length);
 
-      // Radius of spread inside the hex
-      const spread = Math.min(hexSize() * 0.45, t.size * 0.85);
+  // Hex center in pixels
+  const center = axialToPixel(t.axial.q, t.axial.r);
 
-      const cx = center.x + Math.cos(angle) * spread;
-      const cy = center.y + Math.sin(angle) * spread;
+  // SAFE inner radius so tokens stay well inside the hex
+  // hexSize() is vertex radius; inradius ≈ 0.86 * size
+  const inRadius = hexSize() * 0.86;
+  const tokenRadius = t.size / 2;
 
-      x = cx - t.size / 2;
-      y = cy - t.size / 2;
-    } else {
+  // Tiny cluster radius (keeps them clearly inside the hex)
+  // idx 0 sits in the centre, others orbit in a small ring
+  const maxClusterR = Math.max(0, inRadius - tokenRadius - 6);
+  const clusterR = Math.min(maxClusterR, 12); // <= 12px feels “neat”
+
+  let cx = center.x;
+  let cy = center.y;
+
+  if (idx > 0) {
+    const angle = (Math.PI * 2 * (idx - 1)) / Math.max(1, (n - 1));
+    cx = center.x + Math.cos(angle) * clusterR;
+    cy = center.y + Math.sin(angle) * clusterR;
+  }
+
+  x = cx - tokenRadius;
+  y = cy - tokenRadius;
+} else {
       // Normal rendering
       const px = normToPx(t.x, t.y);
       x = px.x;
@@ -2085,7 +2102,21 @@ if (state.snap.enabled) {
   // SNAP MODE: move by whole hex deltas, preserving group formation in hex coords
   if (state.snap.enabled && drag.startAxial && drag.startAxials) {
     // Determine target axial for the anchor token based on pointer position
-    const targetAx = axialRound(pixelToAxial(now.x, now.y));
+    // Use pointer position, but bias it slightly toward the anchor token centre for stability
+const anchorTok = getTokenById(drag.anchorId);
+let tx = now.x, ty = now.y;
+
+if (anchorTok) {
+  const aPx = normToPx(anchorTok.x, anchorTok.y);
+  const acx = aPx.x + anchorTok.size / 2;
+  const acy = aPx.y + anchorTok.size / 2;
+
+  // 70% pointer, 30% current anchor centre
+  tx = now.x * 0.7 + acx * 0.3;
+  ty = now.y * 0.7 + acy * 0.3;
+}
+
+const targetAx = axialRound(pixelToAxial(tx, ty));
 
     // Hex delta from start
     const dq = targetAx.q - drag.startAxial.q;
