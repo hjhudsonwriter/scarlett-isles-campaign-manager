@@ -1317,6 +1317,7 @@ function renderExplorer() {
 
         <button class="btn ghost" id="explorerClearMap" type="button">Clear map</button>
         <button class="btn ghost" id="explorerFullscreen" type="button">Fullscreen</button>
+        <button class="btn ghost" id="explorerHideUi" type="button">Hide UI</button>
 
         <span class="explorer-divider"></span>
 
@@ -1374,6 +1375,7 @@ function renderExplorer() {
   const mapUpload = root.querySelector("#explorerMapUpload");
   const btnClear = root.querySelector("#explorerClearMap");
   const btnFs = root.querySelector("#explorerFullscreen");
+  const btnHideUi = root.querySelector("#explorerHideUi");
 
   const btnGridToggle = root.querySelector("#explorerGridToggle");
   const btnGridSm = root.querySelector("#explorerGridSm");
@@ -1609,6 +1611,28 @@ function renderExplorer() {
   target.requestFullscreen?.();
 }
   btnFs.addEventListener("click", onFullscreen);
+  function setUiHidden(hidden) {
+  if (!fsWrap) return;
+  fsWrap.classList.toggle("uiHidden", !!hidden);
+
+  // Update button label
+  const isHidden = fsWrap.classList.contains("uiHidden");
+  if (btnHideUi) btnHideUi.textContent = isHidden ? "Show UI" : "Hide UI";
+}
+
+// Toggle when button clicked (only really relevant in fullscreen, but harmless outside)
+btnHideUi?.addEventListener("click", () => {
+  if (!fsWrap) return;
+  setUiHidden(!fsWrap.classList.contains("uiHidden"));
+});
+
+// Handy keyboard toggle while fullscreen: press H
+window.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() !== "h") return;
+  if (!document.fullscreenElement) return;
+  if (!fsWrap) return;
+  setUiHidden(!fsWrap.classList.contains("uiHidden"));
+});
 
   // Redraw on resize/fullscreen changes
   const onResize = () => rerenderAll();
@@ -1852,9 +1876,10 @@ function renderExplorer() {
 
   // Cleanup when navigating away
   window.__explorerCleanup = () => {
-    window.removeEventListener("resize", onResize);
-    document.removeEventListener("fullscreenchange", onResize);
-  };
+  window.removeEventListener("resize", onResize);
+  document.removeEventListener("fullscreenchange", onResize);
+  window.removeEventListener("keydown", onKeyToggleUi);
+};
 }
 // ---------- Router ----------
 async function router() {
@@ -1917,5 +1942,11 @@ if (item.type === "explorer") return renderExplorer();
   }
 }
 
-window.addEventListener("hashchange", router);
+function onKeyToggleUi(e) {
+  if (e.key.toLowerCase() !== "h") return;
+  if (!document.fullscreenElement) return;
+  if (!fsWrap) return;
+  setUiHidden(!fsWrap.classList.contains("uiHidden"));
+}
+window.addEventListener("keydown", onKeyToggleUi);
 router();
