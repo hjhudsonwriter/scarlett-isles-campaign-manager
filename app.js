@@ -1528,7 +1528,17 @@ function axialToPixel(q, r) {
   const y = s * (3/2) * r + oy;
   return { x, y };
 }
-function axialRound(q, r) {
+function axialRound(aq, ar) {
+  // Allow calling either axialRound({q,r}) OR axialRound(q,r)
+  let q, r;
+  if (typeof aq === "object" && aq) {
+    q = Number(aq.q);
+    r = Number(aq.r);
+  } else {
+    q = Number(aq);
+    r = Number(ar);
+  }
+
   // cube round then convert back
   let x = q;
   let z = r;
@@ -1548,6 +1558,7 @@ function axialRound(q, r) {
 
   return { q: rx, r: rz };
 }
+  
 function hexDistance(a, b) {
   // axial distance
   const dq = a.q - b.q;
@@ -2187,66 +2198,6 @@ if (state.snap.enabled) {
 
 tokenLayer.addEventListener("pointerup", onTokenPointerUp);
 window.addEventListener("pointerup", onTokenPointerUp);
-    
-
-  // SNAP MODE: compute miles used from anchor movement in hexes
-  if (state.snap.enabled && drag.startAxial) {
-    const anchorTok = getTokenById(drag.anchorId);
-    if (anchorTok) {
-      // Current axial for anchor (recompute from center)
-      const px = normToPx(anchorTok.x, anchorTok.y);
-      const center = { x: px.x + anchorTok.size/2, y: px.y + anchorTok.size/2 };
-      const endAx = axialRound(pixelToAxial(center.x, center.y));
-
-      const hexesMoved = hexDistance(drag.startAxial, endAx);
-      const milesMoved = Math.round(hexesMoved * 6);
-
-      const usedBefore = Number(state.travel.milesUsed) || 0;
-      const usedAfter = usedBefore + milesMoved;
-
-      // If exceeding 30 miles, revert to start positions and prompt
-      if (usedAfter > 30) {
-        if (drag.startAxials) {
-          const { w, h } = stageDims();
-          drag.ids.forEach(tokId => {
-            const tok = getTokenById(tokId);
-            const startA = drag.startAxials.get(tokId);
-            if (!tok || !startA) return;
-
-            const p = axialToPixel(startA.q, startA.r);
-            const topLeft = { x: p.x - tok.size/2, y: p.y - tok.size/2 };
-            const clamped = {
-              x: explorerClamp(topLeft.x, 0, Math.max(0, w - tok.size)),
-              y: explorerClamp(topLeft.y, 0, Math.max(0, h - tok.size))
-            };
-            const n = pxToNorm(clamped.x, clamped.y);
-            tok.x = n.x;
-            tok.y = n.y;
-            tok.axial = startA;
-          });
-        }
-
-        alert("That move would exceed 30 miles for the day. Make Camp to travel further.");
-        drag = null;
-        rerenderAll();
-        return;
-      }
-
-      // Commit miles
-      state.travel.milesUsed = usedAfter;
-    }
-  }
-
-  drag = null;
-  saveNow();
-  rerenderAll();
-
-  // If max reached, prompt once and lock movement
-  if ((Number(state.travel.milesUsed) || 0) >= 30) {
-    tokenLayer.style.pointerEvents = "none";
-    alert("You’ve reached 30 miles for the day. Make Camp to reset travel.");
-  }
-});
 
   // Optional: mouse wheel to resize selected tokens (hover token)
   tokenLayer.addEventListener("wheel", (e) => {
