@@ -169,10 +169,11 @@ const HEROES = [
   { id: "charles-vect", title: "Charles Vect", defaultPdf: "./assets/pdfs/CharlesVect%20CharacterSheet.pdf" } // space encoded
 ];
 
-const TOOL_PAGES = [
+  const TOOL_PAGES = [
   { id: "bastion", title: "Bastion Management", type: "bastion" },
   { id: "roller", title: "Bastion Event Roller", type: "roller" },
   { id: "honour", title: "Honour Tracker", type: "honour" },
+  { id: "explorer", title: "Scarlett Isles Explorer", type: "explorer" },
 ];
 
 // ---------- UI helpers ----------
@@ -1232,7 +1233,627 @@ function renderHonourTracker() {
     ></iframe>
   `;
 }
+/* ================================
+   Scarlett Isles Explorer (Hex VTT)
+   - Upload map (saved locally)
+   - Hex grid overlay (toggle, size, offset, opacity)
+   - Fullscreen stage
+   - 5 hero tokens (initials), drag, box-select, resize, group/ungroup
+   - Saves map + grid + token state to localStorage
+================================== */
 
+const EXPLORER_KEY = "scarlettIsles.explorer.v1";
+
+function explorerUid() {
+  return Math.random().toString(16).slice(2) + Date.now().toString(16);
+}
+function explorerClamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+function explorerLoad() {
+  try { return JSON.parse(localStorage.getItem(EXPLORER_KEY) || "{}"); }
+  catch { return {}; }
+}
+function explorerSave(state) {
+  localStorage.setItem(EXPLORER_KEY, JSON.stringify(state));
+}
+function explorerHeroInitial(title) {
+  const t = String(title || "").trim();
+  if (!t) return "?";
+  // Prefer first letter of first word (Kaelen, Umbrys, Magnus, Elara, Charles)
+  return t.split(/\s+/)[0].slice(0, 1).toUpperCase();
+}
+function explorerDefaultState() {
+  // Normalised positions so fullscreen/resizes don’t break placement
+  const tokens = HEROES.map((h, i) => ({
+    id: h.id,
+    name: h.title,
+    initial: explorerHeroInitial(h.title),
+    x: 0.12 + (i * 0.07),   // just a nice starting spread
+    y: 0.18 + (i * 0.06),
+    size: 46,
+    groupId: null
+  }));
+
+  return {
+    mapDataUrl: null,
+    grid: {
+      enabled: true,
+      // "r" = radius in px (center -> corner). Hex width ≈ sqrt(3)*r
+      r: 38,
+      offsetX: 0,
+      offsetY: 0,
+      opacity: 0.35
+    },
+    tokens
+  };
+}
+
+function renderExplorer() {
+  // If we previously mounted Explorer, clean up listeners to avoid stacking
+  if (window.__explorerCleanup) {
+    try { window.__explorerCleanup(); } catch {}
+    window.__explorerCleanup = null;
+  }
+
+  // Build UI
+  view.innerHTML = `
+    <div class="explorer-wrap">
+      <div class="explorer-head">
+        <div>
+          <h1 style="margin:0">Scarlett Isles Explorer</h1>
+          <p class="muted" style="margin:6px 0 0 0">
+            Upload a map, align a hex grid, and drag your heroes around.
+          </p>
+        </div>
+      </div>
+
+      <div class="explorer-controls">
+        <label class="btn">
+          Upload map
+          <input id="explorerMapUpload" type="file" accept="image/*" hidden />
+        </label>
+
+        <button class="btn ghost" id="explorerClearMap" type="button">Clear map</button>
+        <button class="btn ghost" id="explorerFullscreen" type="button">Fullscreen</button>
+
+        <span class="explorer-divider"></span>
+
+        <button class="btn" id="explorerGridToggle" type="button">Hex Grid: On</button>
+
+        <div class="explorer-group">
+          <button class="btn ghost" id="explorerGridSm" type="button">Hex −</button>
+          <button class="btn ghost" id="explorerGridLg" type="button">Hex +</button>
+        </div>
+
+        <div class="explorer-group">
+          <button class="btn ghost" id="explorerGridLeft" type="button">◀</button>
+          <button class="btn ghost" id="explorerGridUp" type="button">▲</button>
+          <button class="btn ghost" id="explorerGridDown" type="button">▼</button>
+          <button class="btn ghost" id="explorerGridRight" type="button">▶</button>
+        </div>
+
+        <div class="explorer-opacity">
+          <span class="muted tiny">Grid opacity</span>
+          <input id="explorerGridOpacity" type="range" min="0" max="1" step="0.05" />
+        </div>
+
+        <span class="explorer-divider"></span>
+
+        <div class="explorer-group">
+          <button class="btn ghost" id="explorerTokSm" type="button">Token −</button>
+          <button class="btn ghost" id="explorerTokLg" type="button">Token +</button>
+        </div>
+
+        <div class="explorer-group">
+          <button class="btn" id="explorerGroup" type="button">Group</button>
+          <button class="btn ghost" id="explorerUngroup" type="button">Ungroup</button>
+        </div>
+
+        <span class="hint" id="explorerReadout">Hex: —</span>
+      </div>
+
+      <div class="explorer-stage" id="explorerStage">
+        <div class="explorer-world" id="explorerWorld">
+          <img id="explorerMap" class="explorer-map" alt="Map" />
+          <canvas id="explorerGrid" class="explorer-grid"></canvas>
+          <div id="explorerTokens" class="explorer-tokens"></div>
+          <div id="explorerMarquee" class="explorer-marquee" hidden></div>
+        </div>
+      </div>
+
+      <div class="hint" style="margin-top:10px">
+        Tips: Drag on empty space to box-select. Hold Ctrl to add/remove from selection.
+        Click “Group” to make a party blob you can move together. Esc exits fullscreen.
+      </div>
+    </div>
+  `;
+
+  const root = view.querySelector(".explorer-wrap");
+  const mapUpload = root.querySelector("#explorerMapUpload");
+  const btnClear = root.querySelector("#explorerClearMap");
+  const btnFs = root.querySelector("#explorerFullscreen");
+
+  const btnGridToggle = root.querySelector("#explorerGridToggle");
+  const btnGridSm = root.querySelector("#explorerGridSm");
+  const btnGridLg = root.querySelector("#explorerGridLg");
+  const btnGridLeft = root.querySelector("#explorerGridLeft");
+  const btnGridRight = root.querySelector("#explorerGridRight");
+  const btnGridUp = root.querySelector("#explorerGridUp");
+  const btnGridDown = root.querySelector("#explorerGridDown");
+  const gridOpacity = root.querySelector("#explorerGridOpacity");
+  const readout = root.querySelector("#explorerReadout");
+
+  const btnTokSm = root.querySelector("#explorerTokSm");
+  const btnTokLg = root.querySelector("#explorerTokLg");
+  const btnGroup = root.querySelector("#explorerGroup");
+  const btnUngroup = root.querySelector("#explorerUngroup");
+
+  const stage = root.querySelector("#explorerStage");
+  const world = root.querySelector("#explorerWorld");
+  const mapImg = root.querySelector("#explorerMap");
+  const gridCanvas = root.querySelector("#explorerGrid");
+  const tokenLayer = root.querySelector("#explorerTokens");
+  const marquee = root.querySelector("#explorerMarquee");
+
+  // Load state (merge defaults)
+  const saved = explorerLoad();
+  const state = explorerDefaultState();
+
+  if (typeof saved.mapDataUrl === "string") state.mapDataUrl = saved.mapDataUrl;
+  if (saved.grid) state.grid = { ...state.grid, ...saved.grid };
+
+  if (Array.isArray(saved.tokens)) {
+    // merge by id, keep defaults for any missing heroes
+    const byId = new Map(saved.tokens.map(t => [t.id, t]));
+    state.tokens = state.tokens.map(t => {
+      const prev = byId.get(t.id);
+      if (!prev) return t;
+      return {
+        ...t,
+        x: Number.isFinite(prev.x) ? prev.x : t.x,
+        y: Number.isFinite(prev.y) ? prev.y : t.y,
+        size: Number.isFinite(prev.size) ? prev.size : t.size,
+        groupId: prev.groupId || null
+      };
+    });
+  }
+
+  // Selection state (not persisted)
+  const selected = new Set();
+
+  function saveNow() {
+    explorerSave({
+      mapDataUrl: state.mapDataUrl,
+      grid: state.grid,
+      tokens: state.tokens
+    });
+  }
+
+  function stageDims() {
+    return {
+      w: stage.clientWidth || 1,
+      h: stage.clientHeight || 1
+    };
+  }
+  function normToPx(nx, ny) {
+    const { w, h } = stageDims();
+    return { x: nx * w, y: ny * h };
+  }
+  function pxToNorm(px, py) {
+    const { w, h } = stageDims();
+    return { x: px / w, y: py / h };
+  }
+
+  function updateReadout() {
+    const r = Number(state.grid.r) || 0;
+    const w = Math.round(Math.sqrt(3) * r);
+    btnGridToggle.textContent = `Hex Grid: ${state.grid.enabled ? "On" : "Off"}`;
+    readout.textContent = r ? `Hex: r=${Math.round(r)}px (≈ ${w}px wide)` : "Hex: —";
+  }
+
+  function resizeGridCanvas() {
+    const { w, h } = stageDims();
+    const dpr = window.devicePixelRatio || 1;
+    gridCanvas.width = Math.floor(w * dpr);
+    gridCanvas.height = Math.floor(h * dpr);
+    gridCanvas.style.width = `${w}px`;
+    gridCanvas.style.height = `${h}px`;
+    const ctx = gridCanvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function drawHexGrid() {
+    resizeGridCanvas();
+    const ctx = gridCanvas.getContext("2d");
+    const { w, h } = stageDims();
+
+    ctx.clearRect(0, 0, w, h);
+    if (!state.grid.enabled) return;
+
+    const r = explorerClamp(Number(state.grid.r) || 38, 10, 220);
+    const opacity = explorerClamp(Number(state.grid.opacity) || 0.35, 0, 1);
+
+    const hexW = Math.sqrt(3) * r;      // pointy-top width
+    const hexH = 2 * r;                 // pointy-top height
+    const stepY = 1.5 * r;              // vertical spacing
+    const stepX = hexW;                 // horizontal spacing
+
+    const offX = Number(state.grid.offsetX) || 0;
+    const offY = Number(state.grid.offsetY) || 0;
+
+    ctx.globalAlpha = opacity;
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(231,231,234,0.9)";
+
+    // Start a bit off-screen so offsets don’t leave gaps
+    const startY = -hexH + offY;
+    const endY = h + hexH;
+
+    let row = 0;
+    for (let cy = startY; cy <= endY; cy += stepY) {
+      const rowOffsetX = (row % 2 === 0) ? 0 : (stepX / 2);
+      const startX = -hexW + offX + rowOffsetX;
+      const endX = w + hexW;
+
+      for (let cx = startX; cx <= endX; cx += stepX) {
+        // Draw pointy-top hex
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const angle = (Math.PI / 180) * (60 * i - 30);
+          const x = cx + r * Math.cos(angle);
+          const y = cy + r * Math.sin(angle);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.stroke();
+      }
+
+      row++;
+    }
+
+    ctx.globalAlpha = 1;
+  }
+
+  function renderTokens() {
+    tokenLayer.innerHTML = "";
+    const { w, h } = stageDims();
+
+    state.tokens.forEach(t => {
+      const token = document.createElement("div");
+      token.className = "explorer-token";
+      token.dataset.id = t.id;
+
+      if (selected.has(t.id)) token.classList.add("isSelected");
+      if (t.groupId) token.dataset.groupId = t.groupId;
+
+      token.style.width = `${t.size}px`;
+      token.style.height = `${t.size}px`;
+
+      const px = normToPx(t.x, t.y);
+      const x = explorerClamp(px.x, 0, Math.max(0, w - t.size));
+      const y = explorerClamp(px.y, 0, Math.max(0, h - t.size));
+      token.style.left = `${x}px`;
+      token.style.top = `${y}px`;
+
+      token.innerHTML = `<span>${t.initial}</span>`;
+      tokenLayer.appendChild(token);
+    });
+  }
+
+  function rerenderAll() {
+    // Map
+    if (state.mapDataUrl) {
+      mapImg.src = state.mapDataUrl;
+      mapImg.style.display = "block";
+    } else {
+      mapImg.removeAttribute("src");
+      mapImg.style.display = "none";
+    }
+
+    // Grid UI
+    gridOpacity.value = String(state.grid.opacity ?? 0.35);
+    updateReadout();
+
+    // Draw + tokens
+    drawHexGrid();
+    renderTokens();
+  }
+
+  // Initial render
+  rerenderAll();
+
+  // ---------- Map upload / clear ----------
+  function onMapUpload() {
+    const file = mapUpload.files && mapUpload.files[0];
+    if (!file) return;
+
+    // localStorage is limited; warn early
+    const maxBytes = 4 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      alert("That image is over ~4MB. Please use a smaller JPG if possible.");
+      mapUpload.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      state.mapDataUrl = String(reader.result || "");
+      saveNow();
+      rerenderAll();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function onClearMap() {
+    const ok = confirm("Clear the uploaded map? (Tokens/grid will remain.)");
+    if (!ok) return;
+    state.mapDataUrl = null;
+    saveNow();
+    rerenderAll();
+  }
+
+  mapUpload.addEventListener("change", onMapUpload);
+  btnClear.addEventListener("click", onClearMap);
+
+  // ---------- Fullscreen ----------
+  function onFullscreen() {
+    const target = stage;
+    if (document.fullscreenElement) {
+      document.exitFullscreen?.();
+      return;
+    }
+    target.requestFullscreen?.();
+  }
+  btnFs.addEventListener("click", onFullscreen);
+
+  // Redraw on resize/fullscreen changes
+  const onResize = () => rerenderAll();
+  window.addEventListener("resize", onResize);
+  document.addEventListener("fullscreenchange", onResize);
+
+  // ---------- Grid controls ----------
+  btnGridToggle.addEventListener("click", () => {
+    state.grid.enabled = !state.grid.enabled;
+    saveNow();
+    rerenderAll();
+  });
+
+  btnGridSm.addEventListener("click", () => {
+    state.grid.r = explorerClamp((Number(state.grid.r) || 38) - 2, 10, 220);
+    saveNow();
+    rerenderAll();
+  });
+  btnGridLg.addEventListener("click", () => {
+    state.grid.r = explorerClamp((Number(state.grid.r) || 38) + 2, 10, 220);
+    saveNow();
+    rerenderAll();
+  });
+
+  function nudge(dx, dy) {
+    state.grid.offsetX = (Number(state.grid.offsetX) || 0) + dx;
+    state.grid.offsetY = (Number(state.grid.offsetY) || 0) + dy;
+    saveNow();
+    rerenderAll();
+  }
+  btnGridLeft.addEventListener("click", () => nudge(-2, 0));
+  btnGridRight.addEventListener("click", () => nudge(2, 0));
+  btnGridUp.addEventListener("click", () => nudge(0, -2));
+  btnGridDown.addEventListener("click", () => nudge(0, 2));
+
+  gridOpacity.addEventListener("input", () => {
+    state.grid.opacity = explorerClamp(Number(gridOpacity.value), 0, 1);
+    saveNow();
+    rerenderAll();
+  });
+
+  // ---------- Token size buttons ----------
+  function changeSelectedTokenSize(delta) {
+    const ids = selected.size ? Array.from(selected) : state.tokens.map(t => t.id);
+    state.tokens = state.tokens.map(t => {
+      if (!ids.includes(t.id)) return t;
+      return { ...t, size: explorerClamp((Number(t.size) || 46) + delta, 24, 140) };
+    });
+    saveNow();
+    rerenderAll();
+  }
+  btnTokSm.addEventListener("click", () => changeSelectedTokenSize(-2));
+  btnTokLg.addEventListener("click", () => changeSelectedTokenSize(2));
+
+  // ---------- Group / Ungroup ----------
+  btnGroup.addEventListener("click", () => {
+    if (selected.size < 2) {
+      alert("Select 2+ tokens first (box select or Ctrl+click).");
+      return;
+    }
+    const gid = explorerUid();
+    const ids = new Set(selected);
+    state.tokens = state.tokens.map(t => ids.has(t.id) ? { ...t, groupId: gid } : t);
+    saveNow();
+    rerenderAll();
+  });
+
+  btnUngroup.addEventListener("click", () => {
+    if (!selected.size) {
+      alert("Select grouped tokens first.");
+      return;
+    }
+    const ids = new Set(selected);
+    state.tokens = state.tokens.map(t => ids.has(t.id) ? { ...t, groupId: null } : t);
+    saveNow();
+    rerenderAll();
+  });
+
+  // ---------- Selection + dragging ----------
+  function getTokenById(id) {
+    return state.tokens.find(t => t.id === id);
+  }
+  function tokenIdsInGroup(groupId) {
+    return state.tokens.filter(t => t.groupId === groupId).map(t => t.id);
+  }
+
+  // Ctrl+drag marquee selection on empty space
+  let marqueeActive = false;
+  let marqueeStart = null;
+
+  function setMarquee(x1, y1, x2, y2) {
+    const left = Math.min(x1, x2);
+    const top = Math.min(y1, y2);
+    const width = Math.abs(x2 - x1);
+    const height = Math.abs(y2 - y1);
+
+    marquee.style.left = `${left}px`;
+    marquee.style.top = `${top}px`;
+    marquee.style.width = `${width}px`;
+    marquee.style.height = `${height}px`;
+  }
+
+  function stagePointFromEvent(e) {
+    const rect = stage.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  stage.addEventListener("pointerdown", (e) => {
+    // If clicking on a token, token handler will manage it
+    if (e.target.closest(".explorer-token")) return;
+
+    marqueeActive = true;
+    marquee.hidden = false;
+
+    const p = stagePointFromEvent(e);
+    marqueeStart = p;
+    setMarquee(p.x, p.y, p.x, p.y);
+
+    // If not holding Ctrl, start fresh selection (box select replaces)
+    if (!e.ctrlKey) selected.clear();
+    rerenderAll();
+  });
+
+  stage.addEventListener("pointermove", (e) => {
+    if (!marqueeActive || !marqueeStart) return;
+    const p = stagePointFromEvent(e);
+    setMarquee(marqueeStart.x, marqueeStart.y, p.x, p.y);
+  });
+
+  stage.addEventListener("pointerup", (e) => {
+    if (!marqueeActive || !marqueeStart) return;
+
+    marqueeActive = false;
+    marquee.hidden = true;
+
+    const p = stagePointFromEvent(e);
+    const left = Math.min(marqueeStart.x, p.x);
+    const top = Math.min(marqueeStart.y, p.y);
+    const right = Math.max(marqueeStart.x, p.x);
+    const bottom = Math.max(marqueeStart.y, p.y);
+
+    // Select tokens whose centers fall inside the marquee
+    state.tokens.forEach(t => {
+      const pos = normToPx(t.x, t.y);
+      const cx = pos.x + (t.size / 2);
+      const cy = pos.y + (t.size / 2);
+      if (cx >= left && cx <= right && cy >= top && cy <= bottom) {
+        selected.add(t.id);
+      }
+    });
+
+    marqueeStart = null;
+    rerenderAll();
+  });
+
+  // Drag tokens (moves selection)
+  let drag = null;
+
+  tokenLayer.addEventListener("pointerdown", (e) => {
+    const elTok = e.target.closest(".explorer-token");
+    if (!elTok) return;
+
+    const id = elTok.dataset.id;
+    const t = getTokenById(id);
+    if (!t) return;
+
+    // Selection rules:
+    // - Ctrl toggles token selection
+    // - Click (no ctrl) selects token or its group if grouped
+    if (e.ctrlKey) {
+      if (selected.has(id)) selected.delete(id);
+      else selected.add(id);
+      rerenderAll();
+      return; // Ctrl click is just selection toggle
+    }
+
+    // No ctrl: select group if exists, otherwise just this token
+    selected.clear();
+    if (t.groupId) {
+      tokenIdsInGroup(t.groupId).forEach(x => selected.add(x));
+    } else {
+      selected.add(id);
+    }
+    rerenderAll();
+
+    // Start drag for currently selected set
+    const start = stagePointFromEvent(e);
+    const dragIds = Array.from(selected);
+
+    const startTokens = dragIds.map(tokId => {
+      const tok = getTokenById(tokId);
+      const px = normToPx(tok.x, tok.y);
+      return { id: tokId, startX: px.x, startY: px.y, size: tok.size };
+    });
+
+    drag = { start, ids: dragIds, startTokens };
+    elTok.setPointerCapture?.(e.pointerId);
+  });
+
+  tokenLayer.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const now = stagePointFromEvent(e);
+    const dx = now.x - drag.start.x;
+    const dy = now.y - drag.start.y;
+
+    const { w, h } = stageDims();
+
+    drag.startTokens.forEach(st => {
+      const tok = getTokenById(st.id);
+      if (!tok) return;
+
+      const nxPx = explorerClamp(st.startX + dx, 0, Math.max(0, w - st.size));
+      const nyPx = explorerClamp(st.startY + dy, 0, Math.max(0, h - st.size));
+      const n = pxToNorm(nxPx, nyPx);
+
+      tok.x = n.x;
+      tok.y = n.y;
+    });
+
+    renderTokens();
+  });
+
+  tokenLayer.addEventListener("pointerup", () => {
+    if (!drag) return;
+    drag = null;
+    saveNow();
+    rerenderAll();
+  });
+
+  // Optional: mouse wheel to resize selected tokens (hover token)
+  tokenLayer.addEventListener("wheel", (e) => {
+    const elTok = e.target.closest(".explorer-token");
+    if (!elTok) return;
+
+    // Prevent page scroll while resizing
+    e.preventDefault();
+
+    const delta = (e.deltaY < 0) ? 2 : -2;
+    changeSelectedTokenSize(delta);
+  }, { passive: false });
+
+  // Cleanup when navigating away
+  window.__explorerCleanup = () => {
+    window.removeEventListener("resize", onResize);
+    document.removeEventListener("fullscreenchange", onResize);
+  };
+}
 // ---------- Router ----------
 async function router() {
   updateModeUI();
@@ -1283,8 +1904,9 @@ async function router() {
       const item = TOOL_PAGES.find(x => x.id === active) || TOOL_PAGES[0];
 
       if (item.type === "bastion") return await renderBastionManager();
-      if (item.type === "roller") return await renderEventRoller();
-      if (item.type === "honour") return renderHonourTracker();
+if (item.type === "roller") return await renderEventRoller();
+if (item.type === "honour") return renderHonourTracker();
+if (item.type === "explorer") return renderExplorer();
     }
 
     location.hash = "#/clans/blackstone";
