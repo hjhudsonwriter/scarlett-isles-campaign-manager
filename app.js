@@ -2130,7 +2130,13 @@ if (state.snap.enabled) {
     drag.startAxials.set(tokId, axialRound(pixelToAxial(c.x, c.y)));
   });
 }
-    elTok.setPointerCapture?.(e.pointerId);
+   try {
+  // Pointer capture is helpful but can throw InvalidStateError in some cases.
+  // If it fails, dragging still works because we also listen on window pointerup.
+  elTok.setPointerCapture(e.pointerId);
+} catch (err) {
+  // ignore
+}
   });
 
   tokenLayer.addEventListener("pointermove", (e) => {
