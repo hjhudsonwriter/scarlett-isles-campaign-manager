@@ -1423,6 +1423,11 @@ const effectsEl = root.querySelector("#explorerEffects");
 const noticeEl = root.querySelector("#explorerNotice");  
 const btnMakeCamp = root.querySelector("#explorerMakeCamp");
 
+  function setNotice(msg) {
+  if (!noticeEl) return;
+  noticeEl.textContent = msg || "";
+}
+
   const btnGridToggle = root.querySelector("#explorerGridToggle");
   const btnGridSm = root.querySelector("#explorerGridSm");
   const btnGridLg = root.querySelector("#explorerGridLg");
@@ -1444,6 +1449,8 @@ const btnMakeCamp = root.querySelector("#explorerMakeCamp");
   const mapImg = root.querySelector("#explorerMap");
   const gridCanvas = root.querySelector("#explorerGrid");
   const tokenLayer = root.querySelector("#explorerTokens");
+  tokenLayer.style.touchAction = "none";
+stage.style.touchAction = "none";
   const marquee = root.querySelector("#explorerMarquee");
 
   // Load state (merge defaults)
@@ -1476,6 +1483,9 @@ if (saved.travel) state.travel = { ...state.travel, ...saved.travel };
 
   // Selection state (not persisted)
   const selected = new Set();
+
+  // Drag state must exist BEFORE first renderTokens() call
+  let drag = null;
 
   function saveNow() {
     explorerSave({
@@ -1603,11 +1613,6 @@ function updateTravelUI() {
     // stage marquee still works but token dragging is blocked
     // optionally show subtle hint:
     // (we won't spam alerts here)
-  }
-  function setNotice(msg) {
-  if (!noticeEl) return;
-  noticeEl.textContent = msg || "";
-}
 }
 
   function resizeGridCanvas() {
@@ -2071,8 +2076,6 @@ btnMakeCamp.addEventListener("click", () => {
   });
 
   // Drag tokens (moves selection)
-  let drag = null;
-
   tokenLayer.addEventListener("pointerdown", (e) => {
     const elTok = e.target.closest(".explorer-token");
     if (!elTok) return;
