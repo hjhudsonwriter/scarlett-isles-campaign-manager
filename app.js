@@ -1032,111 +1032,112 @@ whTbody.addEventListener("click", (e) => {
   const facWrap = document.getElementById("bm_facilities");
 
   function renderFacilities() {
-    facWrap.innerHTML = facilities.map(f => {
-      const lvl = safeNum(f.currentLevel, 0);
-      const lvlData = facilityLevelData(f, lvl);
-      const nextLvl = lvl + 1;
-      const nextData = facilityLevelData(f, nextLvl);
+  facWrap.innerHTML = facilities.map(f => {
+    const lvl = safeNum(f.currentLevel, 0);
+    const lvlData = facilityLevelData(f, lvl);
+    const nextLvl = lvl + 1;
+    const nextData = facilityLevelData(f, nextLvl);
 
-      const underCon = constructions.find(c => c.facilityId === f.id);
-      const isBuilding = !!underCon;
+    const underCon = constructions.find(c => c.facilityId === f.id);
+    const isBuilding = !!underCon;
 
-      const upgradeCost = safeNum(nextData?.construction?.costGP, 0);
-      const upgradeTurns = safeNum(nextData?.construction?.turns, 0);
-      const canUpgrade = nextData && !isBuilding && safeNum(runtimeState.state.treasury.gp,0) >= upgradeCost;
+    const upgradeCost = safeNum(nextData?.construction?.costGP, 0);
+    const upgradeTurns = safeNum(nextData?.construction?.turns, 0);
+    const canUpgrade = nextData && !isBuilding && safeNum(runtimeState.state.treasury.gp,0) >= upgradeCost;
 
-      const fns = lvlData?.functions || [];
-      const activeOrders = orders.filter(o => o.facilityId === f.id);
+    const fns = lvlData?.functions || [];
+    const activeOrders = orders.filter(o => o.facilityId === f.id);
 
-      const UI_COIN_ICON = "./assets/ui/coin.svg";
-const UI_TIMER_ICON = "./assets/ui/timer.svg";
-
-// Facility images by facility.id (match your JSON ids)
-const FACILITY_IMG = (id) => `./assets/facilities/${id}.png`;
-
-      return `
-        <div class="card facCard" style="margin-top:12px;">
-          <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+    return `
+      <div class="card facCard" style="margin-top:12px;">
+        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+          <div style="display:flex; gap:14px; align-items:center;">
+            <img class="facImg" src="${FACILITY_IMG(f.id)}" alt="${f.name}">
             <div>
-              <h3>${f.mapKey ? `<span class="pill">${f.mapKey}</span> ` : ""}${f.name}</h3>
+              <h3 style="margin:0;">
+                ${f.mapKey ? `<span class="pill">${f.mapKey}</span> ` : ""}${f.name}
+              </h3>
               <div class="small muted">Level <b>${lvl}</b> / ${safeNum(f.maxLevel,lvl)}</div>
               ${lvlData?.label ? `<div class="pill" style="margin-top:8px;">${lvlData.label}</div>` : ""}
               ${isBuilding ? `<div class="pill" style="margin-top:8px;">Under Construction: <b>Level ${underCon.targetLevel}</b> • ${safeNum(underCon.remainingTurns,0)} turns left</div>` : ""}
             </div>
-            <div style="min-width:280px;">
-              <div class="pill">Hirelings: <b>${safeNum(f.staffing?.hirelings, safeNum(f.staffing?.hirelingsBase, 0))}</b></div>
-              <div class="small muted" style="margin-top:8px;">
-                ${(f.staffing?.notes || []).map(n => `• ${n}`).join("<br>")}
-              </div>
-            </div>
           </div>
 
-          <hr />
-
-          <h4>Benefits</h4>
-          <div class="small muted">
-            ${(lvlData?.benefits || []).map(b => `• ${b}`).join("<br>") || "No benefits listed."}
+          <div style="min-width:280px;">
+            <div class="pill">Hirelings: <b>${safeNum(f.staffing?.hirelings, safeNum(f.staffing?.hirelingsBase, 0))}</b></div>
+            <div class="small muted" style="margin-top:8px;">
+              ${(f.staffing?.notes || []).map(n => `• ${n}`).join("<br>")}
+            </div>
           </div>
-
-          <hr />
-
-          <h4>Functions</h4>
-          ${fns.length ? `
-            <table class="table">
-              <thead><tr><th>Function</th><th>Duration</th><th>Outputs</th><th>Action</th></tr></thead>
-              <tbody>
-                ${fns.map(fn => {
-                  const active = activeOrders.find(o => o.functionId === fn.id);
-                  const outputs = (fn.outputsToWarehouse || []).length ? fn.outputsToWarehouse.map(o => `<code>${o.type || "item"}</code>`).join(" ") : "<span class='small muted'>None</span>";
-                  return `
-                    <tr>
-                      <td>
-                        <b>${fn.label}</b><br>
-                        <span class="small muted">${(fn.notes||[]).join(" • ")}</span>
-                      </td>
-                      <td>${safeNum(fn.durationTurns,1)} turn(s)</td>
-                      <td>${outputs}</td>
-                      <td>
-                        ${active
-                          ? `<span class="pill">Active • ${safeNum(active.remainingTurns,0)} left</span>`
-                          : `<button class="bm_startFn" data-fid="${f.id}" data-fnid="${fn.id}">Start</button>`
-                        }
-                      </td>
-                    </tr>
-                  `;
-                }).join("")}
-              </tbody>
-            </table>
-          ` : `<p class="small muted">No functions at this level.</p>`}
-
-          <hr />
-
-          <h4>Upgrade</h4>
-          ${nextData ? `
-            <div class="small muted">Next: <b>${nextData.label || `Level ${nextLvl}`}</b></div>
-            <div style="margin-top:8px;">
-              <div class="iconLine">
-  <div class="pill iconStat">
-    <img src="${UI_COIN_ICON}" alt="Cost">
-    <b>${upgradeCost}gp</b>
-  </div>
-  <div class="pill iconStat">
-    <img src="${UI_TIMER_ICON}" alt="Time">
-    <b>${upgradeTurns} turns</b>
-  </div>
-</div>
-            </div>
-            <div class="btnRow" style="margin-top:10px;">
-              <button class="bm_upgrade" data-fid="${f.id}" ${canUpgrade ? "" : "disabled"}>Apply Upgrade</button>
-              ${!canUpgrade ? `<span class="small muted">${isBuilding ? "Already building." : (safeNum(runtimeState.state.treasury.gp,0) < upgradeCost ? "Insufficient treasury." : "")}</span>` : ""}
-            </div>
-          ` : `<p class="small muted">No further upgrades (max level).</p>`}
         </div>
-      `;
-    }).join("");
-  }
 
-  renderFacilities();
+        <hr />
+
+        <h4>Benefits</h4>
+        <div class="small muted">
+          ${(lvlData?.benefits || []).map(b => `• ${b}`).join("<br>") || "No benefits listed."}
+        </div>
+
+        <hr />
+
+        <h4>Functions</h4>
+        ${fns.length ? `
+          <table class="table">
+            <thead><tr><th>Function</th><th>Duration</th><th>Outputs</th><th>Action</th></tr></thead>
+            <tbody>
+              ${fns.map(fn => {
+                const active = activeOrders.find(o => o.functionId === fn.id);
+                const outputs = (fn.outputsToWarehouse || []).length
+                  ? fn.outputsToWarehouse.map(o => `<code>${o.type || "item"}</code>`).join(" ")
+                  : "<span class='small muted'>None</span>";
+
+                return `
+                  <tr>
+                    <td>
+                      <b>${fn.label}</b><br>
+                      <span class="small muted">${(fn.notes||[]).join(" • ")}</span>
+                    </td>
+                    <td>${safeNum(fn.durationTurns,1)} turn(s)</td>
+                    <td>${outputs}</td>
+                    <td>
+                      ${active
+                        ? `<span class="pill">Active • ${safeNum(active.remainingTurns,0)} left</span>`
+                        : `<button class="bm_startFn" data-fid="${f.id}" data-fnid="${fn.id}">Start</button>`
+                      }
+                    </td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+        ` : `<p class="small muted">No functions at this level.</p>`}
+
+        <hr />
+
+        <h4>Upgrade</h4>
+        ${nextData ? `
+          <div class="small muted">Next: <b>${nextData.label || `Level ${nextLvl}`}</b></div>
+
+          <div class="iconLine">
+            <div class="pill iconStat">
+              <img src="${UI_COIN_ICON}" alt="Cost">
+              <b>${upgradeCost}gp</b>
+            </div>
+            <div class="pill iconStat">
+              <img src="${UI_TIMER_ICON}" alt="Time">
+              <b>${upgradeTurns} turns</b>
+            </div>
+          </div>
+
+          <div class="btnRow" style="margin-top:10px;">
+            <button class="bm_upgrade" data-fid="${f.id}" ${canUpgrade ? "" : "disabled"}>Apply Upgrade</button>
+            ${!canUpgrade ? `<span class="small muted">${isBuilding ? "Already building." : (safeNum(runtimeState.state.treasury.gp,0) < upgradeCost ? "Insufficient treasury." : "")}</span>` : ""}
+          </div>
+        ` : `<p class="small muted">No further upgrades (max level).</p>`}
+      </div>
+    `;
+  }).join("");
+}
 
   facWrap.addEventListener("click", (e) => {
     const up = e.target.closest(".bm_upgrade");
