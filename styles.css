@@ -559,3 +559,44 @@ button[disabled]{
   border-radius: 10px;
   pointer-events:none;
 }
+/* Fullscreen wrapper: controls stay visible */
+.explorer-fswrap{
+  position: relative;
+}
+
+/* When the wrapper is fullscreen, pin controls at top as an overlay */
+.explorer-fswrap:fullscreen{
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.85);
+}
+
+/* Make stage fill the remaining space */
+.explorer-fswrap:fullscreen .explorer-stage{
+  height: 100vh;
+  border-radius: 0;
+  margin-top: 0;
+}
+
+/* Controls become a fixed overlay bar */
+.explorer-fswrap:fullscreen .explorer-controls{
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 50;
+  border-radius: 18px;
+  background: rgba(10,12,16,0.72);
+  backdrop-filter: blur(10px);
+}
+
+/* Optional: make controls scroll horizontally if your screen is small */
+.explorer-fswrap:fullscreen .explorer-controls{
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+/* Make sure tokens and marquee still sit above map/grid */
+.explorer-fswrap:fullscreen .explorer-tokens{ z-index: 20; }
+.explorer-fswrap:fullscreen .explorer-marquee{ z-index: 30; }
