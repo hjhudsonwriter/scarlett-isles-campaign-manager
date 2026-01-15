@@ -1703,7 +1703,14 @@ function updateTravelUI() {
     let x, y;
 
     // If snap is on and this token has an axial hex, draw it as a tight cluster INSIDE the hex
-if (state.snap.enabled && t.axial) {
+if (state.snap.enabled) {
+  // Ensure axial exists (in case token came from old saves)
+  if (!t.axial) {
+    const px = normToPx(t.x, t.y);
+    const cx = px.x + t.size/2;
+    const cy = px.y + t.size/2;
+    t.axial = axialRound(pixelToAxial(cx, cy));
+  }
   const key = `${t.axial.q},${t.axial.r}`;
   const cluster = (groups.get(key) || [t]).slice();
 
@@ -1790,6 +1797,34 @@ updateSnapButton();
 
 btnSnapToggle.addEventListener("click", () => {
   state.snap.enabled = !state.snap.enabled;
+
+  // When enabling snap, assign axial coords to all tokens based on current position
+  if (state.snap.enabled) {
+    const { w, h } = stageDims();
+
+    state.tokens.forEach(tok => {
+      const px = normToPx(tok.x, tok.y);
+      const cx = px.x + tok.size / 2;
+      const cy = px.y + tok.size / 2;
+
+      const a = axialRound(pixelToAxial(cx, cy));
+      tok.axial = a;
+
+      // OPTIONAL but recommended: pull token neatly onto the hex centre
+      const p = axialToPixel(a.q, a.r);
+      const topLeft = { x: p.x - tok.size / 2, y: p.y - tok.size / 2 };
+
+      const clamped = {
+        x: explorerClamp(topLeft.x, 0, Math.max(0, w - tok.size)),
+        y: explorerClamp(topLeft.y, 0, Math.max(0, h - tok.size))
+      };
+
+      const n = pxToNorm(clamped.x, clamped.y);
+      tok.x = n.x;
+      tok.y = n.y;
+    });
+  }
+
   saveNow();
   updateSnapButton();
   rerenderAll();
