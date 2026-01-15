@@ -1453,22 +1453,23 @@ const btnMakeCamp = root.querySelector("#explorerMakeCamp");
 if (saved.travel) state.travel = { ...state.travel, ...saved.travel };
 
   if (Array.isArray(saved.tokens)) {
-    // merge by id, keep defaults for any missing heroes
-    const byId = new Map(saved.tokens.map(t => [t.id, t]));
-    state.tokens = state.tokens.map(t => {
-      const prev = byId.get(t.id);
-      if (!prev) return t;
-      return {
-  ...t,
-  x: Number.isFinite(prev.x) ? prev.x : t.x,
-  y: Number.isFinite(prev.y) ? prev.y : t.y,
-  size: Number.isFinite(prev.size) ? prev.size : t.size,
-  groupId: prev.groupId || null,
-  axial: prev.axial && Number.isFinite(prev.axial.q) && Number.isFinite(prev.axial.r)
-    ? { q: prev.axial.q, r: prev.axial.r }
-    : null
-};
-  }
+  // merge by id, keep defaults for any missing heroes
+  const byId = new Map(saved.tokens.map(t => [t.id, t]));
+  state.tokens = state.tokens.map(t => {
+    const prev = byId.get(t.id);
+    if (!prev) return t;
+    return {
+      ...t,
+      x: Number.isFinite(prev.x) ? prev.x : t.x,
+      y: Number.isFinite(prev.y) ? prev.y : t.y,
+      size: Number.isFinite(prev.size) ? prev.size : t.size,
+      groupId: prev.groupId || null,
+      axial: prev.axial && Number.isFinite(prev.axial.q) && Number.isFinite(prev.axial.r)
+        ? { q: prev.axial.q, r: prev.axial.r }
+        : null
+    };
+  });
+}
 
   // Selection state (not persisted)
   const selected = new Set();
