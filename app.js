@@ -1394,6 +1394,8 @@ function renderExplorer() {
         <strong id="explorerMode">—</strong>
         <span class="muted">• Effects:</span>
         <span id="explorerEffects">—</span>
+        <span class="muted">•</span>
+        <span id="explorerNotice" class="tiny" style="opacity:.9"></span>
       </div>
     </div>
 
@@ -1418,6 +1420,7 @@ const milesUsedEl = root.querySelector("#explorerMilesUsed");
 const milesLeftEl = root.querySelector("#explorerMilesLeft");
 const modeEl = root.querySelector("#explorerMode");
 const effectsEl = root.querySelector("#explorerEffects");
+const noticeEl = root.querySelector("#explorerNotice");  
 const btnMakeCamp = root.querySelector("#explorerMakeCamp");
 
   const btnGridToggle = root.querySelector("#explorerGridToggle");
@@ -1601,6 +1604,10 @@ function updateTravelUI() {
     // optionally show subtle hint:
     // (we won't spam alerts here)
   }
+  function setNotice(msg) {
+  if (!noticeEl) return;
+  noticeEl.textContent = msg || "";
+}
 }
 
   function resizeGridCanvas() {
@@ -1945,6 +1952,7 @@ btnMakeCamp.addEventListener("click", () => {
   state.travel.milesUsed = 0;
   saveNow();
   updateTravelUI();
+  setNotice("");
 
   // Re-enable movement after camp
   tokenLayer.style.pointerEvents = "";
@@ -2207,7 +2215,7 @@ const targetAx = axialRound(pixelToAxial(tx, ty));
           });
         }
 
-        alert("That move would exceed 30 miles for the day. Make Camp to travel further.");
+        setNotice("Too far. That move would exceed 30 miles. Make Camp to reset.");
         drag = null;
         rerenderAll();
         return;
@@ -2223,7 +2231,7 @@ const targetAx = axialRound(pixelToAxial(tx, ty));
 
   if ((Number(state.travel.milesUsed) || 0) >= 30) {
     tokenLayer.style.pointerEvents = "none";
-    alert("You’ve reached 30 miles for the day. Make Camp to reset travel.");
+    setNotice("Max distance reached (30 miles). Make Camp to reset.");
   }
 }
 
