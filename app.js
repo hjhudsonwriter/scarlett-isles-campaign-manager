@@ -1308,6 +1308,7 @@ function renderExplorer() {
         </div>
       </div>
 
+      <div class="explorer-fswrap" id="explorerFsWrap">
       <div class="explorer-controls">
         <label class="btn">
           Upload map
@@ -1363,10 +1364,10 @@ function renderExplorer() {
       </div>
 
       <div class="hint" style="margin-top:10px">
-        Tips: Drag on empty space to box-select. Hold Ctrl to add/remove from selection.
-        Click “Group” to make a party blob you can move together. Esc exits fullscreen.
-      </div>
-    </div>
+  Tips: ...
+</div>
+</div> <!-- end explorer-fswrap -->
+</div> <!-- end explorer-wrap -->
   `;
 
   const root = view.querySelector(".explorer-wrap");
@@ -1390,6 +1391,7 @@ function renderExplorer() {
   const btnUngroup = root.querySelector("#explorerUngroup");
 
   const stage = root.querySelector("#explorerStage");
+  const fsWrap = root.querySelector("#explorerFsWrap");
   const world = root.querySelector("#explorerWorld");
   const mapImg = root.querySelector("#explorerMap");
   const gridCanvas = root.querySelector("#explorerGrid");
@@ -1599,13 +1601,13 @@ function renderExplorer() {
 
   // ---------- Fullscreen ----------
   function onFullscreen() {
-    const target = stage;
-    if (document.fullscreenElement) {
-      document.exitFullscreen?.();
-      return;
-    }
-    target.requestFullscreen?.();
+  const target = fsWrap || stage; // fallback just in case
+  if (document.fullscreenElement) {
+    document.exitFullscreen?.();
+    return;
   }
+  target.requestFullscreen?.();
+}
   btnFs.addEventListener("click", onFullscreen);
 
   // Redraw on resize/fullscreen changes
