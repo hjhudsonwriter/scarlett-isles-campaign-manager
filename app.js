@@ -1617,14 +1617,15 @@ function renderExplorer() {
 }
   btnFs.addEventListener("click", onFullscreen);
   function setUiHidden(hidden) {
-  if (!fsWrap) return;
-  fsWrap.classList.toggle("uiHidden", !!hidden);
+  const target = document.fullscreenElement || fsWrap;
+  if (!target) return;
+
+  target.classList.toggle("uiHidden", !!hidden);
 
   // Update button label
-  const isHidden = fsWrap.classList.contains("uiHidden");
+  const isHidden = target.classList.contains("uiHidden");
   if (btnHideUi) btnHideUi.textContent = isHidden ? "Show UI" : "Hide UI";
 }
-
 // Toggle when button clicked (only really relevant in fullscreen, but harmless outside)
 btnHideUi?.addEventListener("click", () => {
   if (!fsWrap) return;
