@@ -347,3 +347,39 @@ button[disabled]{
   height:18px;
   opacity:.95;
 }
+/* =========================
+   Bastion Manager readability fixes
+   ========================= */
+
+/* Make tables easier to read */
+.table th,
+.table td {
+  font-size: 16px;
+  padding: 12px 10px;
+  vertical-align: middle;
+}
+
+/* Warehouse inputs (and any table inputs) */
+.table input[type="text"],
+.table input[type="number"] {
+  font-size: 16px;
+  padding: 10px 12px;
+  min-height: 42px;
+  border-radius: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Ensure warehouse columns don't collapse */
+#bm_wh_rows td:nth-child(1) { min-width: 180px; } /* Item */
+#bm_wh_rows td:nth-child(2) { min-width: 90px; }  /* Qty */
+#bm_wh_rows td:nth-child(3) { min-width: 130px; } /* Value */
+#bm_wh_rows td:nth-child(4) { min-width: 200px; } /* Notes */
+#bm_wh_rows td:nth-child(5) { min-width: 120px; } /* Actions */
+
+/* Make the warehouse panel buttons readable too */
+#bm_wh_add,
+#bm_wh_save {
+  font-size: 16px;
+  padding: 10px 14px;
+}
