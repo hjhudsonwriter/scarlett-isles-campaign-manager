@@ -754,11 +754,11 @@ async function renderBastionManager() {
     return;
   }
 
-  // Load saved state (localStorage) or seed from config
+  // Load saved state or seed from config
   const saved = loadBastionSave();
   const runtimeState = ensureRuntimeState(config, saved);
 
-  // Precompute upkeep + traffic light
+  // Precompute
   const treasuryGP = safeNum(runtimeState.state?.treasury?.gp, 0);
   const nextUpkeep = computeUpkeep(runtimeState, runtimeState);
   const tlClass = trafficLightClass(runtimeState, treasuryGP, nextUpkeep);
@@ -766,28 +766,25 @@ async function renderBastionManager() {
   const rep = String(safeNum(runtimeState.state?.bastionReputation, 1));
   const repInfo = runtimeState.state?.reputationEffects?.[rep];
 
-  // Map image
   const mapPath = runtimeState?.meta?.mapImage?.defaultPath || "";
   const mapTitle = runtimeState?.meta?.mapImage?.title || "Bastion Map";
 
-  // Facilities display
   const facilities = runtimeState.facilities || [];
-
-  // Orders / construction
   const orders = runtimeState.state.ordersInProgress || [];
   const constructions = runtimeState.state.constructionInProgress || [];
-
-  // Last event
   const lastEvent = runtimeState.state.lastEventResult;
 
-  // Render UI
+  // --- Render HTML (ONLY HTML inside this template string) ---
   view.innerHTML = `
     <h1>Bastion Manager</h1>
     <p class="badge">${runtimeState?.meta?.name || "Bastion"} • ${runtimeState?.meta?.type || ""}</p>
 
     <div class="card">
       <h2>${mapTitle}</h2>
-      ${mapPath ? `<img src="${mapPath}" alt="${mapTitle}" style="width:100%;border-radius:18px;border:1px solid var(--border);">` : `<p class="small">No mapImage.defaultPath set.</p>`}
+      ${mapPath
+        ? `<img src="${mapPath}" alt="${mapTitle}" style="width:100%;border-radius:18px;border:1px solid var(--border);">`
+        : `<p class="small">No mapImage.defaultPath set.</p>`
+      }
       <p class="small muted">Path: <code>${mapPath || "(none)"}</code></p>
     </div>
 
@@ -834,14 +831,14 @@ async function renderBastionManager() {
         <p class="small muted">DM editable. Function outputs append here automatically when completed.</p>
         <table class="table">
           <thead>
-  <tr>
-    <th>Item</th>
-    <th style="width:90px;">Qty</th>
-    <th style="width:120px;">Value (gp)</th>
-    <th>Notes</th>
-    <th style="width:110px;">Actions</th>
-  </tr>
-</thead>
+            <tr>
+              <th>Item</th>
+              <th style="width:90px;">Qty</th>
+              <th style="width:120px;">Value (gp)</th>
+              <th>Notes</th>
+              <th style="width:110px;">Actions</th>
+            </tr>
+          </thead>
           <tbody id="bm_wh_rows"></tbody>
         </table>
         <div class="btnRow">
@@ -859,21 +856,17 @@ async function renderBastionManager() {
           <button id="bm_reset">Reset From Spec</button>
         </div>
         <p class="small muted">Saved under <code>${BASTION_STORE_KEY}</code> in localStorage.</p>
+
         ${lastEvent ? `
           <hr />
           <div class="card" style="margin-top:10px; background: rgba(18,22,27,.55)">
-  <p class="badge">Last Event (Turn ${safeNum(lastEvent.turn,0)})</p>
-  <p><b>Roll:</b> ${safeNum(lastEvent.roll,0)} • <b>${lastEvent.label || "No event"}</b></p>
-  ${lastEvent.notes ? `<p class="small muted">${lastEvent.notes}</p>` : ``}
-</div>
-    <h3 style="margin:0;">
-      ${f.mapKey ? `<span class="pill">${f.mapKey}</span> ` : ""}${f.name}
-    </h3>
-    <div class="small muted">Level <b>${lvl}</b> / ${safeNum(f.maxLevel,lvl)}</div>
-    ${lvlData?.label ? `<div class="pill" style="margin-top:8px;">${lvlData.label}</div>` : ""}
-    ${isBuilding ? `<div class="pill" style="margin-top:8px;">Under Construction: <b>Level ${underCon.targetLevel}</b> • ${safeNum(underCon.remainingTurns,0)} turns left</div>` : ""}
-  </div>
-</div>
+            <p class="badge">Last Event (Turn ${safeNum(lastEvent.turn,0)})</p>
+            <p><b>Roll:</b> ${safeNum(lastEvent.roll,0)} • <b>${lastEvent.label || "No event"}</b></p>
+            ${lastEvent.notes ? `<p class="small muted">${lastEvent.notes}</p>` : ``}
+          </div>
+        ` : ``}
+      </div>
+    </div>
 
     <div class="card" style="margin-top:12px;">
       <h2>Facilities</h2>
@@ -902,92 +895,90 @@ async function renderBastionManager() {
 
       <div id="bm_turnResult" class="small muted" style="margin-top:10px;"></div>
     </div>
-    `;
+  `;
 
   // ----- Warehouse rows (clean editor) -----
-const whTbody = document.getElementById("bm_wh_rows");
+  const whTbody = document.getElementById("bm_wh_rows");
 
-function itemToFields(it) {
-  // normalize various output shapes into display fields
-  const type = String(it?.type || "item");
-  const qty = safeNum(it?.qty ?? 1, 1);
-  const gp = safeNum(it?.gp ?? it?.gpValueMax ?? it?.valueGPMax ?? 0, 0);
-  const notes = String(it?.notes || it?.note || "");
-  const label =
-    String(it?.label || it?.name || it?.title || it?.key || it?.type || "Item");
-  return { type, qty, gp, notes, label };
-}
-
-function fieldsToItem(original, fields) {
-  const out = { ...(original || {}) };
-  out.type = fields.type || out.type || "item";
-  out.qty = clamp(safeNum(fields.qty, 1), 0, 999999);
-
-  // store gp if present
-  if (fields.gp !== "" && Number.isFinite(Number(fields.gp))) {
-    // keep both gp and gpValueMax depending on type
-    if (out.type === "trade_goods") out.gpValueMax = safeNum(fields.gp, 0);
-    else out.gp = safeNum(fields.gp, 0);
-  } else {
-    delete out.gp;
-    delete out.gpValueMax;
+  function itemToFields(it) {
+    const qty = safeNum(it?.qty ?? 1, 1);
+    const gp = safeNum(it?.gp ?? it?.gpValueMax ?? it?.valueGPMax ?? 0, 0);
+    const notes = String(it?.notes || it?.note || "");
+    const label = String(it?.label || it?.name || it?.title || it?.key || it?.type || "Item");
+    return { qty, gp, notes, label };
   }
 
-  out.label = fields.label || out.label || "";
-  out.notes = fields.notes || "";
-  return out;
-}
+  function fieldsToItem(original, fields) {
+    const out = { ...(original || {}) };
+    out.qty = clamp(safeNum(fields.qty, 1), 0, 999999);
+    out.label = fields.label || out.label || "Item";
+    out.notes = fields.notes || "";
 
-function renderWarehouseRows() {
-  const items = runtimeState.state.warehouse.items || [];
-  whTbody.innerHTML = items.map((it, idx) => {
-    const f = itemToFields(it);
-    return `
-      <tr data-idx="${idx}">
-        <td><input class="bm_wh_label" type="text" value="${f.label.replace(/"/g, "&quot;")}" /></td>
-        <td><input class="bm_wh_qty" type="number" min="0" step="1" value="${f.qty}" style="max-width:90px;" /></td>
-        <td><input class="bm_wh_gp" type="number" min="0" step="1" value="${f.gp || ""}" placeholder="-" style="max-width:120px;" /></td>
-        <td><input class="bm_wh_notes" type="text" value="${f.notes.replace(/"/g, "&quot;")}" placeholder="notes..." /></td>
-        <td style="width:110px;"><button class="bm_del" type="button">Remove</button></td>
-      </tr>
-    `;
-  }).join("");
-}
+    const gpVal = fields.gp;
+    if (gpVal !== "" && Number.isFinite(Number(gpVal))) {
+      if ((out.type || "") === "trade_goods") out.gpValueMax = safeNum(gpVal, 0);
+      else out.gp = safeNum(gpVal, 0);
+    } else {
+      delete out.gp;
+      delete out.gpValueMax;
+    }
+    return out;
+  }
 
-renderWarehouseRows();
+  function renderWarehouseRows() {
+    const items = runtimeState.state.warehouse.items || [];
+    whTbody.innerHTML = items.map((it, idx) => {
+      const f = itemToFields(it);
+      return `
+        <tr data-idx="${idx}">
+          <td><input class="bm_wh_label" type="text" value="${String(f.label).replace(/"/g, "&quot;")}" /></td>
+          <td><input class="bm_wh_qty" type="number" min="0" step="1" value="${f.qty}" style="max-width:90px;" /></td>
+          <td><input class="bm_wh_gp" type="number" min="0" step="1" value="${f.gp || ""}" placeholder="-" style="max-width:120px;" /></td>
+          <td><input class="bm_wh_notes" type="text" value="${String(f.notes).replace(/"/g, "&quot;")}" placeholder="notes..." /></td>
+          <td style="width:110px;"><button class="bm_del" type="button">Remove</button></td>
+        </tr>
+      `;
+    }).join("");
+  }
 
-document.getElementById("bm_wh_add").addEventListener("click", () => {
-  runtimeState.state.warehouse.items.push({ type: "item", qty: 1, label: "New Item", notes: "" });
   renderWarehouseRows();
-});
 
-
-whTbody.addEventListener("click", (e) => {
-  const btn = e.target.closest(".bm_del");
-  if (!btn) return;
-  const tr = e.target.closest("tr");
-  const idx = safeNum(tr?.dataset?.idx, -1);
-  if (idx >= 0) {
-    runtimeState.state.warehouse.items.splice(idx, 1);
+  document.getElementById("bm_wh_add").addEventListener("click", () => {
+    runtimeState.state.warehouse.items.push({ type: "item", qty: 1, label: "New Item", notes: "" });
     renderWarehouseRows();
-  }
-});
+  });
 
   document.getElementById("bm_wh_save").addEventListener("click", () => {
     const rows = [...whTbody.querySelectorAll("tr")];
+    const items = runtimeState.state.warehouse.items || [];
     const next = [];
+
     for (const r of rows) {
-      const ta = r.querySelector("textarea.bm_item");
-      const parsed = parseJsonSafe(ta.value);
-      if (!parsed) {
-        alert("One warehouse item is invalid JSON. Fix it before saving.");
-        return;
-      }
-      next.push(parsed);
+      const idx = safeNum(r.dataset.idx, -1);
+      const original = items[idx] || { type: "item" };
+
+      const label = r.querySelector(".bm_wh_label")?.value?.trim() || "Item";
+      const qty = r.querySelector(".bm_wh_qty")?.value;
+      const gp = r.querySelector(".bm_wh_gp")?.value;
+      const notes = r.querySelector(".bm_wh_notes")?.value || "";
+
+      next.push(fieldsToItem(original, { label, qty, gp, notes }));
     }
+
     runtimeState.state.warehouse.items = next;
     saveBastionSave(runtimeState);
     alert("Warehouse saved.");
+  });
+
+  whTbody.addEventListener("click", (e) => {
+    const btn = e.target.closest(".bm_del");
+    if (!btn) return;
+    const tr = e.target.closest("tr");
+    const idx = safeNum(tr?.dataset?.idx, -1);
+    if (idx >= 0) {
+      runtimeState.state.warehouse.items.splice(idx, 1);
+      renderWarehouseRows();
+    }
   });
 
   // ----- Top state fields save on change -----
@@ -1010,112 +1001,114 @@ whTbody.addEventListener("click", (e) => {
   const facWrap = document.getElementById("bm_facilities");
 
   function renderFacilities() {
-  facWrap.innerHTML = facilities.map(f => {
-    const lvl = safeNum(f.currentLevel, 0);
-    const lvlData = facilityLevelData(f, lvl);
-    const nextLvl = lvl + 1;
-    const nextData = facilityLevelData(f, nextLvl);
+    facWrap.innerHTML = facilities.map(f => {
+      const lvl = safeNum(f.currentLevel, 0);
+      const lvlData = facilityLevelData(f, lvl);
+      const nextLvl = lvl + 1;
+      const nextData = facilityLevelData(f, nextLvl);
 
-    const underCon = constructions.find(c => c.facilityId === f.id);
-    const isBuilding = !!underCon;
+      const underCon = constructions.find(c => c.facilityId === f.id);
+      const isBuilding = !!underCon;
 
-    const upgradeCost = safeNum(nextData?.construction?.costGP, 0);
-    const upgradeTurns = safeNum(nextData?.construction?.turns, 0);
-    const canUpgrade = nextData && !isBuilding && safeNum(runtimeState.state.treasury.gp,0) >= upgradeCost;
+      const upgradeCost = safeNum(nextData?.construction?.costGP, 0);
+      const upgradeTurns = safeNum(nextData?.construction?.turns, 0);
+      const canUpgrade = nextData && !isBuilding && safeNum(runtimeState.state.treasury.gp, 0) >= upgradeCost;
 
-    const fns = lvlData?.functions || [];
-    const activeOrders = orders.filter(o => o.facilityId === f.id);
+      const fns = lvlData?.functions || [];
+      const activeOrders = orders.filter(o => o.facilityId === f.id);
 
-    return `
-      <div class="card facCard" style="margin-top:12px;">
-        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-          <div style="display:flex; gap:14px; align-items:center;">
-            <img class="facImg" src="${FACILITY_IMG(f.id)}" alt="${f.name}">
-            <div>
-              <h3 style="margin:0;">
-                ${f.mapKey ? `<span class="pill">${f.mapKey}</span> ` : ""}${f.name}
-              </h3>
-              <div class="small muted">Level <b>${lvl}</b> / ${safeNum(f.maxLevel,lvl)}</div>
-              ${lvlData?.label ? `<div class="pill" style="margin-top:8px;">${lvlData.label}</div>` : ""}
-              ${isBuilding ? `<div class="pill" style="margin-top:8px;">Under Construction: <b>Level ${underCon.targetLevel}</b> • ${safeNum(underCon.remainingTurns,0)} turns left</div>` : ""}
+      return `
+        <div class="card facCard" style="margin-top:12px;">
+          <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <div style="display:flex; gap:14px; align-items:center;">
+              <img class="facImg" src="${FACILITY_IMG(f.id)}" alt="${f.name}">
+              <div>
+                <h3 style="margin:0;">
+                  ${f.mapKey ? `<span class="pill">${f.mapKey}</span> ` : ""}${f.name}
+                </h3>
+                <div class="small muted">Level <b>${lvl}</b> / ${safeNum(f.maxLevel,lvl)}</div>
+                ${lvlData?.label ? `<div class="pill" style="margin-top:8px;">${lvlData.label}</div>` : ""}
+                ${isBuilding ? `<div class="pill" style="margin-top:8px;">Under Construction: <b>Level ${underCon.targetLevel}</b> • ${safeNum(underCon.remainingTurns,0)} turns left</div>` : ""}
+              </div>
+            </div>
+
+            <div style="min-width:280px;">
+              <div class="pill">Hirelings: <b>${safeNum(f.staffing?.hirelings, safeNum(f.staffing?.hirelingsBase, 0))}</b></div>
+              <div class="small muted" style="margin-top:8px;">
+                ${(f.staffing?.notes || []).map(n => `• ${n}`).join("<br>")}
+              </div>
             </div>
           </div>
 
-          <div style="min-width:280px;">
-            <div class="pill">Hirelings: <b>${safeNum(f.staffing?.hirelings, safeNum(f.staffing?.hirelingsBase, 0))}</b></div>
-            <div class="small muted" style="margin-top:8px;">
-              ${(f.staffing?.notes || []).map(n => `• ${n}`).join("<br>")}
-            </div>
+          <hr />
+
+          <h4>Benefits</h4>
+          <div class="small muted">
+            ${(lvlData?.benefits || []).map(b => `• ${b}`).join("<br>") || "No benefits listed."}
           </div>
+
+          <hr />
+
+          <h4>Functions</h4>
+          ${fns.length ? `
+            <table class="table">
+              <thead><tr><th>Function</th><th>Duration</th><th>Outputs</th><th>Action</th></tr></thead>
+              <tbody>
+                ${fns.map(fn => {
+                  const active = activeOrders.find(o => o.functionId === fn.id);
+                  const outputs = (fn.outputsToWarehouse || []).length
+                    ? fn.outputsToWarehouse.map(o => `<code>${o.type || "item"}</code>`).join(" ")
+                    : "<span class='small muted'>None</span>";
+
+                  return `
+                    <tr>
+                      <td>
+                        <b>${fn.label}</b><br>
+                        <span class="small muted">${(fn.notes||[]).join(" • ")}</span>
+                      </td>
+                      <td>${safeNum(fn.durationTurns,1)} turn(s)</td>
+                      <td>${outputs}</td>
+                      <td>
+                        ${active
+                          ? `<span class="pill">Active • ${safeNum(active.remainingTurns,0)} left</span>`
+                          : `<button class="bm_startFn" data-fid="${f.id}" data-fnid="${fn.id}">Start</button>`
+                        }
+                      </td>
+                    </tr>
+                  `;
+                }).join("")}
+              </tbody>
+            </table>
+          ` : `<p class="small muted">No functions at this level.</p>`}
+
+          <hr />
+
+          <h4>Upgrade</h4>
+          ${nextData ? `
+            <div class="small muted">Next: <b>${nextData.label || `Level ${nextLvl}`}</b></div>
+
+            <div class="iconLine">
+              <div class="pill iconStat">
+                <img src="${UI_COIN_ICON}" alt="Cost">
+                <b>${upgradeCost}gp</b>
+              </div>
+              <div class="pill iconStat">
+                <img src="${UI_TIMER_ICON}" alt="Time">
+                <b>${upgradeTurns} turns</b>
+              </div>
+            </div>
+
+            <div class="btnRow" style="margin-top:10px;">
+              <button class="bm_upgrade" data-fid="${f.id}" ${canUpgrade ? "" : "disabled"}>Apply Upgrade</button>
+              ${!canUpgrade ? `<span class="small muted">${isBuilding ? "Already building." : (safeNum(runtimeState.state.treasury.gp,0) < upgradeCost ? "Insufficient treasury." : "")}</span>` : ""}
+            </div>
+          ` : `<p class="small muted">No further upgrades (max level).</p>`}
         </div>
+      `;
+    }).join("");
+  }
 
-        <hr />
-
-        <h4>Benefits</h4>
-        <div class="small muted">
-          ${(lvlData?.benefits || []).map(b => `• ${b}`).join("<br>") || "No benefits listed."}
-        </div>
-
-        <hr />
-
-        <h4>Functions</h4>
-        ${fns.length ? `
-          <table class="table">
-            <thead><tr><th>Function</th><th>Duration</th><th>Outputs</th><th>Action</th></tr></thead>
-            <tbody>
-              ${fns.map(fn => {
-                const active = activeOrders.find(o => o.functionId === fn.id);
-                const outputs = (fn.outputsToWarehouse || []).length
-                  ? fn.outputsToWarehouse.map(o => `<code>${o.type || "item"}</code>`).join(" ")
-                  : "<span class='small muted'>None</span>";
-
-                return `
-                  <tr>
-                    <td>
-                      <b>${fn.label}</b><br>
-                      <span class="small muted">${(fn.notes||[]).join(" • ")}</span>
-                    </td>
-                    <td>${safeNum(fn.durationTurns,1)} turn(s)</td>
-                    <td>${outputs}</td>
-                    <td>
-                      ${active
-                        ? `<span class="pill">Active • ${safeNum(active.remainingTurns,0)} left</span>`
-                        : `<button class="bm_startFn" data-fid="${f.id}" data-fnid="${fn.id}">Start</button>`
-                      }
-                    </td>
-                  </tr>
-                `;
-              }).join("")}
-            </tbody>
-          </table>
-        ` : `<p class="small muted">No functions at this level.</p>`}
-
-        <hr />
-
-        <h4>Upgrade</h4>
-        ${nextData ? `
-          <div class="small muted">Next: <b>${nextData.label || `Level ${nextLvl}`}</b></div>
-
-          <div class="iconLine">
-            <div class="pill iconStat">
-              <img src="${UI_COIN_ICON}" alt="Cost">
-              <b>${upgradeCost}gp</b>
-            </div>
-            <div class="pill iconStat">
-              <img src="${UI_TIMER_ICON}" alt="Time">
-              <b>${upgradeTurns} turns</b>
-            </div>
-          </div>
-
-          <div class="btnRow" style="margin-top:10px;">
-            <button class="bm_upgrade" data-fid="${f.id}" ${canUpgrade ? "" : "disabled"}>Apply Upgrade</button>
-            ${!canUpgrade ? `<span class="small muted">${isBuilding ? "Already building." : (safeNum(runtimeState.state.treasury.gp,0) < upgradeCost ? "Insufficient treasury." : "")}</span>` : ""}
-          </div>
-        ` : `<p class="small muted">No further upgrades (max level).</p>`}
-      </div>
-    `;
-  }).join("");
-}
+  renderFacilities();
 
   facWrap.addEventListener("click", (e) => {
     const up = e.target.closest(".bm_upgrade");
@@ -1152,11 +1145,11 @@ whTbody.addEventListener("click", (e) => {
   });
 
   const importBtn = document.getElementById("bm_import_btn");
-  const importFile = document.getElementById("bm_import_file");
-  importBtn.addEventListener("click", () => importFile.click());
+  const importInput = document.getElementById("bm_import_file");
+  importBtn.addEventListener("click", () => importInput.click());
 
-  importFile.addEventListener("change", async () => {
-    const file = importFile.files?.[0];
+  importInput.addEventListener("change", async () => {
+    const file = importInput.files?.[0];
     if (!file) return;
     const text = await file.text();
     const parsed = parseJsonSafe(text);
@@ -1174,7 +1167,7 @@ whTbody.addEventListener("click", (e) => {
 
   // ----- Take Bastion Turn -----
   document.getElementById("bm_takeTurn").addEventListener("click", () => {
-    saveTopFields(); // make sure latest inputs are stored
+    saveTopFields();
     const maintain = !!document.getElementById("bm_maintain").checked;
 
     const result = advanceTurnPipeline(runtimeState, { maintainIssued: maintain });
@@ -1189,36 +1182,8 @@ whTbody.addEventListener("click", (e) => {
     renderBastionManager();
   });
 
-  // Persist after initial render (so turnCount seeds etc)
+  // Persist after initial render
   saveBastionSave(runtimeState);
-}
-
-async function renderEventRoller() {
-  const events = await fetch("./data/bastion-events.json", { cache: "no-store" }).then(r => r.json());
-
-  view.innerHTML = `
-    <h1>Bastion Event Roller (D100)</h1>
-    <button id="rollBtn">Roll d100</button>
-    <div id="result" style="margin-top:14px"></div>
-    <hr />
-    <h2>Event Table</h2>
-    <ul>
-      ${events.map(e => `<li><b>${e.range[0]}–${e.range[1]}:</b> ${e.title}</li>`).join("")}
-    </ul>
-  `;
-
-  const result = document.getElementById("result");
-  document.getElementById("rollBtn").addEventListener("click", () => {
-    const roll = Math.floor(Math.random() * 100) + 1;
-    const ev = events.find(e => roll >= e.range[0] && roll <= e.range[1]);
-    result.innerHTML = `
-      <div class="card" style="background: rgba(18,22,27,.55)">
-        <p class="badge">Rolled: <b>${roll}</b></p>
-        <h2 style="margin-top:8px">${ev?.title || "Unknown Event"}</h2>
-        <p>${ev?.text || ""}</p>
-      </div>
-    `;
-  });
 }
 
 function renderHonourTracker() {
