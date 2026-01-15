@@ -844,7 +844,7 @@ async function renderBastionManager() {
         </div>
       </div>
 
-      <div class="card ${tlClass}">
+      <div class="card treasuryCard ${tlClass}">
         <h2>Treasury</h2>
         <div class="inputRow">
           <label>GP
@@ -862,7 +862,7 @@ async function renderBastionManager() {
     </div>
 
     <div class="grid2" style="margin-top:12px;">
-      <div class="card">
+      <div class="card warehouseCard">
         <h2>Warehouse</h2>
         <p class="small muted">DM editable. Function outputs append here automatically when completed.</p>
         <table class="table">
