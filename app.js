@@ -1603,7 +1603,12 @@ function renderExplorer() {
 
   // ---------- Fullscreen ----------
   function onFullscreen() {
-  const target = fsWrap || stage; // fallback just in case
+  const target = root.querySelector("#explorerFsWrap");
+  if (!target) {
+    alert("Explorer fullscreen wrapper not found (explorerFsWrap).");
+    return;
+  }
+
   if (document.fullscreenElement) {
     document.exitFullscreen?.();
     return;
