@@ -600,3 +600,32 @@ button[disabled]{
 /* Make sure tokens and marquee still sit above map/grid */
 .explorer-fswrap:fullscreen .explorer-tokens{ z-index: 20; }
 .explorer-fswrap:fullscreen .explorer-marquee{ z-index: 30; }
+
+/* Hide UI mode (fullscreen): collapse controls into a small pill */
+.explorer-fswrap:fullscreen.uiHidden .explorer-controls{
+  left: 10px;
+  right: auto;
+  width: auto;
+  max-width: calc(100vw - 20px);
+
+  /* visually smaller */
+  padding: 8px;
+  gap: 8px;
+
+  /* Make it a compact pill */
+  border-radius: 999px;
+}
+
+/* In hidden mode, hide EVERYTHING except the Hide/Show button */
+.explorer-fswrap:fullscreen.uiHidden .explorer-controls > *{
+  display: none !important;
+}
+
+.explorer-fswrap:fullscreen.uiHidden #explorerHideUi{
+  display: inline-flex !important;
+}
+
+/* Make the pill always clickable */
+.explorer-fswrap:fullscreen.uiHidden .explorer-controls{
+  z-index: 60;
+}
