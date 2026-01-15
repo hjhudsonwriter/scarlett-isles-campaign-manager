@@ -836,7 +836,15 @@ async function renderBastionManager() {
         <h2>Warehouse</h2>
         <p class="small muted">DM editable. Function outputs append here automatically when completed.</p>
         <table class="table">
-          <thead><tr><th>Item (JSON)</th><th style="width:110px;">Actions</th></tr></thead>
+          <thead>
+  <tr>
+    <th>Item</th>
+    <th style="width:90px;">Qty</th>
+    <th style="width:120px;">Value (gp)</th>
+    <th>Notes</th>
+    <th style="width:110px;">Actions</th>
+  </tr>
+</thead>
           <tbody id="bm_wh_rows"></tbody>
         </table>
         <div class="btnRow">
@@ -900,37 +908,95 @@ async function renderBastionManager() {
     </div>
   `;
 
-  // ----- Warehouse rows -----
-  const whTbody = document.getElementById("bm_wh_rows");
-  function renderWarehouseRows() {
-    whTbody.innerHTML = runtimeState.state.warehouse.items.map((it, idx) => `
-      <tr data-idx="${idx}">
-        <td>
-          <textarea class="bm_item" style="min-height:72px;">${fmtJSON(it)}</textarea>
-        </td>
-        <td>
-          <button class="bm_del" type="button">Remove</button>
-        </td>
-      </tr>
-    `).join("");
+  // ----- Warehouse rows (clean editor) -----
+const whTbody = document.getElementById("bm_wh_rows");
+
+function itemToFields(it) {
+  // normalize various output shapes into display fields
+  const type = String(it?.type || "item");
+  const qty = safeNum(it?.qty ?? 1, 1);
+  const gp = safeNum(it?.gp ?? it?.gpValueMax ?? it?.valueGPMax ?? 0, 0);
+  const notes = String(it?.notes || it?.note || "");
+  const label =
+    String(it?.label || it?.name || it?.title || it?.key || it?.type || "Item");
+  return { type, qty, gp, notes, label };
+}
+
+function fieldsToItem(original, fields) {
+  const out = { ...(original || {}) };
+  out.type = fields.type || out.type || "item";
+  out.qty = clamp(safeNum(fields.qty, 1), 0, 999999);
+
+  // store gp if present
+  if (fields.gp !== "" && Number.isFinite(Number(fields.gp))) {
+    // keep both gp and gpValueMax depending on type
+    if (out.type === "trade_goods") out.gpValueMax = safeNum(fields.gp, 0);
+    else out.gp = safeNum(fields.gp, 0);
+  } else {
+    delete out.gp;
+    delete out.gpValueMax;
   }
+
+  out.label = fields.label || out.label || "";
+  out.notes = fields.notes || "";
+  return out;
+}
+
+function renderWarehouseRows() {
+  const items = runtimeState.state.warehouse.items || [];
+  whTbody.innerHTML = items.map((it, idx) => {
+    const f = itemToFields(it);
+    return `
+      <tr data-idx="${idx}">
+        <td><input class="bm_wh_label" type="text" value="${f.label.replace(/"/g, "&quot;")}" /></td>
+        <td><input class="bm_wh_qty" type="number" min="0" step="1" value="${f.qty}" style="max-width:90px;" /></td>
+        <td><input class="bm_wh_gp" type="number" min="0" step="1" value="${f.gp || ""}" placeholder="-" style="max-width:120px;" /></td>
+        <td><input class="bm_wh_notes" type="text" value="${f.notes.replace(/"/g, "&quot;")}" placeholder="notes..." /></td>
+        <td style="width:110px;"><button class="bm_del" type="button">Remove</button></td>
+      </tr>
+    `;
+  }).join("");
+}
+
+renderWarehouseRows();
+
+document.getElementById("bm_wh_add").addEventListener("click", () => {
+  runtimeState.state.warehouse.items.push({ type: "item", qty: 1, label: "New Item", notes: "" });
   renderWarehouseRows();
+});
 
-  whTbody.addEventListener("click", (e) => {
-    const btn = e.target.closest(".bm_del");
-    if (!btn) return;
-    const tr = e.target.closest("tr");
-    const idx = safeNum(tr?.dataset?.idx, -1);
-    if (idx >= 0) {
-      runtimeState.state.warehouse.items.splice(idx, 1);
-      renderWarehouseRows();
-    }
-  });
+document.getElementById("bm_wh_save").addEventListener("click", () => {
+  const rows = [...whTbody.querySelectorAll("tr")];
+  const items = runtimeState.state.warehouse.items || [];
+  const next = [];
 
-  document.getElementById("bm_wh_add").addEventListener("click", () => {
-    runtimeState.state.warehouse.items.push({ type: "note", qty: 1, notes: "New item" });
+  for (const r of rows) {
+    const idx = safeNum(r.dataset.idx, -1);
+    const original = items[idx] || {};
+
+    const label = r.querySelector(".bm_wh_label")?.value?.trim() || "Item";
+    const qty = r.querySelector(".bm_wh_qty")?.value;
+    const gp = r.querySelector(".bm_wh_gp")?.value;
+    const notes = r.querySelector(".bm_wh_notes")?.value || "";
+
+    next.push(fieldsToItem(original, { label, qty, gp, notes, type: original.type || "item" }));
+  }
+
+  runtimeState.state.warehouse.items = next;
+  saveBastionSave(runtimeState);
+  alert("Warehouse saved.");
+});
+
+whTbody.addEventListener("click", (e) => {
+  const btn = e.target.closest(".bm_del");
+  if (!btn) return;
+  const tr = e.target.closest("tr");
+  const idx = safeNum(tr?.dataset?.idx, -1);
+  if (idx >= 0) {
+    runtimeState.state.warehouse.items.splice(idx, 1);
     renderWarehouseRows();
-  });
+  }
+});
 
   document.getElementById("bm_wh_save").addEventListener("click", () => {
     const rows = [...whTbody.querySelectorAll("tr")];
