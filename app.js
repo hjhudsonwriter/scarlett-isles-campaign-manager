@@ -386,8 +386,28 @@ async function renderHero(activeId) {
 
 // ---------- Tools ----------
 // ---------- Bastion Manager (Ironbow) ----------
-const BASTION_CONFIG_PATH = "./data/bastion.json";
-const BASTION_STORE_KEY = "bastion.ironbow.v1";
+// ---------- Bastion specs (safe switcher) ----------
+const BASTION_SPEC_V1_PATH = "./data/bastion.json"; // current working spec
+const BASTION_SPEC_V1_1_PATH = "./data/ironbow_bastion_v1_1.json"; // new additive spec
+
+const BASTION_SPEC_CHOICE_KEY = "bastion.ironbow.specChoice"; // local device
+function getBastionSpecChoice() {
+  const v = localStorage.getItem(BASTION_SPEC_CHOICE_KEY);
+  return (v === "v1_1") ? "v1_1" : "v1";
+}
+function setBastionSpecChoice(choice) {
+  localStorage.setItem(BASTION_SPEC_CHOICE_KEY, (choice === "v1_1") ? "v1_1" : "v1");
+}
+function getBastionConfigPath() {
+  return getBastionSpecChoice() === "v1_1" ? BASTION_SPEC_V1_1_PATH : BASTION_SPEC_V1_PATH;
+}
+function getBastionStoreKey() {
+  // keep saves separate so v1.1 can't mess with your working v1 save
+  return getBastionSpecChoice() === "v1_1" ? "bastion.ironbow.v1_1" : "bastion.ironbow.v1";
+}
+// -----------------------------------------------
+// NOTE: dynamic store key based on selected spec
+const BASTION_STORE_KEY = getBastionStoreKey();
 const UI_COIN_ICON = "./assets/ui/coin.svg";
 const UI_TIMER_ICON = "./assets/ui/timer.svg";
 // Facility images (match your actual filenames in /assets/facilities/)
@@ -783,8 +803,9 @@ async function renderBastionManager() {
   // Load config
   let config;
   try {
-    const res = await fetch(BASTION_CONFIG_PATH, { cache: "no-store" });
-    if (!res.ok) throw new Error(`Could not load ${BASTION_CONFIG_PATH}`);
+    const configPath = getBastionConfigPath();
+const res = await fetch(configPath, { cache: "no-store" });
+    if (!res.ok) throw new Error(`Could not load ${configPath}`);
     config = await res.json();
   } catch (e) {
     view.innerHTML = `<h1>Bastion Manager</h1><p class="badge">Error loading bastion.json</p><pre>${String(e)}</pre>`;
@@ -818,6 +839,14 @@ async function renderBastionManager() {
 
     <div class="card">
       <h2>${mapTitle}</h2>
+        <div class="pill" style="margin-top:10px;">
+    <span class="small muted">Spec:</span>
+    <select id="bm_specSelect" style="margin-left:10px;">
+      <option value="v1">v1 (current)</option>
+      <option value="v1_1">v1.1 (new)</option>
+    </select>
+    <span class="small muted" style="margin-left:10px;">(v1 is your safe default)</span>
+  </div>
       ${mapPath
         ? `<img src="${mapPath}" alt="${mapTitle}" style="width:100%;border-radius:18px;border:1px solid var(--border);">`
         : `<p class="small">No mapImage.defaultPath set.</p>`
@@ -1217,6 +1246,18 @@ async function renderBastionManager() {
     renderBastionManager();
   });
 
+    // ----- Spec selector (safe) -----
+  const specSelect = document.getElementById("bm_specSelect");
+  if (specSelect) {
+    specSelect.value = getBastionSpecChoice();
+    specSelect.addEventListener("change", () => {
+      setBastionSpecChoice(specSelect.value);
+
+      // IMPORTANT: refresh the page view so the new loader + store key apply cleanly
+      alert("Spec switched. Reloading Bastion Manager...");
+      renderBastionManager();
+    });
+  }
   // Persist after initial render
   saveBastionSave(runtimeState);
 }
