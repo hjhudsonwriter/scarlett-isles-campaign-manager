@@ -2298,40 +2298,52 @@ drag.lastTargetAx = targetAx;
       const hexesMoved = hexDistance(drag.startAxial, endAx);
       const milesMoved = Math.round(hexesMoved * 6);
 
-      const usedBefore = Number(anchorTok.milesUsed) || 0;
-      const usedAfter = usedBefore + milesMoved;
+      // Apply miles to ALL moved tokens (drag.ids), not just the anchor
+const movedIds = Array.isArray(drag?.ids) ? drag.ids : [anchorTok.id];
 
-      // If this move would exceed 30 miles, revert to start positions
-      if (usedAfter > 30) {
-        const { w, h } = stageDims();
+// Check if any moved token would exceed 30
+let wouldExceed = false;
+movedIds.forEach(tokId => {
+  const tok = getTokenById(tokId);
+  if (!tok) return;
+  const before = Number(tok.milesUsed) || 0;
+  const after = before + milesMoved;
+  if (after > 30) wouldExceed = true;
+});
 
-        // Revert pixels to startTokens (works for both snap and free)
-        drag.startTokens.forEach(st => {
-          const tok = getTokenById(st.id);
-          if (!tok) return;
+if (wouldExceed) {
+  const { w, h } = stageDims();
 
-          const clampedX = explorerClamp(st.startX, 0, Math.max(0, w - st.size));
-          const clampedY = explorerClamp(st.startY, 0, Math.max(0, h - st.size));
-          const n = pxToNorm(clampedX, clampedY);
-          tok.x = n.x;
-          tok.y = n.y;
+  // Revert everyone in the move
+  drag.startTokens.forEach(st => {
+    const tok = getTokenById(st.id);
+    if (!tok) return;
 
-          // If we had axial recorded, restore it too (snap mode uses this)
-          const a = drag.startAxials?.get(st.id);
-          if (a) tok.axial = { q: a.q, r: a.r };
-        });
+    const clampedX = explorerClamp(st.startX, 0, Math.max(0, w - st.size));
+    const clampedY = explorerClamp(st.startY, 0, Math.max(0, h - st.size));
+    const n = pxToNorm(clampedX, clampedY);
+    tok.x = n.x;
+    tok.y = n.y;
 
-        setNotice("Too far. That move would exceed 30 miles. Make Camp to reset.");
-        drag = null;
-        rerenderAll();
-        return;
-      }
+    const a = drag.startAxials?.get(st.id);
+    if (a) tok.axial = { q: a.q, r: a.r };
+  });
 
-      // Commit miles
-      anchorTok.milesUsed = usedAfter;
-      travelFocusId = anchorTok.id;
-    }
-  }
+  setNotice("Too far. One or more heroes would exceed 30 miles. Make Camp to reset.");
+  drag = null;
+  rerenderAll();
+  return;
+}
+
+// Commit miles to everyone who moved
+movedIds.forEach(tokId => {
+  const tok = getTokenById(tokId);
+  if (!tok) return;
+  tok.milesUsed = (Number(tok.milesUsed) || 0) + milesMoved;
+});
+
+// Keep the travel focus on the token you grabbed
+travelFocusId = anchorTok.id;
 
   drag = null;
   saveNow();
