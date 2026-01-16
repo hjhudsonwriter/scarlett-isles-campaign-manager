@@ -1,0 +1,1278 @@
+{
+  "meta": {
+    "schemaVersion": "scarlettisles.bastion.v1",
+    "name": "The Ironbow",
+    "type": "island_bastion",
+    "mapImage": {
+      "title": "The Ironbow Island Bastion",
+      "source_filecite": "turn2file0",
+      "defaultPath": "assets/bastions/ironbow/map.png"
+    },
+    "rulesSource": {
+      "name": "DMG 2024 Bastion Rules",
+      "source_filecite": "turn3file0",
+      "bastionTurnDays": 7,
+      "specialFacilitiesByLevel": [
+        {
+          "level": 5,
+          "specialFacilitiesTotal": 2
+        },
+        {
+          "level": 9,
+          "specialFacilitiesTotal": 4
+        },
+        {
+          "level": 13,
+          "specialFacilitiesTotal": 5
+        },
+        {
+          "level": 17,
+          "specialFacilitiesTotal": 6
+        }
+      ]
+    },
+    "schemaMinor": "v1.1-additive",
+    "lastUpdated": "2026-01-16"
+  },
+  "state": {
+    "playerLevel": 4,
+    "bastionReputation": 1,
+    "reputationEffects": {
+      "2": {
+        "label": "Respected",
+        "upkeepMultiplier": 0.9,
+        "notes": [
+          "Bonus positive event roll eligibility",
+          "Shared passage priority"
+        ]
+      },
+      "1": {
+        "label": "Stable",
+        "upkeepMultiplier": 1.0,
+        "notes": [
+          "Normal operations"
+        ]
+      },
+      "0": {
+        "label": "Strained",
+        "upkeepMultiplier": 1.1,
+        "notes": [
+          "+10% upkeep next turn",
+          "Minor delays"
+        ]
+      },
+      "-1": {
+        "label": "Troubled",
+        "upkeepMultiplier": 1.0,
+        "notes": [
+          "One facility benefit suspended (DM choice or lowest-tier)"
+        ]
+      },
+      "-2": {
+        "label": "Failing",
+        "upkeepMultiplier": 1.0,
+        "notes": [
+          "Patron intervention event is forced next event roll"
+        ]
+      }
+    },
+    "treasury": {
+      "gp": 0,
+      "trafficLightConfig": {
+        "note": "Computed from (treasury - nextUpkeep).",
+        "greenIfRemainingGPGreaterOrEqualTo": {
+          "turns": 2
+        },
+        "amberIfRemainingGPGreaterOrEqualTo": {
+          "turns": 1
+        },
+        "redOtherwise": true
+      }
+    },
+    "warehouse": {
+      "items": [],
+      "editable": true,
+      "note": "Facility outputs are appended automatically when completed; DM can edit/remove."
+    },
+    "ordersInProgress": [],
+    "constructionInProgress": [],
+    "bastionTurnCount": 0,
+    "roster": {
+      "hirelings": {
+        "computedFromFacilities": true,
+        "manualAdjustments": 0,
+        "editable": true,
+        "notes": "Computed hirelings = sum of facility hirelings at currentLevel (hirelingsByLevel or hirelings). Add manual adjustments for deaths/hires outside facilities."
+      },
+      "defenders": {
+        "count": 0,
+        "editable": true,
+        "capacity": {
+          "sourceFacilityId": "barracks_D",
+          "byLevel": {
+            "0": 0,
+            "1": 12,
+            "2": 12,
+            "3": 25
+          }
+        },
+        "notes": "Defenders are housed by Barracks capacity. DM may edit for combat losses."
+      }
+    },
+    "artisanTools": {
+      "slots": 6,
+      "equipped": [],
+      "availablePresets": [
+        "Alchemist's Supplies",
+        "Brewer's Supplies",
+        "Carpenter's Tools",
+        "Leatherworker's Tools",
+        "Mason's Tools",
+        "Smith's Tools"
+      ],
+      "notes": "Equipped list holds up to 6 artisan tool sets available to the Workshop."
+    }
+  },
+  "economy": {
+    "upkeepPhases": [
+      {
+        "id": "phase1_subsidised",
+        "label": "Subsidised Stewardship",
+        "recommendedLevels": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "partyPaysFlatGPPertTurn": 35,
+        "patronSubsidyNarrative": {
+          "min": 40,
+          "max": 60
+        },
+        "notes": [
+          "Early-game scaled; reflects shared stewardship model."
+        ]
+      },
+      {
+        "id": "phase2_shared",
+        "label": "Shared Responsibility",
+        "recommendedLevels": [
+          6,
+          7,
+          8
+        ],
+        "partyPaysFlatGPPertTurn": 55,
+        "notes": [
+          "Subsidy reduced; more staff/maintenance as facilities expand."
+        ]
+      },
+      {
+        "id": "phase3_independent",
+        "label": "Independent Bastion",
+        "recommendedLevels": [
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20
+        ],
+        "partyPaysFlatGPPertTurn": 100,
+        "notes": [
+          "No subsidy; full operational burden."
+        ]
+      }
+    ],
+    "activeUpkeepPhaseId": "phase1_subsidised",
+    "upkeepComputation": {
+      "mode": "flat_per_turn_with_rep_multiplier",
+      "notes": [
+        "Compute base upkeep from active phase flat cost.",
+        "Multiply by reputationEffects[bastionReputation].upkeepMultiplier where applicable.",
+        "Round up to nearest whole GP."
+      ]
+    }
+  },
+  "travel": {
+    "model": "shared_access_passage",
+    "description": "Patron-operated manned cutter provides scheduled passage to/from the island. Party does not command vessel.",
+    "rules": {
+      "requiresNotice": true,
+      "standardNoticeTurns": 1,
+      "weatherCanDelay": true,
+      "noUnilateralNavalCombat": true,
+      "noPiracy": true
+    },
+    "tiers": [
+      {
+        "id": "tier0_basic",
+        "label": "Basic Shared Passage",
+        "unlockedBy": {
+          "dockLevelAtLeast": 1
+        },
+        "effect": [
+          "Scheduled pickup/dropoff",
+          "Cargo limited to essentials"
+        ]
+      },
+      {
+        "id": "tier1_reliable",
+        "label": "Reliable Scheduling",
+        "unlockedBy": {
+          "dockLevelAtLeast": 2
+        },
+        "effect": [
+          "Reduced delay chance",
+          "Bulk goods possible",
+          "Priority for medical/urgent transport"
+        ]
+      },
+      {
+        "id": "tier2_priority",
+        "label": "Priority Passage",
+        "unlockedBy": {
+          "dockLevelAtLeast": 2,
+          "bastionReputationAtLeast": 2
+        },
+        "effect": [
+          "Emergency pickup once per story arc",
+          "Faster response window"
+        ]
+      },
+      {
+        "id": "tier3_ownership_unlock",
+        "label": "Ship Ownership Eligible",
+        "unlockedBy": {
+          "dockLevelAtLeast": 3,
+          "playerLevelAtLeast": 7
+        },
+        "effect": [
+          "DM may offer a vessel as a separate mobile bastion",
+          "Add ship asset under travel.assets"
+        ]
+      }
+    ],
+    "assets": []
+  },
+  "facilities": [
+    {
+      "id": "dock_A",
+      "mapKey": "A",
+      "name": "Dock",
+      "type": "custom_infrastructure",
+      "currentLevel": 1,
+      "maxLevel": 3,
+      "staffing": {
+        "hirelings": 0,
+        "notes": [
+          "Managed by general hands; staffing included in base upkeep."
+        ]
+      },
+      "levels": {
+        "1": {
+          "label": "Stabilised Landing",
+          "construction": {
+            "costGP": 0,
+            "turns": 0
+          },
+          "benefits": [
+            "Safe mooring posts",
+            "Predictable unloading",
+            "Unlocks Travel Tier 0"
+          ],
+          "functions": [
+            {
+              "id": "dock_handling",
+              "label": "Cargo Handling",
+              "orderType": "maintain_support",
+              "durationTurns": 1,
+              "outputsToWarehouse": [],
+              "notes": [
+                "Operational support; no automatic item output."
+              ]
+            }
+          ]
+        },
+        "2": {
+          "label": "Proper Dock",
+          "construction": {
+            "costGP": 300,
+            "turns": 3
+          },
+          "benefits": [
+            "Small pier",
+            "Storage shed",
+            "Unlocks Travel Tier 1"
+          ],
+          "functions": [
+            {
+              "id": "dock_trade_intake",
+              "label": "Trade Intake",
+              "orderType": "trade",
+              "durationTurns": 1,
+              "costGP": 0,
+              "outputsToWarehouse": [
+                {
+                  "type": "trade_goods",
+                  "valueGPMax": 250,
+                  "qty": 1
+                }
+              ],
+              "notes": [
+                "DM may pick trade goods; useful for upkeep offsets or upgrades."
+              ]
+            }
+          ]
+        },
+        "3": {
+          "label": "Island Harbour",
+          "construction": {
+            "costGP": 700,
+            "turns": 7
+          },
+          "benefits": [
+            "Harbour arms",
+            "Repairs possible",
+            "Unlocks Travel Tier 3 eligibility"
+          ],
+          "functions": [
+            {
+              "id": "dock_charter_income",
+              "label": "Charter Berth",
+              "orderType": "trade",
+              "durationTurns": 1,
+              "outputsToWarehouse": [
+                {
+                  "type": "coin",
+                  "gp": "1d6*25"
+                }
+              ],
+              "notes": [
+                "Represents docking fees/charters; DM can veto if fiction disallows."
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "watchtower_B",
+      "mapKey": "B",
+      "name": "Watchtower",
+      "type": "custom_infrastructure",
+      "currentLevel": 1,
+      "maxLevel": 3,
+      "staffing": {
+        "hirelings": 0,
+        "notes": [
+          "Operated by lookouts/wardens in base staff."
+        ]
+      },
+      "levels": {
+        "1": {
+          "label": "Reinforced Watchtower",
+          "construction": {
+            "costGP": 0,
+            "turns": 0
+          },
+          "benefits": [
+            "Early warning",
+            "Signal platform"
+          ],
+          "functions": [
+            {
+              "id": "watch_patrols",
+              "label": "Extended Patrols",
+              "orderType": "research",
+              "durationTurns": 1,
+              "outputsToWarehouse": [
+                {
+                  "type": "intel_report",
+                  "qty": 1
+                }
+              ],
+              "notes": [
+                "Creates a DM note: threat/rumour/location within local waters."
+              ]
+            }
+          ]
+        },
+        "2": {
+          "label": "Fortified Tower",
+          "construction": {
+            "costGP": 300,
+            "turns": 3
+          },
+          "benefits": [
+            "Arrow slits",
+            "Reinforced door",
+            "Island counts as defended"
+          ],
+          "functions": [
+            {
+              "id": "watch_counterintelligence",
+              "label": "Spot Infiltrators",
+              "orderType": "research",
+              "durationTurns": 1,
+              "outputsToWarehouse": [
+                {
+                  "type": "intel_report",
+                  "qty": 1
+                }
+              ],
+              "notes": [
+                "If an Attack/Criminal event occurs, DM may grant advantage/mitigation."
+              ]
+            }
+          ]
+        },
+        "3": {
+          "label": "Command Bastion",
+          "construction": {
+            "costGP": 600,
+            "turns": 6
+          },
+          "benefits": [
+            "Command room",
+            "Signal line to patron",
+            "Aid request once per story arc"
+          ],
+          "functions": [
+            {
+              "id": "request_aid",
+              "label": "Request Aid (1/Arc)",
+              "orderType": "recruit",
+              "durationTurns": 1,
+              "limits": {
+                "perStoryArc": 1
+              },
+              "outputsToWarehouse": [
+                {
+                  "type": "aid_token",
+                  "qty": 1
+                }
+              ],
+              "notes": [
+                "Aid token represents DM-approved assistance (guards, supplies, transport)."
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "armory_C",
+      "mapKey": "C",
+      "name": "Armoury / Armory",
+      "type": "dmg24_special_facility_armory_plus_custom_tiers",
+      "currentLevel": 1,
+      "maxLevel": 3,
+      "staffing": {
+        "hirelingsBase": 1,
+        "hirelingsByLevel": {
+          "1": 1,
+          "2": 1,
+          "3": 2
+        }
+      },
+      "dmg24": {
+        "facilityName": "Armory",
+        "orderType": "trade",
+        "notes": [
+          "Stock Armory costs 100 GP + 100 GP per Bastion Defender; halved if Smithy exists."
+        ]
+      },
+      "levels": {
+        "1": {
+          "label": "Functional Armoury",
+          "construction": {
+            "costGP": 0,
+            "turns": 0
+          },
+          "benefits": [
+            "Mundane repairs",
+            "Readiness"
+          ],
+          "functions": [
+            {
+              "id": "stock_armory",
+              "label": "Stock Armory",
+              "orderType": "trade",
+              "durationTurns": 1,
+              "dynamicCost": {
+                "baseGP": 100,
+                "perDefenderGP": 100,
+                "halvedIfFacilityPresent": "smithy",
+                "halvedIfAnyFacilityPresent": [
+                  "smithy",
+                  "workshop_E"
+                ],
+                "usesDefendersFrom": {
+                  "statePath": "state.roster.defenders.count"
+                },
+                "deductFrom": {
+                  "statePath": "state.treasury.gp"
+                },
+                "blockIfInsufficientTreasury": true
+              },
+              "outputsToWarehouse": [
+                {
+                  "type": "armory_stocked",
+                  "qty": 1
+                }
+              ],
+              "notes": [
+                "While stocked, defender-loss dice become d8 instead of d6 on Attack events."
+              ]
+            }
+          ]
+        },
+        "2": {
+          "label": "Expanded Armoury",
+          "construction": {
+            "costGP": 350,
+            "turns": 4
+          },
+          "benefits": [
+            "Secure lockups",
+            "Training space"
+          ],
+          "functions": [
+            {
+              "id": "tool_issue",
+              "label": "Issue Specialist Kit",
+              "orderType": "craft",
+              "durationTurns": 1,
+              "costGP": 25,
+              "outputsToWarehouse": [
+                {
+                  "type": "tool_kit",
+                  "name": "Specialist Kit",
+                  "qty": 1
+                }
+              ],
+              "notes": [
+                "DM chooses kit: climbing, trap tools, disguise kit, etc."
+              ]
+            }
+          ]
+        },
+        "3": {
+          "label": "Arsenal",
+          "construction": {
+            "costGP": 700,
+            "turns": 8
+          },
+          "benefits": [
+            "Custom gear capability",
+            "Outfitting allies"
+          ],
+          "functions": [
+            {
+              "id": "custom_order",
+              "label": "Custom Gear Order",
+              "orderType": "craft",
+              "durationTurns": 2,
+              "costGP": 100,
+              "outputsToWarehouse": [
+                {
+                  "type": "custom_gear",
+                  "qty": 1
+                }
+              ],
+              "notes": [
+                "Represents a DM-approved nonmagical upgrade or bespoke item."
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "barracks_D",
+      "mapKey": "D",
+      "name": "Barracks / Barrack",
+      "type": "dmg24_special_facility_barrack_plus_custom_tiers",
+      "currentLevel": 0,
+      "maxLevel": 3,
+      "staffing": {
+        "hirelingsBase": 1,
+        "hirelingsByLevel": {
+          "0": 0,
+          "1": 1,
+          "2": 1,
+          "3": 2
+        }
+      },
+      "dmg24": {
+        "facilityName": "Barrack",
+        "orderType": "recruit",
+        "capacity": {
+          "roomy": 12,
+          "vast": 25
+        },
+        "recruitment": {
+          "defendersPerOrderMax": 4,
+          "costGP": 0,
+          "durationTurns": 1
+        }
+      },
+      "levels": {
+        "0": {
+          "label": "No Barracks",
+          "construction": {
+            "costGP": 0,
+            "turns": 0
+          },
+          "benefits": [],
+          "functions": []
+        },
+        "1": {
+          "label": "Barracks (Roomy)",
+          "construction": {
+            "costGP": 200,
+            "turns": 3
+          },
+          "benefits": [
+            "Houses up to 12 Bastion Defenders"
+          ],
+          "functions": [
+            {
+              "id": "recruit_defenders",
+              "label": "Recruit Bastion Defenders",
+              "orderType": "recruit",
+              "durationTurns": 1,
+              "costGP": 0,
+              "outputsToWarehouse": [],
+              "notes": [
+                "Adds up to 4 defenders to roster, if capacity remains."
+              ],
+              "rosterEffects": [
+                {
+                  "type": "defenders_add",
+                  "amount": "1d4",
+                  "capBy": {
+                    "facilityId": "barracks_D",
+                    "capacityByLevelPath": "capacityByLevel"
+                  },
+                  "targetStatePath": "state.roster.defenders.count",
+                  "notes": "Add 1\u20134 defenders if capacity remains."
+                }
+              ]
+            }
+          ]
+        },
+        "2": {
+          "label": "Drilled Barracks",
+          "construction": {
+            "costGP": 400,
+            "turns": 5
+          },
+          "benefits": [
+            "Improved readiness",
+            "Defender losses mitigated narratively"
+          ],
+          "functions": [
+            {
+              "id": "recruit_defenders_II",
+              "label": "Recruit + Drill",
+              "orderType": "recruit",
+              "durationTurns": 1,
+              "costGP": 0,
+              "notes": [
+                "Recruit as normal; also grants +1 to Bastion Reputation if Maintain is used next turn."
+              ],
+              "rosterEffects": [
+                {
+                  "type": "defenders_add",
+                  "amount": "1d4",
+                  "capBy": {
+                    "facilityId": "barracks_D",
+                    "capacityByLevelPath": "capacityByLevel"
+                  },
+                  "targetStatePath": "state.roster.defenders.count",
+                  "notes": "Add 1\u20134 defenders if capacity remains."
+                }
+              ]
+            }
+          ]
+        },
+        "3": {
+          "label": "Standing Garrison (Vast)",
+          "construction": {
+            "costGP": 800,
+            "turns": 9
+          },
+          "benefits": [
+            "Houses up to 25 defenders",
+            "Patrol coverage"
+          ],
+          "functions": [
+            {
+              "id": "garrison_patrol",
+              "label": "Garrison Patrols",
+              "orderType": "maintain_support",
+              "durationTurns": 1,
+              "notes": [
+                "Reduces chance of negative events by DM discretion when Maintain is issued."
+              ]
+            }
+          ]
+        }
+      },
+      "defendersRoster": {
+        "defenders": [],
+        "maxCapacityDerivedFromLevel": true
+      },
+      "capacityByLevel": {
+        "0": 0,
+        "1": 12,
+        "2": 12,
+        "3": 25
+      }
+    },
+    {
+      "id": "workshop_E",
+      "mapKey": "E",
+      "name": "Workshop",
+      "type": "dmg24_special_facility_workshop_plus_custom_tiers",
+      "currentLevel": 1,
+      "maxLevel": 3,
+      "staffing": {
+        "hirelingsBase": 3,
+        "hirelingsByLevel": {
+          "1": 3,
+          "2": 4,
+          "3": 5
+        }
+      },
+      "dmg24": {
+        "facilityName": "Workshop",
+        "orderType": "craft",
+        "hirelingsRoomy": 3,
+        "hirelingsVast": 5,
+        "notes": [
+          "Workshop provides Heroic Inspiration after an entire Short Rest in it.",
+          "Comes with artisan tools; Vast adds more tools and hirelings."
+        ]
+      },
+      "levels": {
+        "1": {
+          "label": "Workshop (Roomy)",
+          "construction": {
+            "costGP": 0,
+            "turns": 0
+          },
+          "benefits": [
+            "Craft adventuring gear",
+            "Short rest: Heroic Inspiration"
+          ],
+          "functions": [
+            {
+              "id": "craft_adventuring_gear",
+              "label": "Craft: Adventuring Gear",
+              "orderType": "craft",
+              "durationTurns": 1,
+              "costGP": 0,
+              "outputsToWarehouse": [
+                {
+                  "type": "crafted_item",
+                  "qty": 1
+                }
+              ],
+              "notes": [
+                "DM chooses item; limited to available tools & reasonable nonmagical gear."
+              ]
+            }
+          ]
+        },
+        "2": {
+          "label": "Enhanced Workshop",
+          "construction": {
+            "costGP": 300,
+            "turns": 4
+          },
+          "benefits": [
+            "Additional tools",
+            "Faster repairs"
+          ],
+          "functions": [
+            {
+              "id": "craft_consumables",
+              "label": "Craft: Ammunition & Supplies",
+              "orderType": "craft",
+              "durationTurns": 1,
+              "costGP": 10,
+              "outputsToWarehouse": [
+                {
+                  "type": "consumables_bundle",
+                  "qty": 1
+                }
+              ],
+              "notes": [
+                "Arrows/bolts, rope, rations, torches etc (bundle)."
+              ]
+            },
+            {
+              "id": "craft_magic_item_placeholder",
+              "label": "Craft: Magic Item (Placeholder)",
+              "orderType": "craft",
+              "durationTurns": 2,
+              "costGP": 50,
+              "requires": {
+                "workshopLevelAtLeast": 2
+              },
+              "inputs": [
+                {
+                  "type": "tool_selection_required",
+                  "fromStatePath": "state.artisanTools"
+                }
+              ],
+              "outputsToWarehouse": [
+                {
+                  "type": "magic_item_placeholder",
+                  "qty": 1
+                }
+              ],
+              "notes": [
+                "Placeholder until you add dropdown lists of eligible magic items.",
+                "DM decides the item; treat as a magic item crafting order."
+              ]
+            }
+          ]
+        },
+        "3": {
+          "label": "Vast Workshop",
+          "construction": {
+            "costGP": 600,
+            "turns": 7
+          },
+          "benefits": [
+            "Equivalent to Vast facility",
+            "More hirelings & tools"
+          ],
+          "functions": [
+            {
+              "id": "craft_two_orders",
+              "label": "Parallel Crafting (Special)",
+              "orderType": "special",
+              "durationTurns": 1,
+              "notes": [
+                "Optional rule: allow 2 craft queues if you want; otherwise ignore."
+              ]
+            }
+          ]
+        }
+      },
+      "crafting": {
+        "modes": [
+          {
+            "id": "adventuring_gear",
+            "label": "Adventuring Gear"
+          },
+          {
+            "id": "magic_item",
+            "label": "Magic Item (Placeholder)"
+          }
+        ],
+        "requiresToolSelection": true,
+        "toolSlotsPath": "state.artisanTools"
+      }
+    }
+  ],
+  "facilitySlots": {
+    "model": "dmg24_special_facilities_limit_with_custom_infrastructure_exceptions",
+    "notes": [
+      "DMG'24: special facilities are gained by level (2 at level 5, 4 at 9, 5 at 13, 6 at 17).",
+      "The Ironbow's Dock/Watchtower are treated as custom infrastructure and do not consume DMG special-facility slots unless you choose to."
+    ],
+    "specialFacilitySlotTotalsByPlayerLevel": [
+      {
+        "minLevel": 1,
+        "maxLevel": 4,
+        "slots": 0
+      },
+      {
+        "minLevel": 5,
+        "maxLevel": 8,
+        "slots": 2
+      },
+      {
+        "minLevel": 9,
+        "maxLevel": 12,
+        "slots": 4
+      },
+      {
+        "minLevel": 13,
+        "maxLevel": 16,
+        "slots": 5
+      },
+      {
+        "minLevel": 17,
+        "maxLevel": 20,
+        "slots": 6
+      }
+    ]
+  },
+  "turnSystem": {
+    "turnName": "Bastion Turn",
+    "turnLengthDays": 7,
+    "takeTurnButtonLabel": "Take Bastion Turn",
+    "onTakeTurn": [
+      "calculateNextUpkeep",
+      "applyUpkeepIfConfigured",
+      "advanceConstructionTimers",
+      "advanceOrderTimers",
+      "resolveCompletedOutputsToWarehouse",
+      "ifMaintainIssuedThenRollEvent"
+    ],
+    "upkeep": {
+      "autoDeductFromTreasury": true,
+      "ifInsufficientFunds": {
+        "deductToZero": false,
+        "setFlag": "upkeep_unpaid",
+        "effects": [
+          "bastionReputation-1 (optional)",
+          "oneFacilitySuspendedNextTurn (if repeated)"
+        ]
+      }
+    }
+  },
+  "events": {
+    "frequency": "monthly",
+    "definition": "Roll once every 4 Bastion Turns, or whenever the Maintain order is issued (DM choice).",
+    "d100Table": [
+      {
+        "range": [
+          1,
+          40
+        ],
+        "key": "ALL_IS_WELL",
+        "label": "All Is Well",
+        "effects": [],
+        "notes": "Minor flavour detail; no mechanical change."
+      },
+      {
+        "range": [
+          41,
+          46
+        ],
+        "key": "ISLAND_WEAR",
+        "label": "Island Wear & Tear",
+        "effects": [
+          {
+            "type": "future_upkeep_add",
+            "gp": 10,
+            "durationTurns": 1
+          }
+        ],
+        "notes": "Minor repairs required next turn unless fixed via Workshop."
+      },
+      {
+        "range": [
+          47,
+          52
+        ],
+        "key": "FRIENDLY_VISITORS",
+        "label": "Friendly Visitors",
+        "effects": [
+          {
+            "type": "treasury_gain",
+            "gp": "1d6*50"
+          }
+        ],
+        "notes": "Visitors pay for short use of a facility (DMG-inspired)."
+      },
+      {
+        "range": [
+          53,
+          56
+        ],
+        "key": "GUEST",
+        "label": "Guest of Note",
+        "effects": [
+          {
+            "type": "warehouse_add",
+            "item": {
+              "type": "letter_or_gift",
+              "qty": 1
+            }
+          }
+        ],
+        "notes": "Guest stay generates gift or recommendation."
+      },
+      {
+        "range": [
+          57,
+          60
+        ],
+        "key": "REFUGEES",
+        "label": "Refugees Seek Shelter",
+        "effects": [
+          {
+            "type": "treasury_gain",
+            "gp": "1d6*50"
+          }
+        ],
+        "notes": "Requires space; can camp near Service Clearing."
+      },
+      {
+        "range": [
+          61,
+          66
+        ],
+        "key": "REQUEST_FOR_AID",
+        "label": "Request for Aid",
+        "effects": [
+          {
+            "type": "skill_challenge",
+            "outcome": "reward_or_loss"
+          }
+        ],
+        "notes": "Send defenders; success yields gp; failure may lose a defender."
+      },
+      {
+        "range": [
+          67,
+          71
+        ],
+        "key": "CRIMINAL_HIRELING",
+        "label": "Criminal Hireling Exposed",
+        "effects": [
+          {
+            "type": "choice",
+            "options": [
+              "pay_bribe_1d6x100",
+              "lose_hireling_next_turn_facility_disabled"
+            ]
+          },
+          {
+            "type": "hirelings_loss_choice",
+            "options": [
+              {
+                "label": "Pay bribe",
+                "costGP": "1d6*100"
+              },
+              {
+                "label": "Dismiss hireling",
+                "hirelingsDelta": -1,
+                "targetStatePath": "state.roster.hirelings.manualAdjustments"
+              }
+            ]
+          }
+        ],
+        "notes": "Directly from DMG-style event."
+      },
+      {
+        "range": [
+          72,
+          76
+        ],
+        "key": "LOST_HIRELINGS",
+        "label": "Lost Hirelings",
+        "effects": [
+          {
+            "type": "facility_disabled_random",
+            "durationTurns": 1
+          },
+          {
+            "type": "hirelings_loss",
+            "amount": 1,
+            "targetStatePath": "state.roster.hirelings.manualAdjustments",
+            "notes": "Subtract 1 hireling via manualAdjustments (negative). DM may instead disable a facility."
+          }
+        ],
+        "notes": "One facility cannot be used next turn; replaced after."
+      },
+      {
+        "range": [
+          77,
+          82
+        ],
+        "key": "MAGICAL_DISCOVERY",
+        "label": "Magical Discovery",
+        "effects": [
+          {
+            "type": "warehouse_add",
+            "item": {
+              "type": "magic_consumable",
+              "rarity": "uncommon",
+              "qty": 1
+            }
+          }
+        ],
+        "notes": "Potion or scroll as per DMG-inspired rule."
+      },
+      {
+        "range": [
+          83,
+          87
+        ],
+        "key": "EXTRAORDINARY_OPPORTUNITY",
+        "label": "Extraordinary Opportunity",
+        "effects": [
+          {
+            "type": "choice",
+            "options": [
+              "pay_500_and_roll_again",
+              "decline_no_effect"
+            ]
+          }
+        ],
+        "notes": "DMG-inspired."
+      },
+      {
+        "range": [
+          88,
+          92
+        ],
+        "key": "COASTAL_THREAT",
+        "label": "Coastal Threat Spotted",
+        "effects": [
+          {
+            "type": "bastionReputation_change",
+            "delta": "+/-1 (DM based on response)"
+          }
+        ],
+        "notes": "Smugglers, raiders, or sea predators; Watchtower functions mitigate."
+      },
+      {
+        "range": [
+          93,
+          96
+        ],
+        "key": "ATTACK",
+        "label": "Attack",
+        "effects": [
+          {
+            "type": "attack_resolution",
+            "roll": "6d6_ones_kill_defenders",
+            "ifNoDefenders": "random_facility_disabled_1_turn"
+          },
+          {
+            "type": "defenders_loss",
+            "method": "roll_ones",
+            "dice": "6d6",
+            "loseOn": 1,
+            "targetStatePath": "state.roster.defenders.count",
+            "notes": "For each 1 rolled, a defender is lost (cannot reduce below 0)."
+          }
+        ],
+        "notes": "DMG-inspired."
+      },
+      {
+        "range": [
+          97,
+          99
+        ],
+        "key": "TREASURE",
+        "label": "Treasure",
+        "effects": [
+          {
+            "type": "warehouse_add",
+            "item": {
+              "type": "treasure",
+              "table": "dmg_art_or_magic",
+              "qty": 1
+            }
+          }
+        ],
+        "notes": "DMG-inspired."
+      },
+      {
+        "range": [
+          100,
+          100
+        ],
+        "key": "PIVOTAL_CHANGE",
+        "label": "Pivotal Change",
+        "effects": [
+          {
+            "type": "story_flag",
+            "flag": "island_status_changed"
+          }
+        ],
+        "notes": "Permanent change: new ally, new threat, new route, or political consequence."
+      }
+    ]
+  },
+  "facilityCatalog": [
+    {
+      "id": "smithy",
+      "name": "Smithy",
+      "category": "special",
+      "minPlayerLevel": 5,
+      "buildCostGP": 400,
+      "buildTurns": 4,
+      "notes": [
+        "Halves Armory Stock cost."
+      ]
+    },
+    {
+      "id": "library",
+      "name": "Library",
+      "category": "special",
+      "minPlayerLevel": 5,
+      "buildCostGP": 300,
+      "buildTurns": 3,
+      "notes": [
+        "Research orders; lore and intel."
+      ]
+    },
+    {
+      "id": "garden",
+      "name": "Garden",
+      "category": "special",
+      "minPlayerLevel": 5,
+      "buildCostGP": 250,
+      "buildTurns": 2,
+      "notes": [
+        "Herbs, healing supplies."
+      ]
+    },
+    {
+      "id": "chapel",
+      "name": "Chapel",
+      "category": "special",
+      "minPlayerLevel": 9,
+      "buildCostGP": 500,
+      "buildTurns": 4,
+      "notes": [
+        "Rites, sanctuary."
+      ]
+    },
+    {
+      "id": "stable",
+      "name": "Stable",
+      "category": "special",
+      "minPlayerLevel": 9,
+      "buildCostGP": 450,
+      "buildTurns": 4,
+      "notes": [
+        "Mount housing, travel logistics."
+      ]
+    },
+    {
+      "id": "vault",
+      "name": "Vault",
+      "category": "special",
+      "minPlayerLevel": 13,
+      "buildCostGP": 800,
+      "buildTurns": 6,
+      "notes": [
+        "Secure storage, treasury protection."
+      ]
+    }
+  ],
+  "facilitySlotsComputed": {
+    "usePlayerLevelPath": "state.playerLevel",
+    "specialSlotsByLevelTablePath": "facilitySlots.specialFacilitySlotTotalsByPlayerLevel",
+    "notes": "UI can compute current special facility slots for the Build dropdown UI."
+  }
+}
