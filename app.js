@@ -1401,8 +1401,9 @@ function renderExplorer() {
     </div>
 
     <div class="explorer-travelRight">
-      <button class="btn" id="explorerMakeCamp" type="button">Make Camp</button>
-    </div>
+  <button class="btn ghost" id="explorerResetTravel" type="button">Reset Travel</button>
+  <button class="btn" id="explorerMakeCamp" type="button">Make Camp</button>
+</div>
   </div>
 </div>
 </div> <!-- end explorer-fswrap -->
@@ -2005,7 +2006,7 @@ btnMakeCamp.addEventListener("click", () => {
   // Re-enable movement after camp
   tokenLayer.style.pointerEvents = "";
 });
-btnResetTravel.addEventListener("click", () => {
+btnResetTravel?.addEventListener("click", () => {
   const ok = confirm("Reset travel back to Day 1 and clear miles used for today?");
   if (!ok) return;
 
@@ -2251,14 +2252,15 @@ drag.lastTargetAx = targetAx;
 });
   
   function onTokenPointerUp() {
-  if (drag.startAxial) {
+  if (!drag) return;
 
-  // Compute miles used from anchor movement in hexes (snap OR free)
-if (drag.startAxial) {
+  // If we have a starting hex, compute miles used from anchor movement (snap OR free)
+  if (drag.startAxial) {
     const anchorTok = getTokenById(drag.anchorId);
+
     if (anchorTok) {
       const px = normToPx(anchorTok.x, anchorTok.y);
-      const center = { x: px.x + anchorTok.size/2, y: px.y + anchorTok.size/2 };
+      const center = { x: px.x + anchorTok.size / 2, y: px.y + anchorTok.size / 2 };
       const endAx = axialRound(pixelToAxial(center.x, center.y));
 
       const hexesMoved = hexDistance(drag.startAxial, endAx);
@@ -2267,26 +2269,25 @@ if (drag.startAxial) {
       const usedBefore = Number(state.travel.milesUsed) || 0;
       const usedAfter = usedBefore + milesMoved;
 
+      // If this move would exceed 30 miles, revert to start positions
       if (usedAfter > 30) {
-        if (drag.startAxials) {
-          const { w, h } = stageDims();
-          drag.ids.forEach(tokId => {
-            const tok = getTokenById(tokId);
-            const startA = drag.startAxials.get(tokId);
-            if (!tok || !startA) return;
+        const { w, h } = stageDims();
 
-            const p = axialToPixel(startA.q, startA.r);
-            const topLeft = { x: p.x - tok.size/2, y: p.y - tok.size/2 };
-            const clamped = {
-              x: explorerClamp(topLeft.x, 0, Math.max(0, w - tok.size)),
-              y: explorerClamp(topLeft.y, 0, Math.max(0, h - tok.size))
-            };
-            const n = pxToNorm(clamped.x, clamped.y);
-            tok.x = n.x;
-            tok.y = n.y;
-            tok.axial = startA;
-          });
-        }
+        // Revert pixels to startTokens (works for both snap and free)
+        drag.startTokens.forEach(st => {
+          const tok = getTokenById(st.id);
+          if (!tok) return;
+
+          const clampedX = explorerClamp(st.startX, 0, Math.max(0, w - st.size));
+          const clampedY = explorerClamp(st.startY, 0, Math.max(0, h - st.size));
+          const n = pxToNorm(clampedX, clampedY);
+          tok.x = n.x;
+          tok.y = n.y;
+
+          // If we had axial recorded, restore it too (snap mode uses this)
+          const a = drag.startAxials?.get(st.id);
+          if (a) tok.axial = { q: a.q, r: a.r };
+        });
 
         setNotice("Too far. That move would exceed 30 miles. Make Camp to reset.");
         drag = null;
@@ -2294,6 +2295,7 @@ if (drag.startAxial) {
         return;
       }
 
+      // Commit miles
       state.travel.milesUsed = usedAfter;
     }
   }
@@ -2302,6 +2304,7 @@ if (drag.startAxial) {
   saveNow();
   rerenderAll();
 
+  // Lock movement if max reached
   if ((Number(state.travel.milesUsed) || 0) >= 30) {
     tokenLayer.style.pointerEvents = "none";
     setNotice("Max distance reached (30 miles). Make Camp to reset.");
