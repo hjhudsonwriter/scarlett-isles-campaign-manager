@@ -1622,57 +1622,63 @@ function updateTravelUI() {
   }
 
   function drawHexGrid() {
-    resizeGridCanvas();
-    const ctx = gridCanvas.getContext("2d");
-    const { w, h } = stageDims();
+  resizeGridCanvas();
+  const ctx = gridCanvas.getContext("2d");
+  const { w, h } = stageDims();
 
-    ctx.clearRect(0, 0, w, h);
-    if (!state.grid.enabled) return;
+  ctx.clearRect(0, 0, w, h);
+  if (!state.grid.enabled) return;
 
-    const r = explorerClamp(Number(state.grid.r) || 38, 10, 220);
-    const opacity = explorerClamp(Number(state.grid.opacity) || 0.35, 0, 1);
+  const r = hexSize();
+  const opacity = explorerClamp(Number(state.grid.opacity) || 0.35, 0, 1);
 
-    const hexW = Math.sqrt(3) * r;      // pointy-top width
-    const hexH = 2 * r;                 // pointy-top height
-    const stepY = 1.5 * r;              // vertical spacing
-    const stepX = hexW;                 // horizontal spacing
+  ctx.globalAlpha = opacity;
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(231,231,234,0.9)";
 
-    const offX = Number(state.grid.offsetX) || 0;
-    const offY = Number(state.grid.offsetY) || 0;
+  // We will iterate axial coords that cover the visible area.
+  // Convert viewport corners to axial range (with padding) and draw each hex by axialToPixel.
+  const pad = 3;
 
-    ctx.globalAlpha = opacity;
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = "rgba(231,231,234,0.9)";
+  const aTL = pixelToAxial(0, 0);
+  const aTR = pixelToAxial(w, 0);
+  const aBL = pixelToAxial(0, h);
+  const aBR = pixelToAxial(w, h);
 
-    // Start a bit off-screen so offsets don’t leave gaps
-    const startY = -hexH + offY;
-    const endY = h + hexH;
+  const rs = [aTL.r, aTR.r, aBL.r, aBR.r];
+  const rMin = Math.floor(Math.min(...rs)) - pad;
+  const rMax = Math.ceil(Math.max(...rs)) + pad;
 
-    let row = 0;
-    for (let cy = startY; cy <= endY; cy += stepY) {
-      const rowOffsetX = (row % 2 === 0) ? 0 : (stepX / 2);
-      const startX = -hexW + offX + rowOffsetX;
-      const endX = w + hexW;
+  // q range is trickier because q shifts with r, so we overshoot a bit
+  const qs = [aTL.q, aTR.q, aBL.q, aBR.q];
+  const qMin0 = Math.floor(Math.min(...qs)) - pad - 6;
+  const qMax0 = Math.ceil(Math.max(...qs)) + pad + 6;
 
-      for (let cx = startX; cx <= endX; cx += stepX) {
-        // Draw pointy-top hex
-        ctx.beginPath();
-        for (let i = 0; i < 6; i++) {
-          const angle = (Math.PI / 180) * (60 * i - 30);
-          const x = cx + r * Math.cos(angle);
-          const y = cy + r * Math.sin(angle);
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        ctx.stroke();
-      }
-
-      row++;
+  // draw function for a single hex at center (cx, cy)
+  function strokeHex(cx, cy) {
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI / 180) * (60 * i - 30); // pointy-top
+      const x = cx + r * Math.cos(angle);
+      const y = cy + r * Math.sin(angle);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
     }
-
-    ctx.globalAlpha = 1;
+    ctx.closePath();
+    ctx.stroke();
   }
+
+  for (let rr = rMin; rr <= rMax; rr++) {
+    for (let qq = qMin0; qq <= qMax0; qq++) {
+      const p = axialToPixel(qq, rr);
+      // quick reject: if center is far offscreen, skip
+      if (p.x < -2 * r || p.x > w + 2 * r || p.y < -2 * r || p.y > h + 2 * r) continue;
+      strokeHex(p.x, p.y);
+    }
+  }
+
+  ctx.globalAlpha = 1;
+}
 
   function renderTokens() {
   tokenLayer.innerHTML = "";
@@ -2117,6 +2123,7 @@ btnMakeCamp.addEventListener("click", () => {
     drag.anchorId = id; // the token you grabbed
 drag.startAxial = null;
 drag.startAxials = null;
+    drag.lastTargetAx = null;
 
 // If snap is enabled, record starting axial coords for all dragged tokens
 if (state.snap.enabled) {
@@ -2169,6 +2176,11 @@ if (anchorTok) {
 }
 
 const targetAx = axialRound(pixelToAxial(tx, ty));
+    // Don’t reapply positions if we’re still in the same target hex
+if (drag.lastTargetAx && drag.lastTargetAx.q === targetAx.q && drag.lastTargetAx.r === targetAx.r) {
+  return;
+}
+drag.lastTargetAx = targetAx;
 
     // Hex delta from start
     const dq = targetAx.q - drag.startAxial.q;
