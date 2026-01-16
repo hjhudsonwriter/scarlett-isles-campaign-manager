@@ -1385,7 +1385,7 @@ function renderExplorer() {
       <div class="explorer-travelLine">
         <strong id="explorerDayLabel">Day 1</strong>
         <span class="muted tiny">•</span>
-        <span class="tiny">Miles: <strong id="explorerMilesUsed">0</strong>/30</span>
+        <span class="tiny">Miles (selected): <strong id="explorerMilesUsed">0</strong>/30</span>
         <span class="muted tiny">•</span>
         <span class="tiny">Remaining: <strong id="explorerMilesLeft">30</strong></span>
       </div>
@@ -1398,6 +1398,7 @@ function renderExplorer() {
         <span class="muted">•</span>
         <span id="explorerNotice" class="tiny" style="opacity:.9"></span>
       </div>
+      <div id="explorerMilesList" class="explorer-milesList"></div>
     </div>
 
     <div class="explorer-travelRight">
@@ -1420,6 +1421,7 @@ function renderExplorer() {
 const dayLabel = root.querySelector("#explorerDayLabel");
 const milesUsedEl = root.querySelector("#explorerMilesUsed");
 const milesLeftEl = root.querySelector("#explorerMilesLeft");
+  const milesListEl = root.querySelector("#explorerMilesList");
 const modeEl = root.querySelector("#explorerMode");
 const effectsEl = root.querySelector("#explorerEffects");
 const noticeEl = root.querySelector("#explorerNotice");
@@ -1488,6 +1490,7 @@ if (saved.travel) state.travel = { ...state.travel, ...saved.travel };
 
   // Drag state must exist BEFORE first renderTokens() call
   let drag = null;
+  let travelFocusId = state.tokens[0]?.id || null;
 
   function saveNow() {
     explorerSave({
@@ -1597,7 +1600,9 @@ function hexDistance(a, b) {
 }
 
 function updateTravelUI() {
-  const used = explorerClamp(Number(state.travel.milesUsed) || 0, 0, 30);
+  const focus = state.tokens.find(t => t.id === travelFocusId) || state.tokens[0];
+
+  const used = explorerClamp(Number(focus?.milesUsed) || 0, 0, 30);
   const left = 30 - used;
 
   if (dayLabel) dayLabel.textContent = `Day ${state.travel.day || 1}`;
@@ -1608,9 +1613,32 @@ function updateTravelUI() {
   if (modeEl) modeEl.textContent = t.mode;
   if (effectsEl) effectsEl.textContent = t.effects;
 
-  // Lock movement if max reached
-  const locked = used >= 30;
-  tokenLayer.style.pointerEvents = locked ? "none" : "";
+  // Render per-hero list
+  if (milesListEl) {
+    milesListEl.innerHTML = state.tokens.map(tok => {
+      const u = explorerClamp(Number(tok.milesUsed) || 0, 0, 30);
+      const isFocus = tok.id === travelFocusId;
+      const done = u >= 30;
+
+      return `
+        <button type="button"
+          class="milesPill ${isFocus ? "isFocus" : ""} ${done ? "isDone" : ""}"
+          data-id="${tok.id}">
+          ${tok.initial} <strong>${u}</strong>/30
+        </button>
+      `;
+    }).join("");
+
+    milesListEl.querySelectorAll(".milesPill").forEach(btn => {
+      btn.addEventListener("click", () => {
+        travelFocusId = btn.dataset.id;
+        updateTravelUI();
+      });
+    });
+  }
+
+  // IMPORTANT: do NOT globally lock all tokens anymore
+  tokenLayer.style.pointerEvents = "";
 }
 
   function resizeGridCanvas() {
@@ -1998,26 +2026,27 @@ window.addEventListener("keydown", onKeyToggleUi);
   // ---------- Make Camp ----------
 btnMakeCamp.addEventListener("click", () => {
   state.travel.day = (Number(state.travel.day) || 1) + 1;
-  state.travel.milesUsed = 0;
-  saveNow();
-  updateTravelUI();
-  setNotice("");
 
-  // Re-enable movement after camp
-  tokenLayer.style.pointerEvents = "";
+  // reset ALL heroes for the new day
+  state.tokens.forEach(t => t.milesUsed = 0);
+
+  saveNow();
+  setNotice("");
+  updateTravelUI();
 });
+
 btnResetTravel?.addEventListener("click", () => {
-  const ok = confirm("Reset travel back to Day 1 and clear miles used for today?");
+  const ok = confirm("Reset travel back to Day 1 and clear miles for ALL heroes?");
   if (!ok) return;
 
   state.travel.day = 1;
-  state.travel.milesUsed = 0;
+  state.tokens.forEach(t => t.milesUsed = 0);
+
   setNotice("");
   saveNow();
   updateTravelUI();
-
-  tokenLayer.style.pointerEvents = "";
 });
+
   // ---------- Selection + dragging ----------
   function getTokenById(id) {
     return state.tokens.find(t => t.id === id);
@@ -2135,6 +2164,8 @@ btnResetTravel?.addEventListener("click", () => {
 
     drag = { start, ids: dragIds, startTokens };
     drag.anchorId = id; // the token you grabbed
+    travelFocusId = id;
+    updateTravelUI();
 // Always record starting axial coords for miles tracking (snap OR free)
 drag.startAxial = null;
 drag.startAxials = new Map();
@@ -2171,7 +2202,8 @@ drag.ids.forEach(tokId => {
   if (!drag) return;
 
   // If max travel reached, block movement
-  if ((Number(state.travel.milesUsed) || 0) >= 30) return;
+  const anchor = getTokenById(drag.anchorId);
+if ((Number(anchor?.milesUsed) || 0) >= 30) return;
 
   const now = stagePointFromEvent(e);
   const { w, h } = stageDims();
@@ -2266,7 +2298,7 @@ drag.lastTargetAx = targetAx;
       const hexesMoved = hexDistance(drag.startAxial, endAx);
       const milesMoved = Math.round(hexesMoved * 6);
 
-      const usedBefore = Number(state.travel.milesUsed) || 0;
+      const usedBefore = Number(anchorTok.milesUsed) || 0;
       const usedAfter = usedBefore + milesMoved;
 
       // If this move would exceed 30 miles, revert to start positions
@@ -2296,7 +2328,8 @@ drag.lastTargetAx = targetAx;
       }
 
       // Commit miles
-      state.travel.milesUsed = usedAfter;
+      anchorTok.milesUsed = usedAfter;
+      travelFocusId = anchorTok.id;
     }
   }
 
@@ -2305,10 +2338,9 @@ drag.lastTargetAx = targetAx;
   rerenderAll();
 
   // Lock movement if max reached
-  if ((Number(state.travel.milesUsed) || 0) >= 30) {
-    tokenLayer.style.pointerEvents = "none";
-    setNotice("Max distance reached (30 miles). Make Camp to reset.");
-  }
+  if ((Number(anchorTok?.milesUsed) || 0) >= 30) {
+  setNotice(`${anchorTok.initial} has reached 30 miles. Make Camp to reset.`);
+}
 }
 
 tokenLayer.addEventListener("pointerup", onTokenPointerUp);
