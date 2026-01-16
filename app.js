@@ -198,7 +198,7 @@ async function loadMarkdown(file) {
 }
 
 function showError(err) {
-  view.innerHTML = `;
+  view.innerHTML = `
     <h1>Page couldn’t load</h1>
     <p><small>${String(err)}</small></p>
     <hr />
@@ -1307,7 +1307,7 @@ function renderExplorer() {
   }
 
   // Build UI
-  view.innerHTML = `;
+  view.innerHTML = `
     <div class="explorer-wrap">
       <div class="explorer-head">
         <div>
@@ -1421,12 +1421,7 @@ const milesLeftEl = root.querySelector("#explorerMilesLeft");
 const modeEl = root.querySelector("#explorerMode");
 const effectsEl = root.querySelector("#explorerEffects");
 const noticeEl = root.querySelector("#explorerNotice");
-  function setNotice(msg) {
-  if (!noticeEl) return;
-  noticeEl.textContent = msg || "";
-}
 const btnMakeCamp = root.querySelector("#explorerMakeCamp");
-
   function setNotice(msg) {
   if (!noticeEl) return;
   noticeEl.textContent = msg || "";
@@ -1613,10 +1608,6 @@ function updateTravelUI() {
   // Lock movement if max reached
   const locked = used >= 30;
   tokenLayer.style.pointerEvents = locked ? "none" : "";
-  if (locked) {
-    // stage marquee still works but token dragging is blocked
-    // optionally show subtle hint:
-    // (we won't spam alerts here)
 }
 
   function resizeGridCanvas() {
@@ -1691,7 +1682,12 @@ function updateTravelUI() {
   const groups = new Map();
   if (state.snap.enabled) {
     state.tokens.forEach(t => {
-      if (!t.axial) return;
+      if (!t.axial) {
+  const px = normToPx(t.x, t.y);
+  const cx = px.x + t.size/2;
+  const cy = px.y + t.size/2;
+  t.axial = axialRound(pixelToAxial(cx, cy));
+}
       const key = `${t.axial.q},${t.axial.r}`;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(t);
