@@ -198,7 +198,7 @@ async function loadMarkdown(file) {
 }
 
 function showError(err) {
-  view.innerHTML = `
+  view.innerHTML = `;
     <h1>Page couldn’t load</h1>
     <p><small>${String(err)}</small></p>
     <hr />
@@ -1420,7 +1420,11 @@ const milesUsedEl = root.querySelector("#explorerMilesUsed");
 const milesLeftEl = root.querySelector("#explorerMilesLeft");
 const modeEl = root.querySelector("#explorerMode");
 const effectsEl = root.querySelector("#explorerEffects");
-const noticeEl = root.querySelector("#explorerNotice");  
+const noticeEl = root.querySelector("#explorerNotice");
+  function setNotice(msg) {
+  if (!noticeEl) return;
+  noticeEl.textContent = msg || "";
+}
 const btnMakeCamp = root.querySelector("#explorerMakeCamp");
 
   function setNotice(msg) {
