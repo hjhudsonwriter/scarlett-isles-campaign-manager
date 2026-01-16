@@ -671,3 +671,29 @@ button[disabled]{
 .explorer-fswrap.uiHidden:fullscreen .explorer-travel{
   display: block !important;
 }
+.explorer-milesList{
+  margin-top:8px;
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.milesPill{
+  border:1px solid var(--border);
+  background: rgba(18,22,27,.65);
+  color: var(--text);
+  border-radius:999px;
+  padding:6px 10px;
+  cursor:pointer;
+  font-size:12px;
+}
+
+.milesPill strong{ margin-left:6px; }
+
+.milesPill.isFocus{
+  outline:2px solid rgba(200,160,60,.55);
+}
+
+.milesPill.isDone{
+  opacity:.7;
+}
