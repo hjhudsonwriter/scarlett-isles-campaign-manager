@@ -2286,7 +2286,6 @@ drag.lastTargetAx = targetAx;
   function onTokenPointerUp() {
   if (!drag) return;
 
-  // If we have a starting hex, compute miles used from anchor movement (snap OR free)
   if (drag.startAxial) {
     const anchorTok = getTokenById(drag.anchorId);
 
@@ -2298,61 +2297,61 @@ drag.lastTargetAx = targetAx;
       const hexesMoved = hexDistance(drag.startAxial, endAx);
       const milesMoved = Math.round(hexesMoved * 6);
 
-      // Apply miles to ALL moved tokens (drag.ids), not just the anchor
-const movedIds = Array.isArray(drag?.ids) ? drag.ids : [anchorTok.id];
+      const movedIds = Array.isArray(drag?.ids) ? drag.ids : [anchorTok.id];
 
-// Check if any moved token would exceed 30
-let wouldExceed = false;
-movedIds.forEach(tokId => {
-  const tok = getTokenById(tokId);
-  if (!tok) return;
-  const before = Number(tok.milesUsed) || 0;
-  const after = before + milesMoved;
-  if (after > 30) wouldExceed = true;
-});
+      // Check if any moved token would exceed 30
+      let wouldExceed = false;
+      for (const tokId of movedIds) {
+        const tok = getTokenById(tokId);
+        if (!tok) continue;
+        const before = Number(tok.milesUsed) || 0;
+        const after = before + milesMoved;
+        if (after > 30) { wouldExceed = true; break; }
+      }
 
-if (wouldExceed) {
-  const { w, h } = stageDims();
+      if (wouldExceed) {
+        const { w, h } = stageDims();
 
-  // Revert everyone in the move
-  drag.startTokens.forEach(st => {
-    const tok = getTokenById(st.id);
-    if (!tok) return;
+        // Revert everyone in the move
+        drag.startTokens.forEach(st => {
+          const tok = getTokenById(st.id);
+          if (!tok) return;
 
-    const clampedX = explorerClamp(st.startX, 0, Math.max(0, w - st.size));
-    const clampedY = explorerClamp(st.startY, 0, Math.max(0, h - st.size));
-    const n = pxToNorm(clampedX, clampedY);
-    tok.x = n.x;
-    tok.y = n.y;
+          const clampedX = explorerClamp(st.startX, 0, Math.max(0, w - st.size));
+          const clampedY = explorerClamp(st.startY, 0, Math.max(0, h - st.size));
+          const n = pxToNorm(clampedX, clampedY);
+          tok.x = n.x;
+          tok.y = n.y;
 
-    const a = drag.startAxials?.get(st.id);
-    if (a) tok.axial = { q: a.q, r: a.r };
-  });
+          const a = drag.startAxials?.get(st.id);
+          if (a) tok.axial = { q: a.q, r: a.r };
+        });
 
-  setNotice("Too far. One or more heroes would exceed 30 miles. Make Camp to reset.");
-  drag = null;
-  rerenderAll();
-  return;
-}
+        setNotice("Too far. One or more heroes would exceed 30 miles. Make Camp to reset.");
+        drag = null;
+        rerenderAll();
+        return;
+      }
 
-// Commit miles to everyone who moved
-movedIds.forEach(tokId => {
-  const tok = getTokenById(tokId);
-  if (!tok) return;
-  tok.milesUsed = (Number(tok.milesUsed) || 0) + milesMoved;
-});
+      // Commit miles to everyone who moved
+      for (const tokId of movedIds) {
+        const tok = getTokenById(tokId);
+        if (!tok) continue;
+        tok.milesUsed = (Number(tok.milesUsed) || 0) + milesMoved;
+      }
 
-// Keep the travel focus on the token you grabbed
-travelFocusId = anchorTok.id;
+      travelFocusId = anchorTok.id;
+
+      // Optional notice if the anchor hits max
+      if ((Number(anchorTok.milesUsed) || 0) >= 30) {
+        setNotice(`${anchorTok.initial} has reached 30 miles. Make Camp to reset.`);
+      }
+    }
+  }
 
   drag = null;
   saveNow();
   rerenderAll();
-
-  // Lock movement if max reached
-  if ((Number(anchorTok?.milesUsed) || 0) >= 30) {
-  setNotice(`${anchorTok.initial} has reached 30 miles. Make Camp to reset.`);
-}
 }
 
 tokenLayer.addEventListener("pointerup", onTokenPointerUp);
