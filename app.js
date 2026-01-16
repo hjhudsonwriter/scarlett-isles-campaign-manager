@@ -1266,14 +1266,15 @@ function explorerHeroInitial(title) {
 function explorerDefaultState() {
   // Normalised positions so fullscreen/resizes don’t break placement
   const tokens = HEROES.map((h, i) => ({
-    id: h.id,
-    name: h.title,
-    initial: explorerHeroInitial(h.title),
-    x: 0.12 + (i * 0.07),   // just a nice starting spread
-    y: 0.18 + (i * 0.06),
-    size: 46,
-    groupId: null
-  }));
+  id: h.id,
+  name: h.title,
+  initial: explorerHeroInitial(h.title),
+  x: 0.12 + (i * 0.07),
+  y: 0.18 + (i * 0.06),
+  size: 46,
+  groupId: null,
+  milesUsed: 0
+}));
 
   return {
     mapDataUrl: null,
@@ -1422,6 +1423,7 @@ const modeEl = root.querySelector("#explorerMode");
 const effectsEl = root.querySelector("#explorerEffects");
 const noticeEl = root.querySelector("#explorerNotice");
 const btnMakeCamp = root.querySelector("#explorerMakeCamp");
+  const btnResetTravel = root.querySelector("#explorerResetTravel");
   function setNotice(msg) {
   if (!noticeEl) return;
   noticeEl.textContent = msg || "";
@@ -2003,7 +2005,18 @@ btnMakeCamp.addEventListener("click", () => {
   // Re-enable movement after camp
   tokenLayer.style.pointerEvents = "";
 });
+btnResetTravel.addEventListener("click", () => {
+  const ok = confirm("Reset travel back to Day 1 and clear miles used for today?");
+  if (!ok) return;
 
+  state.travel.day = 1;
+  state.travel.milesUsed = 0;
+  setNotice("");
+  saveNow();
+  updateTravelUI();
+
+  tokenLayer.style.pointerEvents = "";
+});
   // ---------- Selection + dragging ----------
   function getTokenById(id) {
     return state.tokens.find(t => t.id === id);
@@ -2121,25 +2134,29 @@ btnMakeCamp.addEventListener("click", () => {
 
     drag = { start, ids: dragIds, startTokens };
     drag.anchorId = id; // the token you grabbed
+// Always record starting axial coords for miles tracking (snap OR free)
 drag.startAxial = null;
-drag.startAxials = null;
-    drag.lastTargetAx = null;
+drag.startAxials = new Map();
+drag.lastTargetAx = null;
 
-// If snap is enabled, record starting axial coords for all dragged tokens
-if (state.snap.enabled) {
-  const anchorTok = getTokenById(drag.anchorId);
+const anchorTok = getTokenById(drag.anchorId);
+if (anchorTok) {
   const anchorPx = normToPx(anchorTok.x, anchorTok.y);
-  const anchorCenter = { x: anchorPx.x + anchorTok.size/2, y: anchorPx.y + anchorTok.size/2 };
+  const anchorCenter = {
+    x: anchorPx.x + anchorTok.size / 2,
+    y: anchorPx.y + anchorTok.size / 2
+  };
   drag.startAxial = axialRound(pixelToAxial(anchorCenter.x, anchorCenter.y));
-
-  drag.startAxials = new Map();
-  drag.ids.forEach(tokId => {
-    const tok = getTokenById(tokId);
-    const px = normToPx(tok.x, tok.y);
-    const c = { x: px.x + tok.size/2, y: px.y + tok.size/2 };
-    drag.startAxials.set(tokId, axialRound(pixelToAxial(c.x, c.y)));
-  });
 }
+
+// Record starting axial for every dragged token (used for snap-group movement)
+drag.ids.forEach(tokId => {
+  const tok = getTokenById(tokId);
+  if (!tok) return;
+  const px = normToPx(tok.x, tok.y);
+  const c = { x: px.x + tok.size / 2, y: px.y + tok.size / 2 };
+  drag.startAxials.set(tokId, axialRound(pixelToAxial(c.x, c.y)));
+});
    try {
   // Pointer capture is helpful but can throw InvalidStateError in some cases.
   // If it fails, dragging still works because we also listen on window pointerup.
@@ -2234,10 +2251,10 @@ drag.lastTargetAx = targetAx;
 });
   
   function onTokenPointerUp() {
-  if (!drag) return;
+  if (drag.startAxial) {
 
-  // SNAP MODE: compute miles used from anchor movement in hexes
-  if (state.snap.enabled && drag.startAxial) {
+  // Compute miles used from anchor movement in hexes (snap OR free)
+if (drag.startAxial) {
     const anchorTok = getTokenById(drag.anchorId);
     if (anchorTok) {
       const px = normToPx(anchorTok.x, anchorTok.y);
