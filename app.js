@@ -473,23 +473,125 @@ function rollDie(sides) {
 }
 
 // Supports strings like "1d6*25", "2d4+3", "1d100"
-function rollDiceExpr(expr) {
-  if (typeof expr !== "string") return 0;
-  const cleaned = expr.replace(/\s+/g, "");
+// ---------- Bastion v1.1 helpers (safe, additive) ----------
 
-  // handle NdM optionally followed by *K and/or +K
-  // e.g. 1d6*25, 2d4+3
-  const m = cleaned.match(/^(\d+)d(\d+)(\*(\d+))?(\+(\d+))?$/i);
-  if (!m) return 0;
+function getFacilityById(runtimeState, id) {
+  return (runtimeState?.facilities || []).find(f => f.id === id) || null;
+}
 
-  const count = safeNum(m[1], 1);
-  const sides = safeNum(m[2], 6);
-  const mult = m[4] ? safeNum(m[4], 1) : 1;
-  const add = m[6] ? safeNum(m[6], 0) : 0;
+function getFacilityLevel(runtimeState, id) {
+  const f = getFacilityById(runtimeState, id);
+  return f ? safeNum(f.currentLevel, 0) : 0;
+}
 
-  let sum = 0;
-  for (let i=0; i<count; i++) sum += rollDie(sides);
-  return sum * mult + add;
+function hasFacility(runtimeState, id, minLevel = 1) {
+  return getFacilityLevel(runtimeState, id) >= minLevel;
+}
+
+// Barracks capacity mapping: level -> max defenders
+// Spec says (0/12/12/25). We'll interpret as:
+// level 0 => 0
+// level 1 => 12
+// level 2 => 12
+// level 3+ => 25
+function getBarracksCapacity(runtimeState) {
+  const lvl = getFacilityLevel(runtimeState, "barracks");
+  if (lvl <= 0) return 0;
+  if (lvl === 1) return 12;
+  if (lvl === 2) return 12;
+  return 25;
+}
+
+function ensureRosterState(runtimeState) {
+  runtimeState.state.roster = runtimeState.state.roster || {};
+
+  // defenders
+  runtimeState.state.roster.defenders = runtimeState.state.roster.defenders || {};
+  if (!Number.isFinite(Number(runtimeState.state.roster.defenders.count))) {
+    runtimeState.state.roster.defenders.count = 0;
+  }
+
+  // hirelings (computed + manual adjustment)
+  runtimeState.state.roster.hirelings = runtimeState.state.roster.hirelings || {};
+  if (!Number.isFinite(Number(runtimeState.state.roster.hirelings.manualAdjustment))) {
+    runtimeState.state.roster.hirelings.manualAdjustment = 0;
+  }
+}
+
+// Hirelings computed from facilities staffing + manual adjustment
+function computeHirelings(runtimeState) {
+  const facilities = runtimeState?.facilities || [];
+  let base = 0;
+
+  for (const f of facilities) {
+    // staffing is on the facility spec; your UI already reads it
+    const h = safeNum(f?.staffing?.hirelings, safeNum(f?.staffing?.hirelingsBase, 0));
+    base += h;
+  }
+
+  ensureRosterState(runtimeState);
+  const adj = safeNum(runtimeState.state.roster.hirelings.manualAdjustment, 0);
+  return { base, adj, total: base + adj };
+}
+
+// Defender count clamped by Barracks capacity
+function setDefenders(runtimeState, nextCount) {
+  ensureRosterState(runtimeState);
+  const cap = getBarracksCapacity(runtimeState);
+  const n = clamp(safeNum(nextCount, 0), 0, cap);
+  runtimeState.state.roster.defenders.count = n;
+  return { count: n, cap };
+}
+
+// Convenience: current defenders + cap
+function getDefenders(runtimeState) {
+  ensureRosterState(runtimeState);
+  const cap = getBarracksCapacity(runtimeState);
+  const count = clamp(safeNum(runtimeState.state.roster.defenders.count, 0), 0, cap);
+  return { count, cap };
+}
+
+// Special facility slot milestones
+function computeSpecialSlots(playerLevel) {
+  const lvl = clamp(safeNum(playerLevel, 1), 1, 20);
+  if (lvl >= 17) return 6;
+  if (lvl >= 13) return 5;
+  if (lvl >= 9) return 4;
+  if (lvl >= 5) return 2;
+  return 0;
+}
+
+// Armoury stock cost rule:
+// cost = 100 + 100 * defenders
+// halved if Smithy OR Workshop exists
+function computeArmouryStockCost(runtimeState) {
+  const { count } = getDefenders(runtimeState);
+  let cost = 100 + (100 * count);
+  if (hasFacility(runtimeState, "smithy", 1) || hasFacility(runtimeState, "workshop", 1)) {
+    cost = Math.ceil(cost / 2);
+  }
+  return cost;
+}
+
+// Apply a "defenders-loss on ones" effect: roll NdM and lose 1 defender per die == 1
+function applyDefendersLossOnOnes(runtimeState, diceExpr) {
+  // Expect "6d6" etc.
+  const m = String(diceExpr || "").match(/^(\d+)d(\d+)$/i);
+  const n = m ? safeNum(m[1], 0) : 0;
+  const sides = m ? safeNum(m[2], 0) : 0;
+  if (!n || !sides) return { rolled: [], lost: 0 };
+
+  const rolls = [];
+  let lost = 0;
+  for (let i = 0; i < n; i++) {
+    const r = rollDie(sides);
+    rolls.push(r);
+    if (r === 1) lost += 1;
+  }
+
+  const def = getDefenders(runtimeState);
+  setDefenders(runtimeState, def.count - lost);
+  return { rolled: rolls, lost };
 }
 
 function computeUpkeep(config, runtimeState) {
@@ -533,12 +635,30 @@ function ensureRuntimeState(config, saved) {
   base.state.constructionInProgress = Array.isArray(base.state.constructionInProgress) ? base.state.constructionInProgress : [];
   base.state.warehouse = base.state.warehouse || { items: [], editable: true };
   base.state.warehouse.items = Array.isArray(base.state.warehouse.items) ? base.state.warehouse.items : [];
+    // v1.1 additive scaffolding
+  ensureRosterState(base);
+
+  base.state.artisanTools = base.state.artisanTools || { slots: Array(6).fill(null), presets: [] };
+  base.state.artisanTools.slots = Array.isArray(base.state.artisanTools.slots) ? base.state.artisanTools.slots.slice(0, 6) : Array(6).fill(null);
+  while (base.state.artisanTools.slots.length < 6) base.state.artisanTools.slots.push(null);
+
+  base.state.specialFacilities = Array.isArray(base.state.specialFacilities) ? base.state.specialFacilities : [];
+  base.state.specialConstruction = Array.isArray(base.state.specialConstruction) ? base.state.specialConstruction : [];
 
   if (!saved) return base;
 
   // Merge saved.state into base.state safely (keep schema additions from config)
   const merged = deepClone(base);
   merged.state = { ...merged.state, ...(saved.state || {}) };
+    // v1.1 additive scaffolding (after merge)
+  ensureRosterState(merged);
+
+  merged.state.artisanTools = merged.state.artisanTools || { slots: Array(6).fill(null), presets: [] };
+  merged.state.artisanTools.slots = Array.isArray(merged.state.artisanTools.slots) ? merged.state.artisanTools.slots.slice(0, 6) : Array(6).fill(null);
+  while (merged.state.artisanTools.slots.length < 6) merged.state.artisanTools.slots.push(null);
+
+  merged.state.specialFacilities = Array.isArray(merged.state.specialFacilities) ? merged.state.specialFacilities : [];
+  merged.state.specialConstruction = Array.isArray(merged.state.specialConstruction) ? merged.state.specialConstruction : [];
 
   // ensure arrays still arrays
   merged.state.warehouse = merged.state.warehouse || { items: [], editable: true };
@@ -621,6 +741,15 @@ function startFunctionOrder(runtimeState, facilityId, fnId) {
   const fns = lvlData?.functions || [];
   const fn = fns.find(x => x.id === fnId);
   if (!fn) return { ok:false, msg:"Function not found for current level." };
+    // v1.1: crafting mode prompt (if the function declares crafting modes)
+  let chosenCraftMode = null;
+  const modes = fn?.crafting?.modes;
+  if (Array.isArray(modes) && modes.length) {
+    const labels = modes.map(m => m.label || m.id || "mode").join(" / ");
+    const pick = prompt(`Choose crafting mode: ${labels}`, modes[0]?.id || "");
+    const hit = modes.find(m => (m.id || "") === pick) || modes[0];
+    chosenCraftMode = hit?.id || null;
+  }
 
   if (isUnderConstruction(runtimeState, facilityId)) {
     // Still can use current level functions while building next tier in many systems,
@@ -633,18 +762,32 @@ function startFunctionOrder(runtimeState, facilityId, fnId) {
   if (exists) return { ok:false, msg:"That function is already active." };
 
   // cost handling
-  const cost = safeNum(fn.costGP, 0);
+    // cost handling (supports v1.1 dynamic cost)
+  let cost = safeNum(fn.costGP, 0);
+
+  // Armoury "Stock" rule: 100 + 100 per defender, halved if Smithy OR Workshop exists
+  const isArmoury = (String(facilityId) === "armoury" || String(facilityId) === "armory");
+  const isStockFn = String(fnId).toLowerCase().includes("stock");
+
+  if (isArmoury && isStockFn) {
+    cost = computeArmouryStockCost(runtimeState);
+  }
+
   const treasury = safeNum(runtimeState.state?.treasury?.gp, 0);
+
   if (treasury < cost) return { ok:false, msg:"Not enough GP for that function." };
   runtimeState.state.treasury.gp = treasury - cost;
 
-  runtimeState.state.ordersInProgress.push({
+      runtimeState.state.ordersInProgress.push({
     facilityId,
     functionId: fnId,
     label: fn.label,
     remainingTurns: safeNum(fn.durationTurns, 1),
     outputsToWarehouse: Array.isArray(fn.outputsToWarehouse) ? fn.outputsToWarehouse : [],
-    notes: fn.notes || []
+    notes: fn.notes || [],
+    rosterEffects: fn.rosterEffects || null,
+    crafting: fn.crafting || null,
+    craftingMode: chosenCraftMode
   });
 
   return { ok:true };
@@ -705,6 +848,26 @@ function applyEventEffects(runtimeState, eventObj) {
       runtimeState.state.warehouse.items.push(deepClone(eff.item));
     }
 
+        // v1.1 structured roster effects (must be INSIDE the eff loop)
+    if (eff.type === "defenders_loss_on_ones") {
+      const dice = eff.dice || "6d6";
+      const out = applyDefendersLossOnOnes(runtimeState, dice);
+
+      runtimeState.state.lastEventApplied = runtimeState.state.lastEventApplied || [];
+      runtimeState.state.lastEventApplied.push({
+        type: "defenders_loss_on_ones",
+        dice,
+        rolls: out.rolled,
+        lost: out.lost
+      });
+    }
+
+    if (eff.type === "hirelings_delta") {
+      ensureRosterState(runtimeState);
+      runtimeState.state.roster.hirelings.manualAdjustment =
+        safeNum(runtimeState.state.roster.hirelings.manualAdjustment, 0) + safeNum(eff.delta, 0);
+    }
+
     // other effects are displayed as notes for DM handling
   }
 }
@@ -731,6 +894,33 @@ function advanceTurnPipeline(runtimeState, opts = { maintainIssued:false }) {
     }
   }
 
+    // 2.5) v1.1 rosterEffects tick (e.g. Barracks Recruit adds defenders per turn while active)
+  if (Array.isArray(runtimeState.state.ordersInProgress)) {
+    for (const o of runtimeState.state.ordersInProgress) {
+      const re = o?.rosterEffects;
+      if (!re) continue;
+
+      // Expected shape: { defendersGainDice:"1d4", capBy:"barracks" } (we'll be permissive)
+      const gainExpr = re.defendersGainDice || re.defendersGain || null;
+      if (gainExpr) {
+        const gain = typeof gainExpr === "string" ? rollDiceExpr(gainExpr) : safeNum(gainExpr, 0);
+        const def = getDefenders(runtimeState);
+        const cap = def.cap;
+        const next = clamp(def.count + gain, 0, cap);
+        runtimeState.state.roster.defenders.count = next;
+
+        runtimeState.state.lastRosterTick = runtimeState.state.lastRosterTick || [];
+        runtimeState.state.lastRosterTick.push({
+          facilityId: o.facilityId,
+          functionId: o.functionId,
+          gained: gain,
+          before: def.count,
+          after: next,
+          cap
+        });
+      }
+    }
+  }
   // 3) decrement construction timers, complete upgrades at 0
   runtimeState.state.constructionInProgress = (runtimeState.state.constructionInProgress || []).map(c => ({
     ...c,
@@ -743,6 +933,24 @@ function advanceTurnPipeline(runtimeState, opts = { maintainIssued:false }) {
   completedCon.forEach(c => {
     const fac = findFacility(runtimeState, c.facilityId);
     if (fac) fac.currentLevel = safeNum(c.targetLevel, fac.currentLevel);
+  });
+
+    // v1.1: tick special construction timers + complete into active specialFacilities
+  runtimeState.state.specialConstruction = (runtimeState.state.specialConstruction || []).map(c => ({
+    ...c,
+    remainingTurns: safeNum(c.remainingTurns, 0) - 1
+  }));
+
+  const doneSpecial = (runtimeState.state.specialConstruction || []).filter(c => safeNum(c.remainingTurns, 0) <= 0);
+  runtimeState.state.specialConstruction = (runtimeState.state.specialConstruction || []).filter(c => safeNum(c.remainingTurns, 0) > 0);
+
+  doneSpecial.forEach(c => {
+    const idx = safeNum(c.slotIndex, 0);
+    runtimeState.state.specialFacilities = Array.isArray(runtimeState.state.specialFacilities) ? runtimeState.state.specialFacilities : [];
+    runtimeState.state.specialFacilities[idx] = {
+      id: c.facilityId,
+      name: c.name || c.facilityId
+    };
   });
 
   // 4) decrement order timers
@@ -775,6 +983,7 @@ function advanceTurnPipeline(runtimeState, opts = { maintainIssued:false }) {
   const dueMonthly = monthly && (turnCount % 4 === 0);
 
   if (opts.maintainIssued || dueMonthly) {
+        runtimeState.state.lastEventApplied = [];
     const r = rollEvent(runtimeState);
     rolled = r;
     didRoll = true;
@@ -782,13 +991,14 @@ function advanceTurnPipeline(runtimeState, opts = { maintainIssued:false }) {
 
     if (r.event) applyEventEffects(runtimeState, r.event);
 
-    runtimeState.state.lastEventResult = {
+        runtimeState.state.lastEventResult = {
       turn: turnCount,
       roll: r.roll,
       key: r.event?.key || null,
       label: r.event?.label || null,
       notes: r.event?.notes || null,
-      effects: r.event?.effects || []
+      effects: r.event?.effects || [],
+      applied: runtimeState.state.lastEventApplied || []
     };
   }
 
@@ -890,6 +1100,38 @@ const res = await fetch(configPath, { cache: "no-store" });
         </div>
       </div>
     </div>
+        <div class="card" style="margin-top:12px;">
+      <h2>Bastion Roster</h2>
+      <p class="small muted">v1.1: defenders + hirelings. Manual adjustment is for deaths/extra hires.</p>
+
+      <div class="grid2">
+        <div>
+          <div class="pill">
+            Defenders: <b id="bm_defCount">0</b> / <b id="bm_defCap">0</b>
+          </div>
+
+          <label style="display:block;margin-top:10px;">Edit defenders
+            <input id="bm_defendersInput" type="number" min="0" step="1" value="0">
+          </label>
+
+          <div class="small muted" style="margin-top:8px;">
+            Capacity is driven by <b>Barracks level</b>.
+          </div>
+        </div>
+
+        <div>
+          <div class="pill">
+            Hirelings (computed): <b id="bm_hireBase">0</b>
+          </div>
+          <label style="display:block;margin-top:10px;">Manual adjustment
+            <input id="bm_hireAdj" type="number" step="1" value="0">
+          </label>
+          <div class="pill" style="margin-top:10px;">
+            Total hirelings: <b id="bm_hireTotal">0</b>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div class="grid2" style="margin-top:12px;">
       <div class="card warehouseCard">
@@ -934,6 +1176,19 @@ const res = await fetch(configPath, { cache: "no-store" });
       </div>
     </div>
 
+        <div class="card" style="margin-top:12px;">
+      <h2>Workshop: Artisan Tools</h2>
+      <p class="small muted">v1.1: manage up to 6 tool sets (saved locally).</p>
+      <div id="bm_toolsWrap"></div>
+      <div class="btnRow" style="margin-top:10px;">
+        <button id="bm_toolsSave">Save Tools</button>
+      </div>
+    </div>
+        <div class="card" style="margin-top:12px;">
+      <h2>Special Facilities</h2>
+      <p class="small muted">v1.1: unlocked by Player Level (5=2, 9=4, 13=5, 17=6). Build from the catalog into slots.</p>
+      <div id="bm_specialWrap"></div>
+    </div>
     <div class="card" style="margin-top:12px;">
       <h2>Facilities</h2>
       <p class="small muted">Upgrade costs are deducted immediately. Construction timers tick down on Bastion Turns.</p>
@@ -1063,8 +1318,243 @@ const res = await fetch(configPath, { cache: "no-store" });
   repInput.addEventListener("change", () => { saveTopFields(); renderBastionManager(); });
   treasuryInput.addEventListener("change", () => { saveTopFields(); renderBastionManager(); });
 
+    // ----- Roster (v1.1) -----
+  const defCountEl = document.getElementById("bm_defCount");
+  const defCapEl = document.getElementById("bm_defCap");
+  const defendersInput = document.getElementById("bm_defendersInput");
+
+  const hireBaseEl = document.getElementById("bm_hireBase");
+  const hireAdjInput = document.getElementById("bm_hireAdj");
+  const hireTotalEl = document.getElementById("bm_hireTotal");
+
+  function refreshRosterUI() {
+    const def = getDefenders(runtimeState);
+    if (defCountEl) defCountEl.textContent = String(def.count);
+    if (defCapEl) defCapEl.textContent = String(def.cap);
+    if (defendersInput) {
+      defendersInput.max = String(def.cap);
+      defendersInput.value = String(def.count);
+    }
+
+    const h = computeHirelings(runtimeState);
+    if (hireBaseEl) hireBaseEl.textContent = String(h.base);
+    if (hireAdjInput) hireAdjInput.value = String(h.adj);
+    if (hireTotalEl) hireTotalEl.textContent = String(h.total);
+  }
+
+  defendersInput?.addEventListener("change", () => {
+    setDefenders(runtimeState, defendersInput.value);
+    saveBastionSave(runtimeState);
+    refreshRosterUI();
+    renderBastionManager();
+  });
+
+  hireAdjInput?.addEventListener("change", () => {
+    ensureRosterState(runtimeState);
+    runtimeState.state.roster.hirelings.manualAdjustment = safeNum(hireAdjInput.value, 0);
+    saveBastionSave(runtimeState);
+    refreshRosterUI();
+    renderBastionManager();
+  });
+
+  refreshRosterUI();
+
+    // ----- Workshop artisan tools (v1.1) -----
+  const toolsWrap = document.getElementById("bm_toolsWrap");
+  const toolsSaveBtn = document.getElementById("bm_toolsSave");
+
+  function getToolPresets() {
+    // Prefer presets in state; fallback list if none supplied by JSON
+    const p = runtimeState?.state?.artisanTools?.presets;
+    if (Array.isArray(p) && p.length) return p.map(x => String(x));
+    return [
+      "Alchemist’s supplies","Brewer’s supplies","Calligrapher’s supplies","Carpenter’s tools",
+      "Cartographer’s tools","Cobbler’s tools","Cook’s utensils","Glassblower’s tools",
+      "Jeweler’s tools","Leatherworker’s tools","Mason’s tools","Painter’s supplies",
+      "Potter’s tools","Smith’s tools","Tinker’s tools","Weaver’s tools","Woodcarver’s tools"
+    ];
+  }
+
+  function renderToolsUI() {
+    if (!toolsWrap) return;
+
+    runtimeState.state.artisanTools = runtimeState.state.artisanTools || { slots: Array(6).fill(null), presets: [] };
+    runtimeState.state.artisanTools.slots = Array.isArray(runtimeState.state.artisanTools.slots)
+      ? runtimeState.state.artisanTools.slots.slice(0, 6)
+      : Array(6).fill(null);
+    while (runtimeState.state.artisanTools.slots.length < 6) runtimeState.state.artisanTools.slots.push(null);
+
+    const presets = getToolPresets();
+
+    toolsWrap.innerHTML = runtimeState.state.artisanTools.slots.map((val, i) => {
+      const v = val ? String(val) : "";
+      return `
+        <div class="pill" style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap;">
+          <span class="small muted" style="min-width:70px;">Slot ${i + 1}</span>
+          <select class="bm_toolSel" data-idx="${i}">
+            <option value="">(empty)</option>
+            ${presets.map(p => `<option value="${p.replace(/"/g, "&quot;")}" ${p === v ? "selected" : ""}>${p}</option>`).join("")}
+          </select>
+          <button class="btn ghost bm_toolClear" type="button" data-idx="${i}">Clear</button>
+        </div>
+      `;
+    }).join("");
+
+    toolsWrap.querySelectorAll(".bm_toolClear").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const idx = safeNum(btn.dataset.idx, 0);
+        runtimeState.state.artisanTools.slots[idx] = null;
+        renderToolsUI();
+      });
+    });
+  }
+
+  toolsSaveBtn?.addEventListener("click", () => {
+    const sels = toolsWrap?.querySelectorAll(".bm_toolSel") || [];
+    sels.forEach(sel => {
+      const idx = safeNum(sel.dataset.idx, 0);
+      runtimeState.state.artisanTools.slots[idx] = sel.value ? sel.value : null;
+    });
+    saveBastionSave(runtimeState);
+    alert("Artisan tools saved.");
+    renderBastionManager();
+  });
+
+  renderToolsUI();
+
   // ----- Facilities rendering -----
   const facWrap = document.getElementById("bm_facilities");
+    // ----- Special facilities (v1.1) -----
+  const specialWrap = document.getElementById("bm_specialWrap");
+
+  function getFacilityCatalogFromRuntime(runtimeState, config) {
+    // Prefer config.facilityCatalog (your v1.1 JSON addition)
+    if (Array.isArray(config?.facilityCatalog)) return config.facilityCatalog;
+
+    // Backwards compatible: sometimes people nest under meta
+    if (Array.isArray(config?.meta?.facilityCatalog)) return config.meta.facilityCatalog;
+
+    return [];
+  }
+
+  function renderSpecialFacilities() {
+    if (!specialWrap) return;
+
+    const playerLevel = safeNum(runtimeState.state.playerLevel, 1);
+    const slotCount = computeSpecialSlots(playerLevel);
+
+    runtimeState.state.specialFacilities = Array.isArray(runtimeState.state.specialFacilities) ? runtimeState.state.specialFacilities : [];
+    runtimeState.state.specialConstruction = Array.isArray(runtimeState.state.specialConstruction) ? runtimeState.state.specialConstruction : [];
+
+    const built = runtimeState.state.specialFacilities;
+    const building = runtimeState.state.specialConstruction;
+
+    const catalog = getFacilityCatalogFromRuntime(runtimeState, config);
+
+    if (slotCount <= 0) {
+      specialWrap.innerHTML = `<p class="small muted">No special facility slots unlocked yet. (Unlocks at Player Level 5.)</p>`;
+      return;
+    }
+
+    const rows = [];
+    for (let i = 0; i < slotCount; i++) {
+      const existing = built[i] || null;
+      const con = building.find(x => safeNum(x.slotIndex, -1) === i) || null;
+
+      if (existing) {
+        rows.push(`
+          <div class="pill" style="margin-top:10px; display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+            <div>
+              <b>${existing.name || existing.id}</b>
+              <div class="small muted">Active</div>
+            </div>
+            <button class="btn ghost bm_specialRemove" data-slot="${i}" type="button">Remove</button>
+          </div>
+        `);
+        continue;
+      }
+
+      if (con) {
+        rows.push(`
+          <div class="pill" style="margin-top:10px; display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+            <div>
+              <b>${con.name || con.facilityId}</b>
+              <div class="small muted">Under construction • ${safeNum(con.remainingTurns, 0)} turns left</div>
+            </div>
+          </div>
+        `);
+        continue;
+      }
+
+      // Empty slot: dropdown
+      const opts = (catalog || []).map(c => {
+        const min = safeNum(c.minPlayerLevel, 1);
+        const disabled = playerLevel < min;
+        const label = `${c.name} (L${min}+ • ${safeNum(c.costGP, 0)}gp • ${safeNum(c.buildTurns, 1)} turns)`;
+        return `<option value="${c.id}" ${disabled ? "disabled" : ""}>${label}</option>`;
+      }).join("");
+
+      rows.push(`
+        <div class="pill" style="margin-top:10px;">
+          <div class="small muted">Slot ${i + 1} of ${slotCount}</div>
+          <div style="display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap;">
+            <select class="bm_specialSelect" data-slot="${i}">
+              <option value="">(choose facility)</option>
+              ${opts}
+            </select>
+            <button class="btn bm_specialBuild" data-slot="${i}" type="button">Build</button>
+          </div>
+        </div>
+      `);
+    }
+
+    specialWrap.innerHTML = rows.join("");
+
+    // Build action
+    specialWrap.querySelectorAll(".bm_specialBuild").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const slotIndex = safeNum(btn.dataset.slot, 0);
+        const sel = specialWrap.querySelector(`.bm_specialSelect[data-slot="${slotIndex}"]`);
+        const id = sel?.value;
+        if (!id) return alert("Pick a facility first.");
+
+        const entry = (catalog || []).find(x => x.id === id);
+        if (!entry) return alert("Catalog entry not found.");
+
+        const min = safeNum(entry.minPlayerLevel, 1);
+        if (playerLevel < min) return alert("Player level too low for that facility.");
+
+        const cost = safeNum(entry.costGP, 0);
+        const turns = safeNum(entry.buildTurns, 1);
+        const treasury = safeNum(runtimeState.state.treasury.gp, 0);
+        if (treasury < cost) return alert("Not enough GP in Treasury.");
+
+        runtimeState.state.treasury.gp = treasury - cost;
+        runtimeState.state.specialConstruction.push({
+          slotIndex,
+          facilityId: entry.id,
+          name: entry.name,
+          remainingTurns: turns
+        });
+
+        saveBastionSave(runtimeState);
+        renderBastionManager();
+      });
+    });
+
+    // Remove action (DM control)
+    specialWrap.querySelectorAll(".bm_specialRemove").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const slotIndex = safeNum(btn.dataset.slot, 0);
+        const ok = confirm("Remove this special facility from the slot?");
+        if (!ok) return;
+
+        runtimeState.state.specialFacilities[slotIndex] = null;
+        saveBastionSave(runtimeState);
+        renderBastionManager();
+      });
+    });
+  }
 
   function renderFacilities() {
     facWrap.innerHTML = facilities.map(f => {
@@ -1135,7 +1625,19 @@ const res = await fetch(configPath, { cache: "no-store" });
                       <td>
                         ${active
                           ? `<span class="pill">Active • ${safeNum(active.remainingTurns,0)} left</span>`
-                          : `<button class="bm_startFn" data-fid="${f.id}" data-fnid="${fn.id}">Start</button>`
+                          : (() => {
+    // compute dynamic armoury cost for display + disable if insufficient
+    const isArm = (String(f.id) === "armoury" || String(f.id) === "armory");
+    const isStock = String(fn.id).toLowerCase().includes("stock");
+    const dynCost = (isArm && isStock) ? computeArmouryStockCost(runtimeState) : safeNum(fn.costGP, 0);
+    const treasuryNow = safeNum(runtimeState.state?.treasury?.gp, 0);
+    const disabled = treasuryNow < dynCost;
+
+    return `<button class="bm_startFn" data-fid="${f.id}" data-fnid="${fn.id}" ${disabled ? "disabled" : ""}>
+      Start (${dynCost}gp)
+    </button>`;
+  })()
+
                         }
                       </td>
                     </tr>
@@ -1173,6 +1675,7 @@ const res = await fetch(configPath, { cache: "no-store" });
   }
 
   renderFacilities();
+    renderSpecialFacilities();
 
   facWrap.addEventListener("click", (e) => {
     const up = e.target.closest(".bm_upgrade");
@@ -1196,6 +1699,7 @@ const res = await fetch(configPath, { cache: "no-store" });
       return;
     }
   });
+    // Special facilities are wired inside renderSpecialFacilities() (fresh DOM each render)
 
   // ----- Import / Export -----
   document.getElementById("bm_export").addEventListener("click", () => {
