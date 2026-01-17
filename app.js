@@ -733,6 +733,11 @@ function ensureRuntimeState(config, saved) {
 
   base.state.specialFacilities = Array.isArray(base.state.specialFacilities) ? base.state.specialFacilities : [];
   base.state.specialConstruction = Array.isArray(base.state.specialConstruction) ? base.state.specialConstruction : [];
+  // If special facilities exist in saved state, make sure they become real facility cards
+for (const sf of base.state.specialFacilities) {
+  const id = (sf && typeof sf === "object") ? sf.id : sf;
+  if (id) ensureSpecialFacilityCard(base, base, id);
+}
 
   if (!saved) return base;
 
@@ -749,6 +754,10 @@ function ensureRuntimeState(config, saved) {
 
   merged.state.specialFacilities = Array.isArray(merged.state.specialFacilities) ? merged.state.specialFacilities : [];
   merged.state.specialConstruction = Array.isArray(merged.state.specialConstruction) ? merged.state.specialConstruction : [];
+  for (const sf of merged.state.specialFacilities) {
+  const id = (sf && typeof sf === "object") ? sf.id : sf;
+  if (id) ensureSpecialFacilityCard(merged, merged, id);
+}
 
   // ensure arrays still arrays
   merged.state.warehouse = merged.state.warehouse || { items: [], editable: true };
@@ -1091,15 +1100,30 @@ runtimeState.state.specialFacilities = Array.isArray(runtimeState.state.specialF
   : [];
 
 doneSpecial.forEach(x => {
-  // Your JSON uses facilityId (eg "barracks_D")
   const fid = x.facilityId || x.id;
   if (!fid) return;
 
-  // mark active (avoid duplicates)
-  const exists = runtimeState.state.specialFacilities.some(sf => sf?.id === fid);
-  if (!exists) runtimeState.state.specialFacilities.push({ id: fid, status: "active" });
+  const slotIndex = Number.isFinite(Number(x.slotIndex)) ? Number(x.slotIndex) : -1;
 
-  // Create/attach a real facility card
+  // Ensure array exists and has enough length
+  runtimeState.state.specialFacilities = Array.isArray(runtimeState.state.specialFacilities)
+    ? runtimeState.state.specialFacilities
+    : [];
+
+  if (slotIndex >= 0) {
+    // Put it in the exact slot that finished building
+    runtimeState.state.specialFacilities[slotIndex] = {
+      id: fid,
+      name: x.name || fid,
+      status: "active"
+    };
+  } else {
+    // Fallback: append if no slot provided
+    const exists = runtimeState.state.specialFacilities.some(sf => sf?.id === fid);
+    if (!exists) runtimeState.state.specialFacilities.push({ id: fid, name: x.name || fid, status: "active" });
+  }
+
+  // Create/attach a real facility card (NO duplicates)
   ensureSpecialFacilityCard(runtimeState, runtimeState, fid);
 });
 
