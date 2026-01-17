@@ -624,12 +624,12 @@ function specialCatalogById(config, id) {
   return (config?.facilityCatalog || []).find(x => x.id === id) || null;
 }
 
-function ensureSpecialFacilityCard(runtimeState, specialId) {
+function ensureSpecialFacilityCard(runtimeState, config, specialId) {
   const baseId = `special_${specialId}`;
   const already = (runtimeState.facilities || []).some(f => String(f.id) === baseId);
   if (already) return;
 
-  const cat = specialCatalogById(runtimeState, specialId);
+  const cat = specialCatalogById(config, specialId);
   const name = cat?.label || specialId;
 
   runtimeState.facilities = runtimeState.facilities || [];
@@ -729,6 +729,7 @@ function ensureRuntimeState(config, saved) {
   base.state.artisanTools = base.state.artisanTools || { slots: Array(6).fill(null), presets: [] };
   base.state.artisanTools.slots = Array.isArray(base.state.artisanTools.slots) ? base.state.artisanTools.slots.slice(0, 6) : Array(6).fill(null);
   while (base.state.artisanTools.slots.length < 6) base.state.artisanTools.slots.push(null);
+  base.state.workshop = base.state.workshop || { selectedTool: "", selectedItem: "" };
 
   base.state.specialFacilities = Array.isArray(base.state.specialFacilities) ? base.state.specialFacilities : [];
   base.state.specialConstruction = Array.isArray(base.state.specialConstruction) ? base.state.specialConstruction : [];
@@ -744,6 +745,7 @@ function ensureRuntimeState(config, saved) {
   merged.state.artisanTools = merged.state.artisanTools || { slots: Array(6).fill(null), presets: [] };
   merged.state.artisanTools.slots = Array.isArray(merged.state.artisanTools.slots) ? merged.state.artisanTools.slots.slice(0, 6) : Array(6).fill(null);
   while (merged.state.artisanTools.slots.length < 6) merged.state.artisanTools.slots.push(null);
+  merged.state.workshop = merged.state.workshop || { selectedTool: "", selectedItem: "" };
 
   merged.state.specialFacilities = Array.isArray(merged.state.specialFacilities) ? merged.state.specialFacilities : [];
   merged.state.specialConstruction = Array.isArray(merged.state.specialConstruction) ? merged.state.specialConstruction : [];
@@ -1058,7 +1060,7 @@ doneSpecial.forEach(x => {
   if (!exists) runtimeState.state.specialFacilities.push({ id: fid, status: "active" });
 
   // Create/attach a real facility card
-  ensureSpecialFacilityCard(runtimeState, fid);
+  ensureSpecialFacilityCard(runtimeState, config, fid);
 });
 
   // 4) decrement order timers
@@ -1290,23 +1292,25 @@ const res = await fetch(configPath, { cache: "no-store" });
 </div>
 
         <div class="card" style="margin-top:12px;">
-      <h2>Workshop: Artisan Tools</h2>
-      <p class="small muted">v1.1: manage up to 6 tool sets (saved locally).</p>
-      <div id="bm_toolsWrap"></div>
-      <div class="btnRow" style="margin-top:10px;">
-        <button id="bm_toolsSave">Save Tools</button>
-      </div>
-    </div>
-        <div class="card" style="margin-top:12px;">
-      <h2>Special Facilities</h2>
-      <p class="small muted">v1.1: unlocked by Player Level (5=2, 9=4, 13=5, 17=6). Build from the catalog into slots.</p>
-      <div id="bm_specialWrap"></div>
-    </div>
-    <div class="card" style="margin-top:12px;">
-      <h2>Facilities</h2>
-      <p class="small muted">Upgrade costs are deducted immediately. Construction timers tick down on Bastion Turns.</p>
-      <div id="bm_facilities"></div>
-    </div>
+  <h2>Workshop: Craft</h2>
+  <p class="small muted">Choose one of your saved artisan tools, then pick an item to craft.</p>
+
+  <div class="grid2">
+    <label>Tool
+      <select id="bm_craftTool"></select>
+    </label>
+
+    <label>Item
+      <select id="bm_craftItem"></select>
+    </label>
+  </div>
+
+  <div class="btnRow" style="margin-top:10px;">
+    <button id="bm_craftStart">Start Craft</button>
+  </div>
+
+  <div class="small muted" id="bm_craftHint" style="margin-top:10px;"></div>
+</div>
 
     <div class="card" style="margin-top:12px;">
       <h2>Current Upkeep</h2>
@@ -1541,6 +1545,92 @@ const res = await fetch(configPath, { cache: "no-store" });
   });
 
   renderToolsUI();
+  // ----- Workshop Craft selection (tied to saved tools) -----
+const craftToolSel = document.getElementById("bm_craftTool");
+const craftItemSel = document.getElementById("bm_craftItem");
+const craftStartBtn = document.getElementById("bm_craftStart");
+const craftHint = document.getElementById("bm_craftHint");
+
+// Tool -> craftable items map (expand later)
+const CRAFTABLES_BY_TOOL = {
+  "Smith’s tools": ["Arrows (20)", "Caltrops", "Manacles", "Shield (basic)", "Iron Spikes (10)"],
+  "Carpenter’s tools": ["Ladder (10ft)", "Pole (10ft)", "Wooden Shield", "Repair kit"],
+  "Leatherworker’s tools": ["Leather armor (basic)", "Saddlebags", "Waterskin", "Bedroll"],
+  "Alchemist’s supplies": ["Healing potion (basic)", "Antitoxin", "Alchemist’s fire (1 flask)"],
+  "Jeweler’s tools": ["Signet ring", "Gem setting", "Holy symbol (custom)"],
+  "Weaver’s tools": ["Rope (50ft)", "Net", "Cloak", "Tent repair"]
+};
+
+function getChosenTools() {
+  const slots = runtimeState?.state?.artisanTools?.slots || [];
+  return slots.filter(Boolean).map(String);
+}
+
+function renderCraftUI() {
+  if (!craftToolSel || !craftItemSel || !craftStartBtn) return;
+
+  const tools = getChosenTools();
+  const savedTool = runtimeState.state.workshop?.selectedTool || "";
+  const savedItem = runtimeState.state.workshop?.selectedItem || "";
+
+  craftToolSel.innerHTML = `
+    <option value="">(choose tool)</option>
+    ${tools.map(t => `<option value="${t.replace(/"/g,"&quot;")}" ${t===savedTool?"selected":""}>${t}</option>`).join("")}
+  `;
+
+  const tool = craftToolSel.value || savedTool || "";
+  const items = tool ? (CRAFTABLES_BY_TOOL[tool] || []) : [];
+
+  craftItemSel.innerHTML = `
+    <option value="">(choose item)</option>
+    ${items.map(i => `<option value="${i.replace(/"/g,"&quot;")}" ${i===savedItem?"selected":""}>${i}</option>`).join("")}
+  `;
+
+  craftStartBtn.disabled = !(tool && craftItemSel.value);
+
+  if (craftHint) {
+    craftHint.textContent = tools.length
+      ? `Selected tool controls available crafts. Save tools above to change this list.`
+      : `No artisan tools saved yet. Use the “Workshop: Artisan Tools” section above first.`;
+  }
+}
+
+craftToolSel?.addEventListener("change", () => {
+  runtimeState.state.workshop.selectedTool = craftToolSel.value || "";
+  runtimeState.state.workshop.selectedItem = "";
+  saveBastionSave(runtimeState);
+  renderCraftUI();
+});
+
+craftItemSel?.addEventListener("change", () => {
+  runtimeState.state.workshop.selectedItem = craftItemSel.value || "";
+  saveBastionSave(runtimeState);
+  renderCraftUI();
+});
+
+craftStartBtn?.addEventListener("click", () => {
+  const tool = craftToolSel.value;
+  const item = craftItemSel.value;
+  if (!tool || !item) return alert("Choose a tool and an item first.");
+
+  // Store the craft selection so it’s visible later
+  runtimeState.state._lastCraftPick = { tool, item, atTurn: runtimeState.state.turnCount || 0 };
+
+  // Find the first workshop craft function and start it
+  const workshop = getFacilityById(runtimeState, "workshop");
+  const lvl = safeNum(workshop?.currentLevel, 0);
+  const lvlData = facilityLevelData(workshop, lvl);
+  const craftFn = (lvlData?.functions || []).find(fn => fn.orderType === "craft") || null;
+  if (!craftFn) return alert("No craft function found for Workshop at its current level.");
+
+  const r = startFunctionOrder(runtimeState, workshop.id, craftFn.id);
+  if (!r.ok) return alert(r.msg || "Could not start craft order.");
+
+  saveBastionSave(runtimeState);
+  renderBastionManager();
+});
+
+renderCraftUI();
 
   // ----- Facilities rendering -----
   const facWrap = must("bm_facilities");
@@ -1817,57 +1907,6 @@ const res = await fetch(configPath, { cache: "no-store" });
       // Workshop craft prompt (v1.1)
 const fac = findFacility(runtimeState, fid);
 const facBase = baseFacilityId(fid);
-
-if (facBase === "workshop") {
-  const lvl = safeNum(fac?.currentLevel, 0);
-  const lvlData = facilityLevelData(fac, lvl);
-  const fn = (lvlData?.functions || []).find(x => x.id === fnid);
-
-  if (fn?.orderType === "craft") {
-    // Require at least 1 selected tool if the spec wants it
-    const slots = runtimeState?.state?.artisanTools?.slots || [];
-    const chosenTools = slots.filter(Boolean);
-    if (!chosenTools.length) {
-      alert("Choose at least 1 Artisan Tool set first (Workshop: Artisan Tools).");
-      return;
-    }
-
-    // Build a simple craftable list from selected tools (you can expand this later)
-    const CRAFTABLES_BY_TOOL = {
-      smith_tools: ["Arrows (20)", "Caltrops", "Manacles", "Shield (basic)"],
-      carpenter_tools: ["Ladder (10ft)", "Pole (10ft)", "Wooden Shield", "Repair kit"],
-      leatherworker_tools: ["Leather armor (basic)", "Saddlebags", "Waterskin", "Bedroll"],
-      alchemist_supplies: ["Healing potion (basic)", "Antitoxin", "Alchemist’s fire (1 flask)"],
-      jeweler_tools: ["Signet ring", "Gem setting", "Holy symbol (custom)"],
-      weaver_tools: ["Rope (50ft)", "Net", "Cloak", "Tent repair"]
-    };
-
-    const craftables = [];
-    for (const toolId of chosenTools) {
-      const k = String(toolId).toLowerCase().replace(/[^a-z0-9_]/g, "_");
-      (CRAFTABLES_BY_TOOL[k] || []).forEach(x => craftables.push(x));
-    }
-
-    const unique = [...new Set(craftables)];
-    const pick = unique.length
-      ? prompt("Craft what item?\n\n" + unique.map((x,i)=>`${i+1}) ${x}`).join("\n") + "\n\nEnter number:")
-      : null;
-
-    let pickedLabel = null;
-    if (unique.length) {
-      const idx = Number(pick);
-      if (!Number.isFinite(idx) || idx < 1 || idx > unique.length) {
-        alert("Cancelled (or invalid choice).");
-        return;
-      }
-      pickedLabel = unique[idx - 1];
-    }
-
-    // Save the selection onto the function order via crafting metadata
-    // (startFunctionOrder already stores `crafting: fn.crafting || null` so we attach notes via runtime state)
-    runtimeState.state._lastCraftPick = { workshopFn: fnid, item: pickedLabel, tools: chosenTools };
-  }
-}
 
 const r = startFunctionOrder(runtimeState, fid, fnid);
       if (!r.ok) alert(r.msg || "Could not start function.");
