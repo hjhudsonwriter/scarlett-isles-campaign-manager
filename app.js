@@ -1100,7 +1100,7 @@ doneSpecial.forEach(x => {
   if (!exists) runtimeState.state.specialFacilities.push({ id: fid, status: "active" });
 
   // Create/attach a real facility card
-  ensureSpecialFacilityCard(runtimeState, config, fid);
+  ensureSpecialFacilityCard(runtimeState, runtimeState, fid);
 });
 
   // 4) decrement order timers
@@ -1590,93 +1590,7 @@ const res = await fetch(configPath, { cache: "no-store" });
   });
 
   renderToolsUI();
-  // ----- Workshop Craft selection (tied to saved tools) -----
-const craftToolSel = document.getElementById("bm_craftTool");
-const craftItemSel = document.getElementById("bm_craftItem");
-const craftStartBtn = document.getElementById("bm_craftStart");
-const craftHint = document.getElementById("bm_craftHint");
-
-// Tool -> craftable items map (expand later)
-const CRAFTABLES_BY_TOOL_prompt = {
-  "Smith’s tools": ["Arrows (20)", "Caltrops", "Manacles", "Shield (basic)", "Iron Spikes (10)"],
-  "Carpenter’s tools": ["Ladder (10ft)", "Pole (10ft)", "Wooden Shield", "Repair kit"],
-  "Leatherworker’s tools": ["Leather armor (basic)", "Saddlebags", "Waterskin", "Bedroll"],
-  "Alchemist’s supplies": ["Healing potion (basic)", "Antitoxin", "Alchemist’s fire (1 flask)"],
-  "Jeweler’s tools": ["Signet ring", "Gem setting", "Holy symbol (custom)"],
-  "Weaver’s tools": ["Rope (50ft)", "Net", "Cloak", "Tent repair"]
-};
-
-function getChosenTools() {
-  const slots = runtimeState?.state?.artisanTools?.slots || [];
-  return slots.filter(Boolean).map(String);
-}
-
-function renderCraftUI() {
-  if (!craftToolSel || !craftItemSel || !craftStartBtn) return;
-
-  const tools = getChosenTools();
-  const savedTool = runtimeState.state.workshop?.selectedTool || "";
-  const savedItem = runtimeState.state.workshop?.selectedItem || "";
-
-  craftToolSel.innerHTML = `
-    <option value="">(choose tool)</option>
-    ${tools.map(t => `<option value="${t.replace(/"/g,"&quot;")}" ${t===savedTool?"selected":""}>${t}</option>`).join("")}
-  `;
-
-  const tool = craftToolSel.value || savedTool || "";
-  const items = tool ? (CRAFTABLES_BY_TOOL[tool] || []) : [];
-
-  craftItemSel.innerHTML = `
-    <option value="">(choose item)</option>
-    ${items.map(i => `<option value="${i.replace(/"/g,"&quot;")}" ${i===savedItem?"selected":""}>${i}</option>`).join("")}
-  `;
-
-  craftStartBtn.disabled = !(tool && craftItemSel.value);
-
-  if (craftHint) {
-    craftHint.textContent = tools.length
-      ? `Selected tool controls available crafts. Save tools above to change this list.`
-      : `No artisan tools saved yet. Use the “Workshop: Artisan Tools” section above first.`;
-  }
-}
-
-craftToolSel?.addEventListener("change", () => {
-  runtimeState.state.workshop.selectedTool = craftToolSel.value || "";
-  runtimeState.state.workshop.selectedItem = "";
-  saveBastionSave(runtimeState);
-  renderCraftUI();
-});
-
-craftItemSel?.addEventListener("change", () => {
-  runtimeState.state.workshop.selectedItem = craftItemSel.value || "";
-  saveBastionSave(runtimeState);
-  renderCraftUI();
-});
-
-craftStartBtn?.addEventListener("click", () => {
-  const tool = craftToolSel.value;
-  const item = craftItemSel.value;
-  if (!tool || !item) return alert("Choose a tool and an item first.");
-
-  // Store the craft selection so it’s visible later
-  runtimeState.state._lastCraftPick = { tool, item, atTurn: runtimeState.state.turnCount || 0 };
-
-  // Find the first workshop craft function and start it
-  const workshop = getFacilityById(runtimeState, "workshop");
-  const lvl = safeNum(workshop?.currentLevel, 0);
-  const lvlData = facilityLevelData(workshop, lvl);
-  const craftFn = (lvlData?.functions || []).find(fn => fn.orderType === "craft") || null;
-  if (!craftFn) return alert("No craft function found for Workshop at its current level.");
-
-  const r = startFunctionOrder(runtimeState, workshop.id, craftFn.id);
-  if (!r.ok) return alert(r.msg || "Could not start craft order.");
-
-  saveBastionSave(runtimeState);
-  renderBastionManager();
-});
-
-renderCraftUI();
-
+  
   // ----- Facilities rendering -----
   const facWrap = must("bm_facilities");
   if (!facWrap) throw new Error("Bastion Manager: #bm_facilities not found in the HTML (ID mismatch).");
@@ -1954,85 +1868,6 @@ renderCraftUI();
   }
 
   renderFacilities();
-
-    // ----- Workshop Crafting (inside Workshop card) -----
-  const craftBtn = document.getElementById("bm_craftStart");
-  const craftToolSel = document.getElementById("bm_craftTool");
-  const craftItemSel = document.getElementById("bm_craftItem");
-  const craftHint = document.getElementById("bm_craftHint");
-
-  function normaliseToolKey(name) {
-    return String(name || "")
-      .toLowerCase()
-      .replace(/[’']/g, "")
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "");
-  }
-
-  // IMPORTANT: define this ONCE in your file (you already fixed the duplicate earlier)
-  
-
-  function getSavedToolsList() {
-    const slots = runtimeState?.state?.artisanTools?.slots || [];
-    return slots.filter(Boolean).map(String);
-  }
-
-  function fillCraftToolOptions() {
-    if (!craftToolSel) return;
-    const tools = getSavedToolsList();
-
-    craftToolSel.innerHTML = tools.length
-      ? tools.map(t => `<option value="${t.replace(/"/g, "&quot;")}">${t}</option>`).join("")
-      : `<option value="">(no saved tools)</option>`;
-  }
-
-  function fillCraftItemOptions() {
-    if (!craftItemSel) return;
-    const toolName = craftToolSel?.value || "";
-    const key = normaliseToolKey(toolName);
-    const list = CRAFTABLES_BY_TOOL[key] || [];
-
-    craftItemSel.innerHTML = list.length
-      ? list.map(it => `<option value="${it.replace(/"/g, "&quot;")}">${it}</option>`).join("")
-      : `<option value="">(no crafts for this tool yet)</option>`;
-
-    if (craftHint) {
-      craftHint.textContent = toolName
-        ? "Selected tool controls available crafts. Expand the craft list in app.js anytime."
-        : "Save tools above to enable crafting.";
-    }
-  }
-
-  // Populate dropdowns on render
-  if (craftToolSel && craftItemSel) {
-    fillCraftToolOptions();
-    fillCraftItemOptions();
-
-    craftToolSel.addEventListener("change", () => {
-      fillCraftItemOptions();
-    });
-  }
-
-  // Start Craft -> create an order that will deposit into Warehouse when completed
-  craftBtn?.addEventListener("click", () => {
-    const toolName = craftToolSel?.value || "";
-    const itemName = craftItemSel?.value || "";
-
-    if (!toolName) return alert("No saved tools. Save at least 1 Artisan Tool set first.");
-    if (!itemName) return alert("Pick an item to craft.");
-
-    // Prevent spamming multiple craft orders
-    const exists = (runtimeState.state.ordersInProgress || []).some(o => o.functionId === "craft_custom");
-    if (exists) return alert("A Workshop craft order is already in progress.");
-
-    const r = createWorkshopCraftOrder(runtimeState, toolName, itemName);
-    if (!r.ok) return alert(r.msg || "Could not start craft.");
-
-    runtimeState.state.ordersInProgress.push(r.order);
-    saveBastionSave(runtimeState);
-    alert(`Craft started: ${itemName}. It will appear in Warehouse after turns complete.`);
-    renderBastionManager();
-  });
 
     // ----- Workshop Crafting (inside Workshop card) -----
   function normaliseToolKey(name) {
