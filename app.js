@@ -473,6 +473,33 @@ function rollDie(sides) {
 }
 
 // Supports strings like "1d6*25", "2d4+3", "1d100"
+function rollDiceExpr(expr) {
+  const raw = String(expr || "").trim();
+  if (!raw) return 0;
+
+  // If it's just a number like "25"
+  if (/^\d+$/g.test(raw)) return safeNum(raw, 0);
+
+  // Basic pattern: NdM with optional +K/-K and optional *X
+  // Examples: "1d6*25", "2d4+3", "1d100", "3d8-2"
+  const m = raw.match(/^(\d+)\s*d\s*(\d+)\s*([+-]\s*\d+)?\s*(\*\s*\d+)?$/i);
+  if (!m) return 0;
+
+  const n = safeNum(m[1], 0);
+  const sides = safeNum(m[2], 0);
+  const plusMinus = m[3] ? safeNum(m[3].replace(/\s+/g, ""), 0) : 0;
+  const mult = m[4] ? safeNum(m[4].replace(/\s+/g, "").replace("*", ""), 1) : 1;
+
+  if (!n || !sides) return 0;
+
+  let total = 0;
+  for (let i = 0; i < n; i++) total += rollDie(sides);
+
+  total += plusMinus;
+  total *= mult;
+
+  return Math.max(0, Math.floor(total));
+}
 // ---------- Bastion v1.1 helpers (safe, additive) ----------
 
 // --- Facility ID helpers (supports "barracks_D" style IDs) ---
@@ -1215,50 +1242,52 @@ const res = await fetch(configPath, { cache: "no-store" });
       </div>
     </div>
 
-    <div class="grid2" style="margin-top:12px;">
-      <div class="card warehouseCard">
-        <h2>Warehouse</h2>
-        <p class="small muted">DM editable. Function outputs append here automatically when completed.</p>
-        <div class="tableWrap">
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Item</th>
-        <th style="width:90px;">Qty</th>
-        <th style="width:120px;">GP</th>
-        <th>Notes</th>
-        <th style="width:110px;">Action</th>
-      </tr>
-    </thead>
-    <tbody id="bm_wh_rows"></tbody>
-  </table>
+    <!-- Warehouse (full width) -->
+<div class="card warehouseCard" style="margin-top:12px;">
+  <h2>Warehouse</h2>
+  <p class="small muted">DM editable. Function outputs append here automatically when completed.</p>
+
+  <div class="tableWrap" style="overflow:auto;">
+    <table class="table" style="min-width:780px;">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th style="width:90px;">Qty</th>
+          <th style="width:120px;">GP</th>
+          <th>Notes</th>
+          <th style="width:110px;">Action</th>
+        </tr>
+      </thead>
+      <tbody id="bm_wh_rows"></tbody>
+    </table>
+  </div>
+
+  <div class="btnRow">
+    <button id="bm_wh_add">Add Item</button>
+    <button id="bm_wh_save">Save Warehouse</button>
+  </div>
 </div>
-        <div class="btnRow">
-          <button id="bm_wh_add">Add Item</button>
-          <button id="bm_wh_save">Save Warehouse</button>
-        </div>
-      </div>
 
-      <div class="card">
-        <h2>Import / Export</h2>
-        <div class="btnRow">
-          <button id="bm_export">Export State JSON</button>
-          <button id="bm_import_btn">Import JSON</button>
-          <input id="bm_import_file" type="file" accept="application/json" style="display:none;">
-          <button id="bm_reset">Reset From Spec</button>
-        </div>
-        <p class="small muted">Saved under <code>${BASTION_STORE_KEY}</code> in localStorage.</p>
+<!-- Import/Export (under Warehouse) -->
+<div class="card" style="margin-top:12px;">
+  <h2>Import / Export</h2>
+  <div class="btnRow">
+    <button id="bm_export">Export State JSON</button>
+    <button id="bm_import_btn">Import JSON</button>
+    <input id="bm_import_file" type="file" accept="application/json" style="display:none;">
+    <button id="bm_reset">Reset From Spec</button>
+  </div>
+  <p class="small muted">Saved under <code>${BASTION_STORE_KEY}</code> in localStorage.</p>
 
-        ${lastEvent ? `
-          <hr />
-          <div class="card" style="margin-top:10px; background: rgba(18,22,27,.55)">
-            <p class="badge">Last Event (Turn ${safeNum(lastEvent.turn,0)})</p>
-            <p><b>Roll:</b> ${safeNum(lastEvent.roll,0)} • <b>${lastEvent.label || "No event"}</b></p>
-            ${lastEvent.notes ? `<p class="small muted">${lastEvent.notes}</p>` : ``}
-          </div>
-        ` : ``}
-      </div>
+  ${lastEvent ? `
+    <hr />
+    <div class="card" style="margin-top:10px; background: rgba(18,22,27,.55)">
+      <p class="badge">Last Event (Turn ${safeNum(lastEvent.turn,0)})</p>
+      <p><b>Roll:</b> ${safeNum(lastEvent.roll,0)} • <b>${lastEvent.label || "No event"}</b></p>
+      ${lastEvent.notes ? `<p class="small muted">${lastEvent.notes}</p>` : ``}
     </div>
+  ` : ``}
+</div>
 
         <div class="card" style="margin-top:12px;">
       <h2>Workshop: Artisan Tools</h2>
