@@ -1557,7 +1557,7 @@ const craftStartBtn = document.getElementById("bm_craftStart");
 const craftHint = document.getElementById("bm_craftHint");
 
 // Tool -> craftable items map (expand later)
-const CRAFTABLES_BY_TOOL = {
+const CRAFTABLES_BY_TOOL_prompt = {
   "Smith’s tools": ["Arrows (20)", "Caltrops", "Manacles", "Shield (basic)", "Iron Spikes (10)"],
   "Carpenter’s tools": ["Ladder (10ft)", "Pole (10ft)", "Wooden Shield", "Repair kit"],
   "Leatherworker’s tools": ["Leather armor (basic)", "Saddlebags", "Waterskin", "Bedroll"],
