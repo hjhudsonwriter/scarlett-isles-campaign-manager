@@ -908,6 +908,46 @@ function applyOutputsToWarehouse(runtimeState, outputs) {
   });
 }
 
+// --- Workshop Crafting: create an order that deposits a chosen item into Warehouse ---
+function createWorkshopCraftOrder(runtimeState, toolName, itemName) {
+  const safeTool = String(toolName || "").trim();
+  const safeItem = String(itemName || "").trim();
+
+  // Fallbacks so it never breaks
+  const tool = safeTool || "Artisan tools";
+  const item = safeItem || "Crafted item";
+
+  // Decide duration/cost (simple defaults; you can tune later)
+  const durationTurns = 1;
+  const costGP = 0;
+
+  // Spend GP if needed
+  const treasuryNow = safeNum(runtimeState.state?.treasury?.gp, 0);
+  if (treasuryNow < costGP) {
+    return { ok: false, msg: "Not enough GP in Treasury for this craft." };
+  }
+  runtimeState.state.treasury.gp = treasuryNow - costGP;
+
+  // Create a standard “order” that your pipeline already understands
+  const order = {
+    facilityId: "workshop",                 // base id is fine
+    functionId: "craft_custom",             // custom marker
+    label: `Craft: ${item}`,
+    remainingTurns: durationTurns,
+    outputsToWarehouse: [
+      {
+        type: "item",
+        qty: 1,
+        label: item,
+        notes: `Crafted using ${tool}`
+      }
+    ],
+    notes: [`Workshop Crafting: ${tool} → ${item}`]
+  };
+
+  return { ok: true, order };
+}
+
 function rollEvent(runtimeState) {
   const table = runtimeState?.events?.d100Table || [];
   const roll = rollDie(100);
@@ -1914,6 +1954,86 @@ renderCraftUI();
   }
 
   renderFacilities();
+
+    // ----- Workshop Crafting (inside Workshop card) -----
+  const craftBtn = document.getElementById("bm_craftStart");
+  const craftToolSel = document.getElementById("bm_craftTool");
+  const craftItemSel = document.getElementById("bm_craftItem");
+  const craftHint = document.getElementById("bm_craftHint");
+
+  function normaliseToolKey(name) {
+    return String(name || "")
+      .toLowerCase()
+      .replace(/[’']/g, "")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  }
+
+  // IMPORTANT: define this ONCE in your file (you already fixed the duplicate earlier)
+  
+
+  function getSavedToolsList() {
+    const slots = runtimeState?.state?.artisanTools?.slots || [];
+    return slots.filter(Boolean).map(String);
+  }
+
+  function fillCraftToolOptions() {
+    if (!craftToolSel) return;
+    const tools = getSavedToolsList();
+
+    craftToolSel.innerHTML = tools.length
+      ? tools.map(t => `<option value="${t.replace(/"/g, "&quot;")}">${t}</option>`).join("")
+      : `<option value="">(no saved tools)</option>`;
+  }
+
+  function fillCraftItemOptions() {
+    if (!craftItemSel) return;
+    const toolName = craftToolSel?.value || "";
+    const key = normaliseToolKey(toolName);
+    const list = CRAFTABLES_BY_TOOL[key] || [];
+
+    craftItemSel.innerHTML = list.length
+      ? list.map(it => `<option value="${it.replace(/"/g, "&quot;")}">${it}</option>`).join("")
+      : `<option value="">(no crafts for this tool yet)</option>`;
+
+    if (craftHint) {
+      craftHint.textContent = toolName
+        ? "Selected tool controls available crafts. Expand the craft list in app.js anytime."
+        : "Save tools above to enable crafting.";
+    }
+  }
+
+  // Populate dropdowns on render
+  if (craftToolSel && craftItemSel) {
+    fillCraftToolOptions();
+    fillCraftItemOptions();
+
+    craftToolSel.addEventListener("change", () => {
+      fillCraftItemOptions();
+    });
+  }
+
+  // Start Craft -> create an order that will deposit into Warehouse when completed
+  craftBtn?.addEventListener("click", () => {
+    const toolName = craftToolSel?.value || "";
+    const itemName = craftItemSel?.value || "";
+
+    if (!toolName) return alert("No saved tools. Save at least 1 Artisan Tool set first.");
+    if (!itemName) return alert("Pick an item to craft.");
+
+    // Prevent spamming multiple craft orders
+    const exists = (runtimeState.state.ordersInProgress || []).some(o => o.functionId === "craft_custom");
+    if (exists) return alert("A Workshop craft order is already in progress.");
+
+    const r = createWorkshopCraftOrder(runtimeState, toolName, itemName);
+    if (!r.ok) return alert(r.msg || "Could not start craft.");
+
+    runtimeState.state.ordersInProgress.push(r.order);
+    saveBastionSave(runtimeState);
+    alert(`Craft started: ${itemName}. It will appear in Warehouse after turns complete.`);
+    renderBastionManager();
+  });
+
     // ----- Workshop Crafting (inside Workshop card) -----
   function normaliseToolKey(name) {
     return String(name || "")
