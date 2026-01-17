@@ -1098,24 +1098,10 @@ async function renderBastionManager() {
 const res = await fetch(configPath, { cache: "no-store" });
     if (!res.ok) throw new Error(`Could not load ${configPath}`);
     config = await res.json();
-  } catch (e) {
-    view.innerHTML = `<h1>Bastion Manager</h1><p class="badge">Error loading bastion.json</p><pre>${String(e)}</pre>`;
+    } catch (e) {
+    const configPath = getBastionConfigPath();
+    view.innerHTML = `<h1>Bastion Manager</h1><p class="badge">Error loading ${configPath}</p><pre>${String(e)}</pre>`;
     return;
-      // ---- DOM helpers (Bastion only) ----
-  const must = (id) => {
-    const el = document.getElementById(id);
-    if (!el) throw new Error(`Bastion Manager: Missing element #${id} (ID mismatch in the HTML template)`);
-    return el;
-  };
-  const opt = (id) => document.getElementById(id);
-
-      // ---- DEBUG HELPERS (safe) ----
-  const must = (id) => {
-    const el = document.getElementById(id);
-    if (!el) throw new Error(`Bastion Manager: Missing element #${id} (ID mismatch in the HTML template)`);
-    return el;
-  };
-  const opt = (id) => document.getElementById(id);
   }
 
   // Load saved state or seed from config
@@ -1306,6 +1292,13 @@ const res = await fetch(configPath, { cache: "no-store" });
       <div id="bm_turnResult" class="small muted" style="margin-top:10px;"></div>
     </div>
   `;
+  // ---- DOM helpers (Bastion only) ----
+  const must = (id) => {
+    const el = document.getElementById(id);
+    if (!el) throw new Error(`Bastion Manager: Missing element #${id} (ID mismatch in the HTML template)`);
+    return el;
+  };
+  const opt = (id) => document.getElementById(id);
 
   // ----- Warehouse rows (clean editor) -----
   const whTbody = must("bm_wh_rows");
@@ -1887,7 +1880,7 @@ const r = startFunctionOrder(runtimeState, fid, fnid);
     const result = advanceTurnPipeline(runtimeState, { maintainIssued: maintain });
     saveBastionSave(runtimeState);
 
-        const out = opt("bm_turnResult");
+            const out = opt("bm_turnResult");
     if (out) {
       out.innerHTML = `
         Turn processed. Next upkeep was <b>${result.nextUpkeep} gp</b>.
