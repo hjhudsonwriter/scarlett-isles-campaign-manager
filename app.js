@@ -1101,6 +1101,13 @@ const res = await fetch(configPath, { cache: "no-store" });
   } catch (e) {
     view.innerHTML = `<h1>Bastion Manager</h1><p class="badge">Error loading bastion.json</p><pre>${String(e)}</pre>`;
     return;
+      // ---- DEBUG HELPERS (safe) ----
+  const must = (id) => {
+    const el = document.getElementById(id);
+    if (!el) throw new Error(`Bastion Manager: Missing element #${id} (ID mismatch in the HTML template)`);
+    return el;
+  };
+  const opt = (id) => document.getElementById(id);
   }
 
   // Load saved state or seed from config
@@ -1872,12 +1879,13 @@ const r = startFunctionOrder(runtimeState, fid, fnid);
     const result = advanceTurnPipeline(runtimeState, { maintainIssued: maintain });
     saveBastionSave(runtimeState);
 
-    const out = document.getElementById("bm_turnResult");
-    if (out) out.innerHTML = html;
-      Turn processed. Next upkeep was <b>${result.nextUpkeep} gp</b>.
-      ${result.didRoll ? `<br>Event roll: <b>${result.rolled.roll}</b> (${result.rolled.event?.label || "No event"})` : ""}
-    `;
-
+        const out = document.getElementById("bm_turnResult");
+    if (out) {
+      out.innerHTML = `
+        Turn processed. Next upkeep was <b>${result.nextUpkeep} gp</b>.
+        ${result.didRoll ? `<br>Event roll: <b>${result.rolled.roll}</b> (${result.rolled.event?.label || "No event"})` : ""}
+      `;
+    }
     renderBastionManager();
   });
 
@@ -1908,13 +1916,6 @@ function renderHonourTracker() {
       referrerpolicy="no-referrer"
     ></iframe>
   `;
-    // ---- DEBUG HELPERS (safe) ----
-  const must = (id) => {
-    const el = document.getElementById(id);
-    if (!el) throw new Error(`Bastion Manager: Missing element #${id} (ID mismatch in the HTML template)`);
-    return el;
-  };
-  const opt = (id) => document.getElementById(id);
 }
 /* ================================
    Scarlett Isles Explorer (Hex VTT)
