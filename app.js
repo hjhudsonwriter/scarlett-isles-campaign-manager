@@ -1292,25 +1292,6 @@ const res = await fetch(configPath, { cache: "no-store" });
 </div>
 
         <div class="card" style="margin-top:12px;">
-  <h2>Workshop: Craft</h2>
-  <p class="small muted">Choose one of your saved artisan tools, then pick an item to craft.</p>
-
-  <div class="grid2">
-    <label>Tool
-      <select id="bm_craftTool"></select>
-    </label>
-
-    <label>Item
-      <select id="bm_craftItem"></select>
-    </label>
-  </div>
-
-  <div class="btnRow" style="margin-top:10px;">
-    <button id="bm_craftStart">Start Craft</button>
-  </div>
-
-  <div class="small muted" id="bm_craftHint" style="margin-top:10px;"></div>
-</div>
 
 <!-- Workshop: Artisan Tools (if you already have this elsewhere in the template, do NOT duplicate it) -->
 <div class="card" style="margin-top:12px;">
@@ -1840,6 +1821,28 @@ renderCraftUI();
           <hr />
 
           <h4>Functions</h4>
+          ${baseFacilityId(f.id) === "workshop" ? `
+  <div class="card" style="margin:12px 0; background: rgba(18,22,27,.55);">
+    <h4 style="margin-top:0;">Workshop Crafting</h4>
+    <p class="small muted">Pick a saved artisan tool, then pick an item. This starts a Workshop craft order and deposits the result into the Warehouse when complete.</p>
+
+    <div class="grid2">
+      <label>Tool
+        <select id="bm_craftTool"></select>
+      </label>
+
+      <label>Item
+        <select id="bm_craftItem"></select>
+      </label>
+    </div>
+
+    <div class="btnRow" style="margin-top:10px;">
+      <button id="bm_craftStart" type="button">Start Craft</button>
+    </div>
+
+    <div class="small muted" id="bm_craftHint" style="margin-top:10px;"></div>
+  </div>
+` : ``}
           ${fns.length ? `
             <table class="table">
               <thead><tr><th>Function</th><th>Duration</th><th>Outputs</th><th>Action</th></tr></thead>
@@ -1911,6 +1914,133 @@ renderCraftUI();
   }
 
   renderFacilities();
+    // ----- Workshop Crafting (inside Workshop card) -----
+  function normaliseToolKey(name) {
+    return String(name || "")
+      .toLowerCase()
+      .replace(/[’']/g, "")          // remove apostrophes (normal + curly)
+      .replace(/[^a-z0-9]+/g, "_")   // non-alphanum -> _
+      .replace(/^_+|_+$/g, "");      // trim _
+  }
+
+  // Basic craft list (you can expand later)
+  const CRAFTABLES_BY_TOOL = {
+    smiths_tools: ["Arrows (20)", "Caltrops", "Manacles", "Shield (basic)"],
+    carpenters_tools: ["Ladder (10ft)", "Pole (10ft)", "Wooden Shield", "Repair kit"],
+    leatherworkers_tools: ["Leather armor (basic)", "Saddlebags", "Waterskin", "Bedroll"],
+    alchemists_supplies: ["Healing potion (basic)", "Antitoxin", "Alchemist’s fire (1 flask)"],
+    jewelers_tools: ["Signet ring", "Gem setting", "Holy symbol (custom)"],
+    weavers_tools: ["Rope (50ft)", "Net", "Cloak", "Tent repair"],
+    cooks_utensils: ["Rations (10)", "Trail mix (10)", "Spice pouch", "Waterskin"],
+    woodcarvers_tools: ["Wooden tokens set", "Carved idol", "Arrow shafts (20)"]
+  };
+
+  function parseQtyFromLabel(label) {
+    // "Arrows (20)" -> { name:"Arrows", qty:20 }
+    const s = String(label || "").trim();
+    const m = s.match(/^(.+?)\s*\((\d+)\)\s*$/);
+    if (!m) return { name: s, qty: 1 };
+    return { name: m[1].trim(), qty: Number(m[2]) || 1 };
+  }
+
+  function findWorkshopCraftFunctionId() {
+    // Find the workshop facility in your runtime state
+    const wf = (runtimeState.facilities || []).find(x => baseFacilityId(x.id) === "workshop");
+    if (!wf) return { facilityId: null, functionId: null };
+
+    const lvl = safeNum(wf.currentLevel, 0);
+    const lvlData = facilityLevelData(wf, lvl);
+    const fns = lvlData?.functions || [];
+
+    // Prefer explicit orderType:"craft" if present
+    const craftFn = fns.find(fn => fn?.orderType === "craft")
+      || fns.find(fn => String(fn?.id || "").toLowerCase().includes("craft"))
+      || null;
+
+    return { facilityId: wf.id, functionId: craftFn?.id || null };
+  }
+
+  function wireWorkshopCraftUI() {
+    const toolSel = document.getElementById("bm_craftTool");
+    const itemSel = document.getElementById("bm_craftItem");
+    const startBtn = document.getElementById("bm_craftStart");
+    const hint = document.getElementById("bm_craftHint");
+
+    // If we’re not currently rendering the Workshop card, these won’t exist.
+    if (!toolSel || !itemSel || !startBtn) return;
+
+    // Pull chosen artisan tools from saved slots
+    const slots = runtimeState?.state?.artisanTools?.slots || [];
+    const chosenTools = slots.filter(Boolean).map(String);
+
+    if (!chosenTools.length) {
+      toolSel.innerHTML = `<option value="">(no tools saved)</option>`;
+      itemSel.innerHTML = `<option value="">(save artisan tools below first)</option>`;
+      if (hint) hint.textContent = "Save at least 1 Artisan Tool in the 'Workshop: Artisan Tools' section first.";
+      startBtn.disabled = true;
+      return;
+    }
+
+    startBtn.disabled = false;
+
+    // Fill tool dropdown
+    toolSel.innerHTML = chosenTools.map(t => `<option value="${t.replace(/"/g, "&quot;")}">${t}</option>`).join("");
+
+    function refreshItemsForTool(toolName) {
+      const key = normaliseToolKey(toolName);
+      const items = CRAFTABLES_BY_TOOL[key] || ["(No items configured for this tool yet)"];
+      itemSel.innerHTML = items.map(x => `<option value="${x.replace(/"/g, "&quot;")}">${x}</option>`).join("");
+      if (hint) hint.textContent = "Selected tool controls available crafts. Expand the craft list in app.js anytime.";
+    }
+
+    refreshItemsForTool(toolSel.value);
+
+    toolSel.addEventListener("change", () => {
+      refreshItemsForTool(toolSel.value);
+    });
+
+    startBtn.addEventListener("click", () => {
+      const tool = toolSel.value;
+      const item = itemSel.value;
+
+      if (!tool) return alert("Pick a tool first.");
+      if (!item) return alert("Pick an item first.");
+
+      const { facilityId, functionId } = findWorkshopCraftFunctionId();
+      if (!facilityId || !functionId) {
+        alert("Could not find a Workshop craft function in the Workshop facility card. Check your workshop function IDs in the JSON.");
+        return;
+      }
+
+      // Start the actual Workshop function order
+      const r = startFunctionOrder(runtimeState, facilityId, functionId);
+      if (!r.ok) {
+        alert(r.msg || "Could not start craft order.");
+        return;
+      }
+
+      // Override the output so the chosen item goes into the warehouse when the order completes
+      const parsed = parseQtyFromLabel(item);
+      const order = runtimeState.state.ordersInProgress[runtimeState.state.ordersInProgress.length - 1];
+
+      if (order) {
+        order.label = `Craft: ${parsed.name}`;
+        order.outputsToWarehouse = [{
+          type: "item",
+          qty: parsed.qty,
+          label: parsed.name,
+          notes: `Crafted using ${tool}`
+        }];
+        order.craftPick = { tool, itemLabel: item, qty: parsed.qty };
+      }
+
+      saveBastionSave(runtimeState);
+      if (hint) hint.textContent = `Craft started: ${item}. Take Bastion Turns until it completes, then check Warehouse.`;
+      renderBastionManager();
+    });
+  }
+
+  wireWorkshopCraftUI();
     renderSpecialFacilities();
 
   facWrap.addEventListener("click", (e) => {
