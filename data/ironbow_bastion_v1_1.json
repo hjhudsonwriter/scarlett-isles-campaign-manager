@@ -1203,72 +1203,368 @@
     ]
   },
   "facilityCatalog": [
-    {
-      "id": "smithy",
-      "name": "Smithy",
-      "category": "special",
-      "minPlayerLevel": 5,
-      "buildCostGP": 400,
-      "buildTurns": 4,
-      "notes": [
-        "Halves Armory Stock cost."
-      ]
-    },
-    {
-      "id": "library",
-      "name": "Library",
-      "category": "special",
-      "minPlayerLevel": 5,
-      "buildCostGP": 300,
-      "buildTurns": 3,
-      "notes": [
-        "Research orders; lore and intel."
-      ]
-    },
-    {
-      "id": "garden",
-      "name": "Garden",
-      "category": "special",
-      "minPlayerLevel": 5,
-      "buildCostGP": 250,
-      "buildTurns": 2,
-      "notes": [
-        "Herbs, healing supplies."
-      ]
-    },
-    {
-      "id": "chapel",
-      "name": "Chapel",
-      "category": "special",
-      "minPlayerLevel": 9,
-      "buildCostGP": 500,
-      "buildTurns": 4,
-      "notes": [
-        "Rites, sanctuary."
-      ]
-    },
-    {
-      "id": "stable",
-      "name": "Stable",
-      "category": "special",
-      "minPlayerLevel": 9,
-      "buildCostGP": 450,
-      "buildTurns": 4,
-      "notes": [
-        "Mount housing, travel logistics."
-      ]
-    },
-    {
-      "id": "vault",
-      "name": "Vault",
-      "category": "special",
-      "minPlayerLevel": 13,
-      "buildCostGP": 800,
-      "buildTurns": 6,
-      "notes": [
-        "Secure storage, treasury protection."
-      ]
-    }
+  {
+    "id": "arcane_study",
+    "name": "Arcane Study",
+    "category": "special",
+    "minPlayerLevel": 5,
+    "buildCostGP": 350,
+    "buildTurns": 3,
+    "notes": [
+      "Order: Craft.",
+      "Prerequisite: Arcane Focus or tool as Spellcasting Focus."
+    ]
+  },
+  {
+    "id": "armory",
+    "name": "Armory",
+    "category": "special",
+    "minPlayerLevel": 5,
+    "buildCostGP": 400,
+    "buildTurns": 4,
+    "notes": [
+      "Order: Trade.",
+      "Note: You already have Armory on the map as armory_C."
+    ]
+  },
+  {
+    "id": "barrack",
+    "name": "Barrack",
+    "category": "special",
+    "minPlayerLevel": 5,
+    "buildCostGP": 400,
+    "buildTurns": 4,
+    "notes": [
+      "Order: Recruit.",
+      "Note: You already have Barracks on the map as barracks_D."
+    ]
+  },
+
+  {
+    "id": "smithy",
+    "name": "Smithy",
+    "category": "special",
+    "minPlayerLevel": 5,
+    "buildCostGP": 400,
+    "buildTurns": 4,
+    "notes": [
+      "Halves Armory Stock cost."
+    ]
+  },
+  {
+    "id": "library",
+    "name": "Library",
+    "category": "special",
+    "minPlayerLevel": 5,
+    "buildCostGP": 300,
+    "buildTurns": 3,
+    "notes": [
+      "Research orders; lore and intel."
+    ]
+  },
+  {
+    "id": "garden",
+    "name": "Garden",
+    "category": "special",
+    "minPlayerLevel": 5,
+    "buildCostGP": 250,
+    "buildTurns": 2,
+    "notes": [
+      "Harvest orders; outputs depend on garden type."
+    ]
+  },
+  {
+    "id": "sanctuary",
+    "name": "Sanctuary",
+    "category": "special",
+    "minPlayerLevel": 5,
+    "buildCostGP": 350,
+    "buildTurns": 3,
+    "notes": [
+      "Order: Craft.",
+      "Prerequisite: Holy Symbol or Druidic Focus as Spellcasting Focus."
+    ]
+  },
+  {
+    "id": "storehouse",
+    "name": "Storehouse",
+    "category": "special",
+    "minPlayerLevel": 5,
+    "buildCostGP": 350,
+    "buildTurns": 3,
+    "notes": [
+      "Order: Trade.",
+      "Buy/sell goods; profit scales by level."
+    ]
+  },
+  {
+    "id": "workshop",
+    "name": "Workshop",
+    "category": "special",
+    "minPlayerLevel": 5,
+    "buildCostGP": 400,
+    "buildTurns": 4,
+    "notes": [
+      "Order: Craft.",
+      "Note: You already have Workshop on the map as workshop_E."
+    ]
+  },
+
+  {
+    "id": "gaming_hall",
+    "name": "Gaming Hall",
+    "category": "special",
+    "minPlayerLevel": 9,
+    "buildCostGP": 500,
+    "buildTurns": 4,
+    "notes": [
+      "Order: Trade."
+    ]
+  },
+  {
+    "id": "greenhouse",
+    "name": "Greenhouse",
+    "category": "special",
+    "minPlayerLevel": 9,
+    "buildCostGP": 500,
+    "buildTurns": 4,
+    "notes": [
+      "Order: Harvest."
+    ]
+  },
+  {
+    "id": "laboratory",
+    "name": "Laboratory",
+    "category": "special",
+    "minPlayerLevel": 9,
+    "buildCostGP": 550,
+    "buildTurns": 5,
+    "notes": [
+      "Order: Craft."
+    ]
+  },
+  {
+    "id": "sacristy",
+    "name": "Sacristy",
+    "category": "special",
+    "minPlayerLevel": 9,
+    "buildCostGP": 500,
+    "buildTurns": 4,
+    "notes": [
+      "Order: Craft.",
+      "Prerequisite: Holy Symbol or Druidic Focus as Spellcasting Focus."
+    ]
+  },
+  {
+    "id": "scriptorium",
+    "name": "Scriptorium",
+    "category": "special",
+    "minPlayerLevel": 9,
+    "buildCostGP": 500,
+    "buildTurns": 4,
+    "notes": [
+      "Order: Craft."
+    ]
+  },
+  {
+    "id": "stable",
+    "name": "Stable",
+    "category": "special",
+    "minPlayerLevel": 9,
+    "buildCostGP": 450,
+    "buildTurns": 4,
+    "notes": [
+      "Mount housing, travel logistics."
+    ]
+  },
+  {
+    "id": "teleportation_circle",
+    "name": "Teleportation Circle",
+    "category": "special",
+    "minPlayerLevel": 9,
+    "buildCostGP": 650,
+    "buildTurns": 6,
+    "notes": [
+      "Order: Recruit."
+    ]
+  },
+  {
+    "id": "theater",
+    "name": "Theater",
+    "category": "special",
+    "minPlayerLevel": 9,
+    "buildCostGP": 550,
+    "buildTurns": 5,
+    "notes": [
+      "Order: Empower."
+    ]
+  },
+  {
+    "id": "training_area",
+    "name": "Training Area",
+    "category": "special",
+    "minPlayerLevel": 9,
+    "buildCostGP": 500,
+    "buildTurns": 4,
+    "notes": [
+      "Order: Empower."
+    ]
+  },
+  {
+    "id": "trophy_room",
+    "name": "Trophy Room",
+    "category": "special",
+    "minPlayerLevel": 9,
+    "buildCostGP": 500,
+    "buildTurns": 4,
+    "notes": [
+      "Order: Research."
+    ]
+  },
+
+  {
+    "id": "archive",
+    "name": "Archive",
+    "category": "special",
+    "minPlayerLevel": 13,
+    "buildCostGP": 800,
+    "buildTurns": 6,
+    "notes": [
+      "Order: Research."
+    ]
+  },
+  {
+    "id": "meditation_chamber",
+    "name": "Meditation Chamber",
+    "category": "special",
+    "minPlayerLevel": 13,
+    "buildCostGP": 800,
+    "buildTurns": 6,
+    "notes": [
+      "Order: Empower."
+    ]
+  },
+  {
+    "id": "menagerie",
+    "name": "Menagerie",
+    "category": "special",
+    "minPlayerLevel": 13,
+    "buildCostGP": 900,
+    "buildTurns": 7,
+    "notes": [
+      "Order: Recruit."
+    ]
+  },
+  {
+    "id": "observatory",
+    "name": "Observatory",
+    "category": "special",
+    "minPlayerLevel": 13,
+    "buildCostGP": 850,
+    "buildTurns": 6,
+    "notes": [
+      "Order: Empower.",
+      "Prerequisite: Spellcasting Focus."
+    ]
+  },
+  {
+    "id": "pub",
+    "name": "Pub",
+    "category": "special",
+    "minPlayerLevel": 13,
+    "buildCostGP": 800,
+    "buildTurns": 6,
+    "notes": [
+      "Order: Research."
+    ]
+  },
+  {
+    "id": "reliquary",
+    "name": "Reliquary",
+    "category": "special",
+    "minPlayerLevel": 13,
+    "buildCostGP": 900,
+    "buildTurns": 7,
+    "notes": [
+      "Order: Harvest.",
+      "Prerequisite: Holy Symbol or Druidic Focus as Spellcasting Focus."
+    ]
+  },
+
+  {
+    "id": "demiplane",
+    "name": "Demiplane",
+    "category": "special",
+    "minPlayerLevel": 17,
+    "buildCostGP": 1200,
+    "buildTurns": 8,
+    "notes": [
+      "Order: Empower.",
+      "Prerequisite: Arcane Focus or tool as Spellcasting Focus."
+    ]
+  },
+  {
+    "id": "guildhall",
+    "name": "Guildhall",
+    "category": "special",
+    "minPlayerLevel": 17,
+    "buildCostGP": 1200,
+    "buildTurns": 8,
+    "notes": [
+      "Order: Recruit.",
+      "Prerequisite: Expertise in a skill."
+    ]
+  },
+  {
+    "id": "sanctum",
+    "name": "Sanctum",
+    "category": "special",
+    "minPlayerLevel": 17,
+    "buildCostGP": 1200,
+    "buildTurns": 8,
+    "notes": [
+      "Order: Empower.",
+      "Prerequisite: Holy Symbol or Druidic Focus as Spellcasting Focus."
+    ]
+  },
+  {
+    "id": "war_room",
+    "name": "War Room",
+    "category": "special",
+    "minPlayerLevel": 17,
+    "buildCostGP": 1200,
+    "buildTurns": 8,
+    "notes": [
+      "Order: Recruit.",
+      "Prerequisite: Fighting Style or Unarmored Defense."
+    ]
+  },
+
+  {
+    "id": "chapel",
+    "name": "Chapel",
+    "category": "special",
+    "minPlayerLevel": 9,
+    "buildCostGP": 500,
+    "buildTurns": 4,
+    "notes": [
+      "Your custom facility (legacy ID).",
+      "Likely maps to Sanctuary/Sacristy depending on intended function."
+    ]
+  },
+  {
+    "id": "vault",
+    "name": "Vault",
+    "category": "special",
+    "minPlayerLevel": 13,
+    "buildCostGP": 800,
+    "buildTurns": 6,
+    "notes": [
+      "Your custom facility (legacy ID).",
+      "Likely maps to Storehouse or Reliquary depending on intended function."
+    ]
+  }
+]
   ],
   "facilitySlotsComputed": {
     "usePlayerLevelPath": "state.playerLevel",
