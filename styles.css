@@ -697,3 +697,13 @@ button[disabled]{
 .milesPill.isDone{
   opacity:.7;
 }
+/* Bastion Warehouse: keep the panel tidy */
+.warehouseCard { overflow: hidden; }
+.warehouseCard table { width: 100%; table-layout: fixed; }
+.warehouseCard th, .warehouseCard td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.warehouseCard .tableWrap {
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 6px;
+}
