@@ -1017,14 +1017,21 @@ runtimeState.state.specialConstruction = (runtimeState.state.specialConstruction
 const doneSpecial = (runtimeState.state.specialConstruction || []).filter(x => safeNum(x.remainingTurns, 0) <= 0);
 runtimeState.state.specialConstruction = (runtimeState.state.specialConstruction || []).filter(x => safeNum(x.remainingTurns, 0) > 0);
 
-runtimeState.state.specialFacilities = Array.isArray(runtimeState.state.specialFacilities) ? runtimeState.state.specialFacilities : [];
+runtimeState.state.specialFacilities = Array.isArray(runtimeState.state.specialFacilities)
+  ? runtimeState.state.specialFacilities
+  : [];
 
 doneSpecial.forEach(x => {
-  // mark active
-  runtimeState.state.specialFacilities.push({ id: x.id, status: "active" });
+  // Your JSON uses facilityId (eg "barracks_D")
+  const fid = x.facilityId || x.id;
+  if (!fid) return;
 
-  // ALSO: create a real facility card
-  ensureSpecialFacilityCard(runtimeState, x.id);
+  // mark active (avoid duplicates)
+  const exists = runtimeState.state.specialFacilities.some(sf => sf?.id === fid);
+  if (!exists) runtimeState.state.specialFacilities.push({ id: fid, status: "active" });
+
+  // Create/attach a real facility card
+  ensureSpecialFacilityCard(runtimeState, fid);
 });
 
   // 4) decrement order timers
@@ -1286,7 +1293,7 @@ const res = await fetch(configPath, { cache: "no-store" });
   `;
 
   // ----- Warehouse rows (clean editor) -----
-  const whTbody = document.getElementById("bm_wh_rows");
+  const whTbody = must("bm_wh_rows");
 
   function itemToFields(it) {
     const qty = safeNum(it?.qty ?? 1, 1);
@@ -1331,12 +1338,12 @@ const res = await fetch(configPath, { cache: "no-store" });
 
   renderWarehouseRows();
 
-  document.getElementById("bm_wh_add").addEventListener("click", () => {
+  must("bm_wh_add").addEventListener("click", () => {
     runtimeState.state.warehouse.items.push({ type: "item", qty: 1, label: "New Item", notes: "" });
     renderWarehouseRows();
   });
 
-  document.getElementById("bm_wh_save").addEventListener("click", () => {
+  must("bm_wh_save").addEventListener("click", () => {
     const rows = [...whTbody.querySelectorAll("tr")];
     const items = runtimeState.state.warehouse.items || [];
     const next = [];
@@ -1490,7 +1497,9 @@ const res = await fetch(configPath, { cache: "no-store" });
   renderToolsUI();
 
   // ----- Facilities rendering -----
-  const facWrap = document.getElementById("bm_facilities");
+  const facWrap = must("bm_facilities");
+  if (!facWrap) throw new Error("Bastion Manager: #bm_facilities not found in the HTML (ID mismatch).");
+
     // ----- Special facilities (v1.1) -----
   const specialWrap = document.getElementById("bm_specialWrap");
 
@@ -1824,7 +1833,7 @@ const r = startFunctionOrder(runtimeState, fid, fnid);
     // Special facilities are wired inside renderSpecialFacilities() (fresh DOM each render)
 
   // ----- Import / Export -----
-  document.getElementById("bm_export").addEventListener("click", () => {
+  must("bm_export").addEventListener("click", () => {
     const blob = new Blob([exportBastion(runtimeState)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1834,8 +1843,8 @@ const r = startFunctionOrder(runtimeState, fid, fnid);
     URL.revokeObjectURL(url);
   });
 
-  const importBtn = document.getElementById("bm_import_btn");
-  const importInput = document.getElementById("bm_import_file");
+  const importBtn = must("bm_import_btn");
+  const importInput = must("bm_import_file");
   importBtn.addEventListener("click", () => importInput.click());
 
   importInput.addEventListener("change", async () => {
@@ -1849,14 +1858,14 @@ const r = startFunctionOrder(runtimeState, fid, fnid);
     renderBastionManager();
   });
 
-  document.getElementById("bm_reset").addEventListener("click", () => {
+  must("bm_reset").addEventListener("click", () => {
     localStorage.removeItem(BASTION_STORE_KEY);
     alert("Reset to spec baseline. Reloading...");
     renderBastionManager();
   });
 
   // ----- Take Bastion Turn -----
-  document.getElementById("bm_takeTurn").addEventListener("click", () => {
+  must("bm_takeTurn").addEventListener("click", () => {
     saveTopFields();
     const maintain = !!document.getElementById("bm_maintain").checked;
 
@@ -1864,7 +1873,7 @@ const r = startFunctionOrder(runtimeState, fid, fnid);
     saveBastionSave(runtimeState);
 
     const out = document.getElementById("bm_turnResult");
-    out.innerHTML = `
+    if (out) out.innerHTML = html;
       Turn processed. Next upkeep was <b>${result.nextUpkeep} gp</b>.
       ${result.didRoll ? `<br>Event roll: <b>${result.rolled.roll}</b> (${result.rolled.event?.label || "No event"})` : ""}
     `;
@@ -1899,6 +1908,13 @@ function renderHonourTracker() {
       referrerpolicy="no-referrer"
     ></iframe>
   `;
+    // ---- DEBUG HELPERS (safe) ----
+  const must = (id) => {
+    const el = document.getElementById(id);
+    if (!el) throw new Error(`Bastion Manager: Missing element #${id} (ID mismatch in the HTML template)`);
+    return el;
+  };
+  const opt = (id) => document.getElementById(id);
 }
 /* ================================
    Scarlett Isles Explorer (Hex VTT)
