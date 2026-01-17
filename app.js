@@ -1027,24 +1027,6 @@ doneSpecial.forEach(x => {
   ensureSpecialFacilityCard(runtimeState, x.id);
 });
 
-    // v1.1: tick special construction timers + complete into active specialFacilities
-  runtimeState.state.specialConstruction = (runtimeState.state.specialConstruction || []).map(c => ({
-    ...c,
-    remainingTurns: safeNum(c.remainingTurns, 0) - 1
-  }));
-
-  const doneSpecial = (runtimeState.state.specialConstruction || []).filter(c => safeNum(c.remainingTurns, 0) <= 0);
-  runtimeState.state.specialConstruction = (runtimeState.state.specialConstruction || []).filter(c => safeNum(c.remainingTurns, 0) > 0);
-
-  doneSpecial.forEach(c => {
-    const idx = safeNum(c.slotIndex, 0);
-    runtimeState.state.specialFacilities = Array.isArray(runtimeState.state.specialFacilities) ? runtimeState.state.specialFacilities : [];
-    runtimeState.state.specialFacilities[idx] = {
-      id: c.facilityId,
-      name: c.name || c.facilityId
-    };
-  });
-
   // 4) decrement order timers
   runtimeState.state.ordersInProgress = (runtimeState.state.ordersInProgress || []).map(o => ({
     ...o,
