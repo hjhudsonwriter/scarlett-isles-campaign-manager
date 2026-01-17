@@ -1564,7 +1564,7 @@
       "Likely maps to Storehouse or Reliquary depending on intended function."
     ]
   }
-]
+],
   "facilitySlotsComputed": {
     "usePlayerLevelPath": "state.playerLevel",
     "specialSlotsByLevelTablePath": "facilitySlots.specialFacilitySlotTotalsByPlayerLevel",
