@@ -475,17 +475,37 @@ function rollDie(sides) {
 // Supports strings like "1d6*25", "2d4+3", "1d100"
 // ---------- Bastion v1.1 helpers (safe, additive) ----------
 
-function getFacilityById(runtimeState, id) {
-  return (runtimeState?.facilities || []).find(f => f.id === id) || null;
+// --- Facility ID helpers (supports "barracks_D" style IDs) ---
+function baseFacilityId(id) {
+  const raw = String(id || "").trim().toLowerCase();
+  if (!raw) return "";
+  // "barracks_D" -> "barracks", "armoury_C" -> "armoury"
+  if (raw.includes("_")) return raw.split("_")[0];
+  return raw;
 }
 
-function getFacilityLevel(runtimeState, id) {
-  const f = getFacilityById(runtimeState, id);
+function getFacilityById(runtimeState, idOrBase) {
+  const facilities = (runtimeState?.facilities || []);
+  const want = String(idOrBase || "").trim().toLowerCase();
+  if (!want) return null;
+
+  // 1) exact match first
+  let f = facilities.find(x => String(x.id).toLowerCase() === want);
+  if (f) return f;
+
+  // 2) then base-id match ("barracks" matches "barracks_D")
+  const wantBase = baseFacilityId(want);
+  f = facilities.find(x => baseFacilityId(x.id) === wantBase);
+  return f || null;
+}
+
+function getFacilityLevel(runtimeState, idOrBase) {
+  const f = getFacilityById(runtimeState, idOrBase);
   return f ? safeNum(f.currentLevel, 0) : 0;
 }
 
-function hasFacility(runtimeState, id, minLevel = 1) {
-  return getFacilityLevel(runtimeState, id) >= minLevel;
+function hasFacility(runtimeState, idOrBase, minLevel = 1) {
+  return getFacilityLevel(runtimeState, idOrBase) >= minLevel;
 }
 
 // Barracks capacity mapping: level -> max defenders
@@ -495,8 +515,20 @@ function hasFacility(runtimeState, id, minLevel = 1) {
 // level 2 => 12
 // level 3+ => 25
 function getBarracksCapacity(runtimeState) {
-  const lvl = getFacilityLevel(runtimeState, "barracks");
+  const barracks = getFacilityById(runtimeState, "barracks"); // will match barracks_D
+  if (!barracks) return 0;
+
+  const lvl = safeNum(barracks.currentLevel, 0);
   if (lvl <= 0) return 0;
+
+  // Prefer JSON's capacityByLevel if present (v1.1 spec)
+  const capMap = barracks?.capacityByLevel || null;
+  if (capMap && typeof capMap === "object") {
+    const cap = safeNum(capMap[String(lvl)], 0);
+    if (cap > 0) return cap;
+  }
+
+  // Fallback mapping if capacityByLevel missing
   if (lvl === 1) return 12;
   if (lvl === 2) return 12;
   return 25;
@@ -559,6 +591,35 @@ function computeSpecialSlots(playerLevel) {
   if (lvl >= 9) return 4;
   if (lvl >= 5) return 2;
   return 0;
+}
+
+function specialCatalogById(config, id) {
+  return (config?.facilityCatalog || []).find(x => x.id === id) || null;
+}
+
+function ensureSpecialFacilityCard(runtimeState, specialId) {
+  const baseId = `special_${specialId}`;
+  const already = (runtimeState.facilities || []).some(f => String(f.id) === baseId);
+  if (already) return;
+
+  const cat = specialCatalogById(runtimeState, specialId);
+  const name = cat?.label || specialId;
+
+  runtimeState.facilities = runtimeState.facilities || [];
+  runtimeState.facilities.push({
+    id: baseId,
+    name,
+    maxLevel: 1,
+    currentLevel: 1,
+    staffing: { hirelings: 0, notes: ["Special facility (v1.1). Add staffing/functions in JSON later if desired."] },
+    levels: {
+      "1": {
+        label: "Active",
+        benefits: (cat?.notes || []).length ? cat.notes : ["Special facility active."],
+        functions: []
+      }
+    }
+  });
 }
 
 // Armoury stock cost rule:
@@ -895,24 +956,35 @@ function advanceTurnPipeline(runtimeState, opts = { maintainIssued:false }) {
   }
 
     // 2.5) v1.1 rosterEffects tick (e.g. Barracks Recruit adds defenders per turn while active)
-  if (Array.isArray(runtimeState.state.ordersInProgress)) {
-    for (const o of runtimeState.state.ordersInProgress) {
-      const re = o?.rosterEffects;
-      if (!re) continue;
+if (Array.isArray(runtimeState.state.ordersInProgress)) {
+  for (const o of runtimeState.state.ordersInProgress) {
+    const effects = o?.rosterEffects;
+    if (!effects) continue;
 
-      // Expected shape: { defendersGainDice:"1d4", capBy:"barracks" } (we'll be permissive)
-      const gainExpr = re.defendersGainDice || re.defendersGain || null;
-      if (gainExpr) {
+    const list = Array.isArray(effects) ? effects : [effects];
+
+    for (const eff of list) {
+      if (!eff || typeof eff !== "object") continue;
+
+      // defenders_add: { type:"defenders_add", dice:"1d4", capBy:{ facilityId:"barracks_D" } }
+      if (eff.type === "defenders_add") {
+        const gainExpr = eff.dice || eff.defendersGainDice || "1d4";
         const gain = typeof gainExpr === "string" ? rollDiceExpr(gainExpr) : safeNum(gainExpr, 0);
+
         const def = getDefenders(runtimeState);
-        const cap = def.cap;
+
+        // Cap is driven by Barracks, regardless of whether eff says barracks_D or "barracks"
+        const cap = getBarracksCapacity(runtimeState);
         const next = clamp(def.count + gain, 0, cap);
+
+        ensureRosterState(runtimeState);
         runtimeState.state.roster.defenders.count = next;
 
         runtimeState.state.lastRosterTick = runtimeState.state.lastRosterTick || [];
         runtimeState.state.lastRosterTick.push({
           facilityId: o.facilityId,
           functionId: o.functionId,
+          type: "defenders_add",
           gained: gain,
           before: def.count,
           after: next,
@@ -921,6 +993,7 @@ function advanceTurnPipeline(runtimeState, opts = { maintainIssued:false }) {
       }
     }
   }
+}
   // 3) decrement construction timers, complete upgrades at 0
   runtimeState.state.constructionInProgress = (runtimeState.state.constructionInProgress || []).map(c => ({
     ...c,
@@ -934,6 +1007,25 @@ function advanceTurnPipeline(runtimeState, opts = { maintainIssued:false }) {
     const fac = findFacility(runtimeState, c.facilityId);
     if (fac) fac.currentLevel = safeNum(c.targetLevel, fac.currentLevel);
   });
+
+  // --- v1.1 Special Facilities construction completion ---
+runtimeState.state.specialConstruction = (runtimeState.state.specialConstruction || []).map(x => ({
+  ...x,
+  remainingTurns: safeNum(x.remainingTurns, 0) - 1
+}));
+
+const doneSpecial = (runtimeState.state.specialConstruction || []).filter(x => safeNum(x.remainingTurns, 0) <= 0);
+runtimeState.state.specialConstruction = (runtimeState.state.specialConstruction || []).filter(x => safeNum(x.remainingTurns, 0) > 0);
+
+runtimeState.state.specialFacilities = Array.isArray(runtimeState.state.specialFacilities) ? runtimeState.state.specialFacilities : [];
+
+doneSpecial.forEach(x => {
+  // mark active
+  runtimeState.state.specialFacilities.push({ id: x.id, status: "active" });
+
+  // ALSO: create a real facility card
+  ensureSpecialFacilityCard(runtimeState, x.id);
+});
 
     // v1.1: tick special construction timers + complete into active specialFacilities
   runtimeState.state.specialConstruction = (runtimeState.state.specialConstruction || []).map(c => ({
@@ -1137,18 +1229,11 @@ const res = await fetch(configPath, { cache: "no-store" });
       <div class="card warehouseCard">
         <h2>Warehouse</h2>
         <p class="small muted">DM editable. Function outputs append here automatically when completed.</p>
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th style="width:90px;">Qty</th>
-              <th style="width:120px;">Value (gp)</th>
-              <th>Notes</th>
-              <th style="width:110px;">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="bm_wh_rows"></tbody>
-        </table>
+        <div class="tableWrap">
+  <table class="table">
+  ...
+  </table>
+</div>
         <div class="btnRow">
           <button id="bm_wh_add">Add Item</button>
           <button id="bm_wh_save">Save Warehouse</button>
@@ -1692,7 +1777,62 @@ const res = await fetch(configPath, { cache: "no-store" });
     if (st) {
       const fid = st.dataset.fid;
       const fnid = st.dataset.fnid;
-      const r = startFunctionOrder(runtimeState, fid, fnid);
+      // Workshop craft prompt (v1.1)
+const fac = findFacility(runtimeState, fid);
+const facBase = baseFacilityId(fid);
+
+if (facBase === "workshop") {
+  const lvl = safeNum(fac?.currentLevel, 0);
+  const lvlData = facilityLevelData(fac, lvl);
+  const fn = (lvlData?.functions || []).find(x => x.id === fnid);
+
+  if (fn?.orderType === "craft") {
+    // Require at least 1 selected tool if the spec wants it
+    const slots = runtimeState?.state?.artisanTools?.slots || [];
+    const chosenTools = slots.filter(Boolean);
+    if (!chosenTools.length) {
+      alert("Choose at least 1 Artisan Tool set first (Workshop: Artisan Tools).");
+      return;
+    }
+
+    // Build a simple craftable list from selected tools (you can expand this later)
+    const CRAFTABLES_BY_TOOL = {
+      smith_tools: ["Arrows (20)", "Caltrops", "Manacles", "Shield (basic)"],
+      carpenter_tools: ["Ladder (10ft)", "Pole (10ft)", "Wooden Shield", "Repair kit"],
+      leatherworker_tools: ["Leather armor (basic)", "Saddlebags", "Waterskin", "Bedroll"],
+      alchemist_supplies: ["Healing potion (basic)", "Antitoxin", "Alchemist’s fire (1 flask)"],
+      jeweler_tools: ["Signet ring", "Gem setting", "Holy symbol (custom)"],
+      weaver_tools: ["Rope (50ft)", "Net", "Cloak", "Tent repair"]
+    };
+
+    const craftables = [];
+    for (const toolId of chosenTools) {
+      const k = String(toolId).toLowerCase().replace(/[^a-z0-9_]/g, "_");
+      (CRAFTABLES_BY_TOOL[k] || []).forEach(x => craftables.push(x));
+    }
+
+    const unique = [...new Set(craftables)];
+    const pick = unique.length
+      ? prompt("Craft what item?\n\n" + unique.map((x,i)=>`${i+1}) ${x}`).join("\n") + "\n\nEnter number:")
+      : null;
+
+    let pickedLabel = null;
+    if (unique.length) {
+      const idx = Number(pick);
+      if (!Number.isFinite(idx) || idx < 1 || idx > unique.length) {
+        alert("Cancelled (or invalid choice).");
+        return;
+      }
+      pickedLabel = unique[idx - 1];
+    }
+
+    // Save the selection onto the function order via crafting metadata
+    // (startFunctionOrder already stores `crafting: fn.crafting || null` so we attach notes via runtime state)
+    runtimeState.state._lastCraftPick = { workshopFn: fnid, item: pickedLabel, tools: chosenTools };
+  }
+}
+
+const r = startFunctionOrder(runtimeState, fid, fnid);
       if (!r.ok) alert(r.msg || "Could not start function.");
       saveBastionSave(runtimeState);
       renderBastionManager();
