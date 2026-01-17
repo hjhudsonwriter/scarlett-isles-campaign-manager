@@ -1312,6 +1312,30 @@ const res = await fetch(configPath, { cache: "no-store" });
   <div class="small muted" id="bm_craftHint" style="margin-top:10px;"></div>
 </div>
 
+<!-- Workshop: Artisan Tools (if you already have this elsewhere in the template, do NOT duplicate it) -->
+<div class="card" style="margin-top:12px;">
+  <h2>Workshop: Artisan Tools</h2>
+  <p class="small muted">v1.1: manage up to 6 tool sets (saved locally).</p>
+  <div id="bm_toolsWrap"></div>
+  <div class="btnRow" style="margin-top:10px;">
+    <button id="bm_toolsSave">Save Tools</button>
+  </div>
+</div>
+
+<!-- Special Facilities -->
+<div class="card" style="margin-top:12px;">
+  <h2>Special Facilities</h2>
+  <p class="small muted">v1.1: unlocked by Player Level (5=2, 9=4, 13=5, 17=6). Build from the catalog into slots.</p>
+  <div id="bm_specialWrap"></div>
+</div>
+
+<!-- Facilities -->
+<div class="card" style="margin-top:12px;">
+  <h2>Facilities</h2>
+  <p class="small muted">Upgrade costs are deducted immediately. Construction timers tick down on Bastion Turns.</p>
+  <div id="bm_facilities"></div>
+</div>
+
     <div class="card" style="margin-top:12px;">
       <h2>Current Upkeep</h2>
       <div class="pill">Per Bastion Turn: <b>${nextUpkeep} gp</b></div>
