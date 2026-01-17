@@ -1221,7 +1221,16 @@ const res = await fetch(configPath, { cache: "no-store" });
         <p class="small muted">DM editable. Function outputs append here automatically when completed.</p>
         <div class="tableWrap">
   <table class="table">
-  ...
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th style="width:90px;">Qty</th>
+        <th style="width:120px;">GP</th>
+        <th>Notes</th>
+        <th style="width:110px;">Action</th>
+      </tr>
+    </thead>
+    <tbody id="bm_wh_rows"></tbody>
   </table>
 </div>
         <div class="btnRow">
