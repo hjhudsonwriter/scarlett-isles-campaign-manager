@@ -1565,7 +1565,6 @@
     ]
   }
 ]
-  ],
   "facilitySlotsComputed": {
     "usePlayerLevelPath": "state.playerLevel",
     "specialSlotsByLevelTablePath": "facilitySlots.specialFacilitySlotTotalsByPlayerLevel",
