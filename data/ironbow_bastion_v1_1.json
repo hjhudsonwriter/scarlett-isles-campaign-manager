@@ -1246,18 +1246,6 @@
   }
 },
   {
-    "id": "armory",
-    "name": "Armory",
-    "category": "special",
-    "minPlayerLevel": 5,
-    "buildCostGP": 400,
-    "buildTurns": 4,
-    "notes": [
-      "Order: Trade.",
-      "Note: You already have Armory on the map as armory_C."
-    ]
-  },
-  {
     "id": "barrack",
     "name": "Barrack",
     "category": "special",
@@ -1325,18 +1313,6 @@
     "notes": [
       "Order: Trade.",
       "Buy/sell goods; profit scales by level."
-    ]
-  },
-  {
-    "id": "workshop",
-    "name": "Workshop",
-    "category": "special",
-    "minPlayerLevel": 5,
-    "buildCostGP": 400,
-    "buildTurns": 4,
-    "notes": [
-      "Order: Craft.",
-      "Note: You already have Workshop on the map as workshop_E."
     ]
   },
 
