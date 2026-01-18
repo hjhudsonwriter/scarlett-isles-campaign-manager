@@ -1319,7 +1319,8 @@ const SPECIAL_FACILITY_DEFS = {
 };
 
 
-  function ensureSpecialFacilityCard(runtimeState, specialInput) {
+  function ensureSpecialFacilityCard(runtimeState, configOrSpecial, maybeSpecial) {
+  const specialInput = (typeof maybeSpecial !== "undefined") ? maybeSpecial : configOrSpecial;
   // Accept:
   //  - "library"
   //  - { id:"library" }
