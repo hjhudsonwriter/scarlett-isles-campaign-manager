@@ -1153,13 +1153,24 @@ function ensureSpecialFacilityCard(runtimeState, specialId) {
   const already = (runtimeState.facilities || []).some(f => String(f.id) === baseId);
   if (already) return;
 
-  // Lookup definition for this special
-  const def = SPECIAL_FACILITY_DEFS[String(specialId || "").toLowerCase()];
-  const cat = specialCatalogById(config, specialId); // catalog is still useful for label/cost notes
+  const key = String(specialId || "").toLowerCase();
+  const def = SPECIAL_FACILITY_DEFS[key] || null;
 
-  const name = def?.label || cat?.label || specialId;
+  // Try to read catalog from whatever we can access WITHOUT relying on `config`
+  // (your bastion JSON spec is usually held inside runtimeState.spec or runtimeState.config)
+  const spec = runtimeState?.spec || runtimeState?.config || null;
+  let cat = null;
 
-  // Build a real one-level facility card with hirelings + one order button
+  if (spec?.facilityCatalog && Array.isArray(spec.facilityCatalog)) {
+    cat = spec.facilityCatalog.find(x => String(x?.id || "").toLowerCase() === key) || null;
+  }
+
+  const name =
+    def?.label ||
+    cat?.name ||
+    cat?.label ||
+    String(specialId || "Special Facility");
+
   const hire = safeNum(def?.hirelings, 0);
 
   runtimeState.facilities = runtimeState.facilities || [];
@@ -1172,13 +1183,15 @@ function ensureSpecialFacilityCard(runtimeState, specialId) {
     staffing: {
       hirelingsBase: hire,
       hirelingsByLevel: { "1": hire },
-      notes: (cat?.notes || []).length ? cat.notes : ["Special facility (DMG'24)."]
+      notes: (cat?.notes && cat.notes.length) ? cat.notes : (def?.benefits || ["Special facility (DMG'24)."])
     },
     levels: {
       "1": {
         label: "Active",
         construction: { costGP: 0, turns: 0 },
-        benefits: (def?.benefits || []).length ? def.benefits : (cat?.notes || ["Special facility active."]),
+        benefits: (def?.benefits && def.benefits.length)
+          ? def.benefits
+          : ((cat?.notes && cat.notes.length) ? cat.notes : ["Special facility active."]),
         functions: Array.isArray(def?.functions) ? def.functions : []
       }
     }
