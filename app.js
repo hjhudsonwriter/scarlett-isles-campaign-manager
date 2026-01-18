@@ -1153,7 +1153,7 @@ const SPECIAL_FACILITY_DEFS = {
   //  - { specialId:"library" }
   //  - { facilityId:"library" }
   //  - { facility:{ id:"library" } }
-  //  - { id:{ id:"library" } } (yes, this happens sometimes)
+  //  - { id:{ id:"library" } }
 
   let specialId = "";
 
@@ -1161,22 +1161,14 @@ const SPECIAL_FACILITY_DEFS = {
     specialId = specialInput;
   } else if (specialInput && typeof specialInput === "object") {
     const raw =
-      specialInput.id ??
-      specialInput.specialId ??
-      specialInput.facilityId ??
-      specialInput.key ??
-      specialInput.facility ??
-      specialInput.specialFacility ??
-      specialInput.data ??
-      "";
+      (specialInput.id ?? specialInput.specialId ?? specialInput.facilityId ?? specialInput.key ??
+       specialInput.facility ?? specialInput.specialFacility ?? specialInput.data ?? "");
 
     if (typeof raw === "string") {
       specialId = raw;
     } else if (raw && typeof raw === "object") {
-      // nested object forms
       specialId = raw.id || raw.key || raw.name || raw.label || "";
     } else {
-      // last-ditch: sometimes name is the id
       specialId = specialInput.name || specialInput.label || "";
     }
   }
@@ -1186,30 +1178,27 @@ const SPECIAL_FACILITY_DEFS = {
 
   const baseId = `special_${key}`;
 
-
   // prevent duplicates
   const already = (runtimeState.facilities || []).some(f => String(f.id) === baseId);
   if (already) return;
 
-  const def = SPECIAL_FACILITY_DEFS[key] || null;
+  // Optional defs map (safe if empty)
+  const def = (typeof SPECIAL_FACILITY_DEFS !== "undefined" && SPECIAL_FACILITY_DEFS)
+    ? (SPECIAL_FACILITY_DEFS[key] || null)
+    : null;
 
-  // Try to read catalog from whatever we can access WITHOUT relying on `config`
-  // (your bastion JSON spec is usually held inside runtimeState.spec or runtimeState.config)
+  // Try to read facilityCatalog from the same spec object the page uses
   let cat = null;
+  const spec =
+    (typeof bastionSpec !== "undefined" && bastionSpec) ? bastionSpec :
+    (typeof BASTION_SPEC !== "undefined" && BASTION_SPEC) ? BASTION_SPEC :
+    null;
 
-// BEST: use the same config/spec object renderBastionManager uses.
-// In your codebase this is usually a variable like `bastionSpec` or similar.
-// We'll support multiple possibilities safely:
-const spec =
-  (typeof bastionSpec !== "undefined" && bastionSpec) ? bastionSpec :
-  (typeof BASTION_SPEC !== "undefined" && BASTION_SPEC) ? BASTION_SPEC :
-  null;
+  if (spec?.facilityCatalog && Array.isArray(spec.facilityCatalog)) {
+    cat = spec.facilityCatalog.find(x => String(x?.id || "").toLowerCase() === key) || null;
+  }
 
-if (spec?.facilityCatalog && Array.isArray(spec.facilityCatalog)) {
-  cat = spec.facilityCatalog.find(x => String(x?.id || "").toLowerCase() === key) || null;
-}
-
-    const name =
+  const name =
     def?.label ||
     cat?.name ||
     cat?.label ||
