@@ -888,7 +888,7 @@ function startFunctionOrder(runtimeState, facilityId, fnId) {
     notes: fn.notes || [],
     rosterEffects: fn.rosterEffects || null,
     crafting: fn.crafting || null,
-    craftingMode: chosenCraftMode
+    craftingMode: chosenCraftMode,
     effects: fn.effects || null,
   });
 
