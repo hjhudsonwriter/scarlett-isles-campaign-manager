@@ -730,6 +730,7 @@ function ensureRuntimeState(config, saved) {
   base.state.artisanTools.slots = Array.isArray(base.state.artisanTools.slots) ? base.state.artisanTools.slots.slice(0, 6) : Array(6).fill(null);
   while (base.state.artisanTools.slots.length < 6) base.state.artisanTools.slots.push(null);
   base.state.workshop = base.state.workshop || { selectedTool: "", selectedItem: "" };
+  base.state.activeEffects = Array.isArray(base.state.activeEffects) ? base.state.activeEffects : [];
 
   base.state.specialFacilities = Array.isArray(base.state.specialFacilities) ? base.state.specialFacilities : [];
   base.state.specialConstruction = Array.isArray(base.state.specialConstruction) ? base.state.specialConstruction : [];
@@ -751,6 +752,7 @@ for (const sf of base.state.specialFacilities) {
   merged.state.artisanTools.slots = Array.isArray(merged.state.artisanTools.slots) ? merged.state.artisanTools.slots.slice(0, 6) : Array(6).fill(null);
   while (merged.state.artisanTools.slots.length < 6) merged.state.artisanTools.slots.push(null);
   merged.state.workshop = merged.state.workshop || { selectedTool: "", selectedItem: "" };
+  merged.state.activeEffects = Array.isArray(merged.state.activeEffects) ? merged.state.activeEffects : [];
 
   merged.state.specialFacilities = Array.isArray(merged.state.specialFacilities) ? merged.state.specialFacilities : [];
   merged.state.specialConstruction = Array.isArray(merged.state.specialConstruction) ? merged.state.specialConstruction : [];
@@ -887,9 +889,51 @@ function startFunctionOrder(runtimeState, facilityId, fnId) {
     rosterEffects: fn.rosterEffects || null,
     crafting: fn.crafting || null,
     craftingMode: chosenCraftMode
+    effects: fn.effects || null,
   });
 
   return { ok:true };
+}
+
+function applyOrderEffects(runtimeState, order) {
+  const effects = order?.effects;
+  if (!effects) return;
+
+  const list = Array.isArray(effects) ? effects : [effects];
+
+  runtimeState.state.activeEffects = Array.isArray(runtimeState.state.activeEffects)
+    ? runtimeState.state.activeEffects
+    : [];
+
+  for (const eff of list) {
+    if (!eff || typeof eff !== "object") continue;
+
+    // Store persistent "status-like" effects for the DM to track.
+    // Example use: Tellurian Rites temp HP after Long Rest for X days.
+    if (eff.type === "status_effect_grant") {
+      const beneficiary =
+        (eff.beneficiaryFromInputKey && order?.inputs?.[eff.beneficiaryFromInputKey]) ||
+        eff.beneficiary ||
+        "Unnamed";
+
+      runtimeState.state.activeEffects.push({
+        id: eff.effectId || "effect",
+        label: eff.label || eff.effectId || "Effect",
+        beneficiary,
+        durationDays: safeNum(eff.durationDays, 1),
+        // Store formula text so we can display it in Warehouse/Effects panel
+        tempHpFormula: eff.tempHpFormula || null,
+        source: {
+          facilityId: order.facilityId,
+          functionId: order.functionId,
+          turnStarted: safeNum(order.turnStarted, null)
+        },
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    // Future-proof: you can add more effect types here later.
+  }
 }
 
 function applyOutputsToWarehouse(runtimeState, outputs) {
@@ -901,19 +945,37 @@ function applyOutputsToWarehouse(runtimeState, outputs) {
     // Resolve dice gp outputs
     if (out.type === "coin" && typeof out.gp === "string") {
       const gp = rollDiceExpr(out.gp);
-      items.push({ type: "coin", qty: 1, gp, notes: `Rolled ${out.gp}` });
+      items.push({ type: "coin", qty: 1, gp, label: "Coin", notes: `Rolled ${out.gp}` });
       return;
     }
 
     // Trade goods with max value
     if (out.type === "trade_goods") {
-      const v = safeNum(out.valueGPMax, 0);
-      items.push({ type: "trade_goods", qty: safeNum(out.qty, 1), gpValueMax: v, notes: "DM chooses trade goods." });
+      const v = safeNum(out.valueGPMax, safeNum(out.gpValueMax, 0));
+      items.push({
+        type: "trade_goods",
+        qty: safeNum(out.qty, 1),
+        gpValueMax: v,
+        label: "Trade goods",
+        notes: out.notes || "DM chooses trade goods."
+      });
       return;
     }
 
-    // Generic item objects
-    items.push(deepClone(out));
+    // Generic item objects (ensure label so it always shows in Warehouse)
+    const cloned = deepClone(out);
+
+    if (!cloned.label) {
+      if (cloned.name) cloned.label = String(cloned.name);
+      else if (cloned.title) cloned.label = String(cloned.title);
+      else if (cloned.key) cloned.label = String(cloned.key);
+      else if (cloned.type) cloned.label = String(cloned.type);
+      else cloned.label = "Item";
+    }
+
+    if (cloned.qty == null) cloned.qty = 1;
+
+    items.push(cloned);
   });
 }
 
@@ -1138,8 +1200,9 @@ doneSpecial.forEach(x => {
   runtimeState.state.ordersInProgress = runtimeState.state.ordersInProgress.filter(o => safeNum(o.remainingTurns, 0) > 0);
 
   completedOrders.forEach(o => {
-    applyOutputsToWarehouse(runtimeState, o.outputsToWarehouse || []);
-  });
+  applyOrderEffects(runtimeState, o);
+  applyOutputsToWarehouse(runtimeState, o.outputsToWarehouse || []);
+});
 
   // decrement pending upkeep adds duration
   runtimeState.state.pendingUpkeepAdds = (runtimeState.state.pendingUpkeepAdds || [])
