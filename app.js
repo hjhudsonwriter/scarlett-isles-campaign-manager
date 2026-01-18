@@ -1158,11 +1158,11 @@ function ensureSpecialFacilityCard(runtimeState, specialInput) {
 
   const baseId = `special_${key}`;
 
+
   // prevent duplicates
   const already = (runtimeState.facilities || []).some(f => String(f.id) === baseId);
   if (already) return;
 
-  const key = String(specialId || "").toLowerCase();
   const def = SPECIAL_FACILITY_DEFS[key] || null;
 
   // Try to read catalog from whatever we can access WITHOUT relying on `config`
