@@ -1146,8 +1146,17 @@ const SPECIAL_FACILITY_DEFS = {
   }
 };
 
-function ensureSpecialFacilityCard(runtimeState, specialId) {
-  const baseId = `special_${specialId}`;
+function ensureSpecialFacilityCard(runtimeState, specialInput) {
+  // Accept "library" OR {id:"library", ...}
+  const specialId =
+    (typeof specialInput === "string") ? specialInput :
+    (specialInput && typeof specialInput === "object") ? (specialInput.id || specialInput.key || specialInput.name) :
+    "";
+
+  const key = String(specialId || "").toLowerCase().trim();
+  if (!key) return;
+
+  const baseId = `special_${key}`;
 
   // prevent duplicates
   const already = (runtimeState.facilities || []).some(f => String(f.id) === baseId);
@@ -1158,12 +1167,19 @@ function ensureSpecialFacilityCard(runtimeState, specialId) {
 
   // Try to read catalog from whatever we can access WITHOUT relying on `config`
   // (your bastion JSON spec is usually held inside runtimeState.spec or runtimeState.config)
-  const spec = runtimeState?.spec || runtimeState?.config || null;
   let cat = null;
 
-  if (spec?.facilityCatalog && Array.isArray(spec.facilityCatalog)) {
-    cat = spec.facilityCatalog.find(x => String(x?.id || "").toLowerCase() === key) || null;
-  }
+// BEST: use the same config/spec object renderBastionManager uses.
+// In your codebase this is usually a variable like `bastionSpec` or similar.
+// We'll support multiple possibilities safely:
+const spec =
+  (typeof bastionSpec !== "undefined" && bastionSpec) ? bastionSpec :
+  (typeof BASTION_SPEC !== "undefined" && BASTION_SPEC) ? BASTION_SPEC :
+  null;
+
+if (spec?.facilityCatalog && Array.isArray(spec.facilityCatalog)) {
+  cat = spec.facilityCatalog.find(x => String(x?.id || "").toLowerCase() === key) || null;
+}
 
   const name =
     def?.label ||
