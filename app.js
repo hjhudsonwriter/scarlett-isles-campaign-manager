@@ -630,518 +630,511 @@ function specialCatalogById(config, id) {
 // They show hirelings + one order button. Some outcomes are DM-facing notes
 // (because DMG often says “roll any die” or “DM determines the goods”).
 // ------------------------------------------------------------
+// ---------- DMG'24 Special Facility rules (v1.1) ----------
+// Goal: each facility has at least one usable function; every completion produces a Warehouse entry.
+// Note: where DMG requires tables/odd-even/choices, we output a Warehouse "note" so it is still tracked + editable.
+
 const SPECIAL_FACILITY_DEFS = {
   // Level 5
-  arcane_study: {
+  "arcane_study": {
     label: "Arcane Study",
-    orderType: "craft",
     hirelings: 1,
     benefits: [
-      "A quiet study for arcane work."
+      "After a Long Rest in the Bastion: gain a 7-day Identify Charm (DMG)."
     ],
     functions: [{
       id: "arcane_study_craft",
-      label: "Craft: Arcane Creation",
+      label: "Craft (choose option)",
       orderType: "craft",
       durationTurns: 1,
       costGP: 0,
-      outputsToWarehouse: [
-        { type: "effect_note", qty: 1, label: "Arcane Study Craft Order", notes: "DMG: Hireling crafts an arcane-themed item (nonmagical or DM-approved). If your table uses specific crafting rules, apply them." }
-      ],
-      notes: ["DMG'24 Special Facility Order: Craft."]
+      crafting: { modes: [
+        { id:"focus", label:"Craft: Arcane Focus" },
+        { id:"book",  label:"Craft: Blank Book (10 GP)" },
+        { id:"magic", label:"Craft: Magic Item (Arcana) (Lvl 9+; DMG rules)" }
+      ]},
+      // Default output if mode logic isn’t applied for some reason:
+      outputsToWarehouse: [{ type:"note", name:"Arcane Study: Craft", qty:1, gp:0, notes:"Choose: Arcane Focus (free), Blank Book (10gp), or Magic Item (Arcana tables; L9+; use DMG crafting rules)." }]
     }]
   },
 
-  armory: {
-    label: "Armory",
-    orderType: "trade",
-    hirelings: 1,
-    benefits: ["A secure place to store and issue arms and armor."],
+  "smithy": {
+    label: "Smithy",
+    hirelings: 2,
+    benefits: [
+      "Armory Stock cost is halved while a Smithy exists (DMG)."
+    ],
     functions: [{
-      id: "armory_trade",
-      label: "Trade: Stock Armory (DMG)",
-      orderType: "trade",
+      id: "smithy_craft",
+      label: "Craft (choose option)",
+      orderType: "craft",
       durationTurns: 1,
       costGP: 0,
-      outputsToWarehouse: [
-        { type: "effect_note", qty: 1, label: "Armory Stocked (DMG)", notes: "DMG: Stocking has a cost and affects Attack outcomes. If you’re using your custom Armoury card (armory_C), use that button instead." }
-      ],
-      notes: ["If you already have armory_C on the map, do not build this duplicate version."]
+      crafting: { modes: [
+        { id:"smith_tools", label:"Craft: Smith's Tools (PHB crafting)" },
+        { id:"magic_armament", label:"Craft: Magic Item (Armaments) (Lvl 9+; DMG rules)" }
+      ]},
+      outputsToWarehouse: [{ type:"note", name:"Smithy: Craft", qty:1, gp:0, notes:"Choose: Smith's Tools crafting (PHB) or Magic Item (Armaments tables; L9+; DMG crafting rules/time/cost)." }]
     }]
   },
 
-  barrack: {
-    label: "Barrack",
-    orderType: "recruit",
-    hirelings: 1,
-    benefits: ["Houses Bastion Defenders (capacity depends on the facility size)."],
-    functions: [{
-      id: "barrack_recruit",
-      label: "Recruit: Bastion Defenders (DMG)",
-      orderType: "recruit",
-      durationTurns: 1,
-      costGP: 0,
-      outputsToWarehouse: [
-        { type: "effect_note", qty: 1, label: "Recruitment Attempt", notes: "DMG: Recruit defenders for the bastion. If you’re using your custom Barracks card (barracks_D), use that button instead." }
-      ],
-      notes: ["If you already have barracks_D on the map, do not build this duplicate version."]
-    }]
-  },
-
-  garden: {
-    label: "Garden",
-    orderType: "harvest",
-    hirelings: 1,
-    benefits: ["A tended garden that can produce useful natural materials."],
-    functions: [{
-      id: "garden_harvest",
-      label: "Harvest: Garden Produce",
-      orderType: "harvest",
-      durationTurns: 1,
-      costGP: 0,
-      outputsToWarehouse: [
-        { type: "effect_note", qty: 1, label: "Garden Harvest", notes: "DMG: Hireling harvests useful plants/ingredients. DM chooses appropriate output (herbs, healing supplies, poisons, etc.) based on the garden type." }
-      ],
-      notes: ["DMG'24 Special Facility Order: Harvest."]
-    }]
-  },
-
-  library: {
+  "library": {
     label: "Library",
-    orderType: "research",
     hirelings: 1,
-    benefits: ["A library for collecting lore and conducting research."],
+    benefits: [
+      "A place of study and references (DMG)."
+    ],
     functions: [{
       id: "library_research",
-      label: "Research: Gather Lore",
+      label: "Research: Lore",
       orderType: "research",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type: "intel_report", qty: 1, label: "Library Research Result", notes: "DMG: Hireling researches a topic. DM provides lore, rumor, map clue, or advantage on a future related check." }
-      ],
-      notes: ["DMG'24 Special Facility Order: Research."]
+        { type:"note", name:"Library Research Result", qty:1, gp:0, notes:"DMG: Hireling researches a topic you choose (7 days). DM provides useful lore/info next time you speak with them." }
+      ]
+    },{
+      id: "library_research_reward",
+      label: "Research: Discovery (scroll/potions/trinket)",
+      orderType: "research",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type:"note", name:"Library Discovery Roll", qty:1, gp:0, notes:"DMG: Roll 1d4. 1=Spell Scroll (lvl1-3, Cleric/Wizard, chosen by DM); 2=2x Potion of Healing; 3-4=Trinket (DMG trinket table). Add the resulting item(s) to Warehouse." }
+      ]
     }]
   },
 
-  sanctuary: {
+  "garden": {
+    label: "Garden",
+    hirelings: 1,
+    benefits: [
+      "Choose a Garden type when built (Decorative/Food/Herb/Poison). Can be changed (21 days) per DMG."
+    ],
+    functions: [{
+      id: "garden_harvest",
+      label: "Harvest: Garden Growth",
+      orderType: "harvest",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type:"note", name:"Garden Harvest", qty:1, gp:0, notes:"DMG Harvest by Garden type (7 days): Decorative: choose 10 floral bouquets (5gp each) OR 10 perfume vials OR 10 candles. Food: 100 days rations. Herb: materials for 10 Healer's Kits OR 1 Potion of Healing. Poison: materials for 2 Antitoxin OR 1 Basic Poison. Add chosen result to Warehouse." }
+      ]
+    }]
+  },
+
+  "sanctuary": {
     label: "Sanctuary",
-    orderType: "craft",
     hirelings: 1,
-    benefits: ["A sacred space tied to divine or primal practice."],
+    benefits: [
+      "After a Long Rest in the Bastion: gain a 7-day Healing Word Charm (DMG)."
+    ],
     functions: [{
-      id: "sanctuary_craft",
-      label: "Craft: Sacred Work",
+      id: "sanctuary_craft_focus",
+      label: "Craft: Sacred Focus",
       orderType: "craft",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type: "effect_note", qty: 1, label: "Sanctuary Craft Order", notes: "DMG: Crafting tied to a holy/druidic focus. DM determines an appropriate crafted outcome (often a charm/consumable/ritual object) per campaign tone." }
-      ],
-      notes: ["Prereq in DMG: ability to use a Holy Symbol or Druidic Focus as a Spellcasting Focus."]
+        { type:"crafted_item", name:"Sacred Focus (Holy Symbol or Druidic Focus)", qty:1, gp:0, notes:"DMG: Crafted by hireling; remains in Bastion until claimed." }
+      ]
     }]
   },
 
-  smithy: {
-    label: "Smithy",
-    orderType: "craft",
-    hirelings: 1,
-    benefits: ["Metalwork and repairs. Halves certain Armory stocking costs at your table (per your rules)."],
-    functions: [{
-      id: "smithy_craft",
-      label: "Craft: Metalwork",
-      orderType: "craft",
-      durationTurns: 1,
-      costGP: 0,
-      outputsToWarehouse: [
-        { type: "crafted_item", qty: 1, label: "Smithy Craft Output", notes: "DMG: Nonmagical metal item/repair completed (DM decides exact item)." }
-      ],
-      notes: ["DMG'24 Special Facility Order: Craft."]
-    }]
-  },
-
-  storehouse: {
+  "storehouse": {
     label: "Storehouse",
-    orderType: "trade",
     hirelings: 1,
-    benefits: ["A secure storage space for trade goods."],
+    benefits: [
+      "Trade goods buying/selling support (DMG)."
+    ],
     functions: [{
       id: "storehouse_trade",
-      label: "Trade: Buy or Sell Goods",
+      label: "Trade: Buy/Sell Goods (profit by level)",
       orderType: "trade",
       durationTurns: 1,
       costGP: 0,
-      inputs: [
-        { type: "text", label: "Buy or Sell? (type buy or sell)", storeAs: "mode" },
-        { type: "text", label: "Notes (optional): what goods / who buyer is", storeAs: "detail" }
-      ],
       outputsToWarehouse: [
-        { type: "effect_note", qty: 1, label: "Storehouse Trade", notes: "DMG: If BUY: procure nonmagical items up to value cap (500gp at L5, 2000gp at L9, 5000gp at L13). If SELL: buyer pays +10% (L5), +20% (L9), +50% (L13), +100% (L17)." }
-      ],
-      notes: ["DMG'24 Special Facility Order: Trade. Exact goods are DM-determined; profits follow the listed %."]
+        { type:"note", name:"Storehouse Trade Result", qty:1, gp:0, notes:"DMG: Trade takes 7 days. You buy or sell nonmagical goods at normal prices. Profit on sales increases as you level (13+, 17+). Record purchases/sales and any profit as Warehouse edits." }
+      ]
     }]
   },
 
-  workshop: {
+  "workshop": {
     label: "Workshop",
-    orderType: "craft",
     hirelings: 3,
-    benefits: ["Crafting space and tools."],
+    benefits: [
+      "Equipped with 6 artisan tools (DMG list). Short Rest in Workshop grants Heroic Inspiration (DMG)."
+    ],
     functions: [{
       id: "workshop_craft",
-      label: "Craft: Workshop Project (DMG)",
+      label: "Craft (choose option)",
       orderType: "craft",
       durationTurns: 1,
       costGP: 0,
+      crafting: { modes: [
+        { id:"adventuring", label:"Craft: Adventuring Gear (PHB rules; using chosen tools)" },
+        { id:"magic_implement", label:"Craft: Magic Item (Implements) (Lvl 9+; DMG rules)" }
+      ]},
       outputsToWarehouse: [
-        { type: "effect_note", qty: 1, label: "Workshop Craft Order", notes: "DMG: Hirelings craft a nonmagical item. If you already have workshop_E on the map, use that card instead." }
-      ],
-      notes: ["If you already have workshop_E on the map, do not build this duplicate version."]
+        { type:"note", name:"Workshop Craft Result", qty:1, gp:0, notes:"DMG: Choose Adventuring Gear (PHB crafting using available tools) OR Magic Item (Implements tables; L9+; DMG crafting rules/time/cost). Add resulting item(s) to Warehouse." }
+      ]
     }]
   },
 
   // Level 9
-  gaming_hall: {
+  "gaming_hall": {
     label: "Gaming Hall",
-    orderType: "trade",
-    hirelings: 2,
-    benefits: ["A public-facing hall for games, wagers, and social leverage."],
+    hirelings: 4,
+    benefits: ["Trade: Gambling den (DMG)."],
     functions: [{
       id: "gaming_hall_trade",
-      label: "Trade: Gaming Night",
+      label: "Trade: Gambling Hall (roll winnings)",
       orderType: "trade",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type: "coin", qty: 1, gp: "1d6*50", label: "Gaming Hall Proceeds", notes: "DMG: Earnings represent profits from events/games. Adjust if fiction demands." }
-      ],
-      notes: ["DMG'24 Special Facility Order: Trade."]
+        { type:"note", name:"Gaming Hall Winnings", qty:1, gp:0, notes:"DMG: After 7 days, roll 1d100. 01-50: 1d6×10 gp. 51-85: 2d6×10 gp. 86-95: 4d6×10 gp. 96-00: 10d6×10 gp. Add GP result to Treasury and/or record in Warehouse." }
+      ]
     }]
   },
 
-  greenhouse: {
+  "greenhouse": {
     label: "Greenhouse",
-    orderType: "harvest",
-    hirelings: 2,
-    benefits: ["Controlled cultivation for rarer plants."],
+    hirelings: 1,
+    benefits: ["Fruit of Restoration: 3 fruits daily; each = Lesser Restoration (DMG)."],
     functions: [{
       id: "greenhouse_harvest",
-      label: "Harvest: Rare Botanicals",
+      label: "Harvest (choose option)",
       orderType: "harvest",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type: "crafted_item", qty: 1, label: "Greenhouse Harvest", notes: "DMG: Harvest rare plants/ingredients. DM chooses output (antitoxin, potion ingredient, poison component, etc.)." }
-      ],
-      notes: ["DMG'24 Special Facility Order: Harvest."]
+        { type:"note", name:"Greenhouse Harvest", qty:1, gp:0, notes:"DMG (7 days): Choose: Potion of Healing (Greater) OR 1 poison (Assassin's Blood / Malice / Pale Tincture / Truth Serum). Add to Warehouse." }
+      ]
     }]
   },
 
-  laboratory: {
+  "laboratory": {
     label: "Laboratory",
-    orderType: "craft",
-    hirelings: 2,
-    benefits: ["Experimentation space for alchemy and formulas."],
+    hirelings: 1,
+    benefits: ["Alchemical crafting space (DMG)."],
     functions: [{
       id: "laboratory_craft",
-      label: "Craft: Experimental Concoction",
+      label: "Craft (choose option)",
       orderType: "craft",
       durationTurns: 1,
       costGP: 0,
+      crafting: { modes: [
+        { id:"alchemist", label:"Craft: Alchemist's Supplies (PHB/DMG)" },
+        { id:"poison", label:"Craft: Poison (Burnt Othur Fumes / Essence of Ether / Torpor) (pay half cost)" }
+      ]},
       outputsToWarehouse: [
-        { type: "magic_consumable", qty: 1, rarity: "uncommon", label: "Laboratory Output", notes: "DMG: Often a potion/scroll-like consumable. DM may pick appropriate item." }
-      ],
-      notes: ["DMG'24 Special Facility Order: Craft."]
+        { type:"note", name:"Laboratory Craft Result", qty:1, gp:0, notes:"DMG: Choose Alchemist's Supplies crafting OR craft 1 poison (Burnt Othur Fumes / Essence of Ether / Torpor) paying half its cost. Add result to Warehouse." }
+      ]
     }]
   },
 
-  scriptorium: {
+  "sacristy": {
+    label: "Sacristy",
+    hirelings: 1,
+    benefits: [
+      "Short Rest in Bastion: regain 1 spell slot level 5 or lower (DMG)."
+    ],
+    functions: [{
+      id: "sacristy_craft",
+      label: "Craft (choose option)",
+      orderType: "craft",
+      durationTurns: 1,
+      costGP: 0,
+      crafting: { modes: [
+        { id:"holy_water", label:"Craft: Holy Water (free; +1d8 dmg per 100gp spent, max 500gp)" },
+        { id:"magic_relic", label:"Craft: Magic Item (Relics) (DMG crafting rules/time/cost)" }
+      ]},
+      outputsToWarehouse: [
+        { type:"note", name:"Sacristy Craft Result", qty:1, gp:0, notes:"DMG: Choose Holy Water (optionally spend 100-500gp to increase damage +1d8 per 100gp) OR Magic Item (Relics tables; DMG crafting rules/time/cost). Add result to Warehouse." }
+      ]
+    }]
+  },
+
+  "scriptorium": {
     label: "Scriptorium",
-    orderType: "craft",
-    hirelings: 2,
-    benefits: ["Writing and duplication space for texts and scrollwork."],
+    hirelings: 1,
+    benefits: ["Writing/copying facility (DMG)."],
     functions: [{
       id: "scriptorium_craft",
-      label: "Craft: Scribed Work",
+      label: "Craft (choose option)",
       orderType: "craft",
       durationTurns: 1,
       costGP: 0,
+      crafting: { modes: [
+        { id:"book_replica", label:"Craft: Book Replica (requires blank book)" },
+        { id:"spell_scroll", label:"Craft: Spell Scroll (Cleric/Wizard lvl 3 or lower; PHB scribing costs)" },
+        { id:"paperwork", label:"Craft: Paperwork (up to 50 copies, 1gp each; optional distribution)" }
+      ]},
       outputsToWarehouse: [
-        { type: "effect_note", qty: 1, label: "Scriptorium Output", notes: "DMG: Produce documents, maps, copies, or campaign-relevant written work. DM determines specifics." }
-      ],
-      notes: ["DMG'24 Special Facility Order: Craft."]
+        { type:"note", name:"Scriptorium Craft Result", qty:1, gp:0, notes:"DMG: Choose Book Replica (needs blank book), Spell Scroll (PHB scribing cost/time), or Paperwork (1gp per copy, up to 50). Add resulting item(s) to Warehouse." }
+      ]
     }]
   },
 
-  stable: {
+  "stable": {
     label: "Stable",
-    orderType: "trade",
     hirelings: 1,
-    benefits: ["Houses and cares for mounts and animals."],
+    benefits: [
+      "Comes with mounts when built (DMG).",
+      "Selling mounts: +20% over base price; becomes +50% at lvl13 and +100% at lvl17 (DMG)."
+    ],
     functions: [{
-      id: "stable_trade",
-      label: "Trade: Mount Services",
+      id: "stable_trade_animals",
+      label: "Trade: Animals (buy/sell mounts)",
       orderType: "trade",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type: "coin", qty: 1, gp: "1d6*25", label: "Stable Income", notes: "DMG: Represents boarding/trade services related to mounts." }
-      ],
-      notes: ["DMG'24 Special Facility Order: Trade."]
+        { type:"note", name:"Stable Trade", qty:1, gp:0, notes:"DMG: Buy/sell mounts at normal cost (DM decides availability). If selling a Stable mount: buyer pays +20% (lvl13: +50%, lvl17: +100%). Record bought/sold mounts and gp changes." }
+      ]
     }]
   },
 
-  teleportation_circle: {
+  "teleportation_circle": {
     label: "Teleportation Circle",
-    orderType: "recruit",
     hirelings: 1,
-    benefits: ["Invites a friendly NPC spellcaster who can cast a spell for you while you’re in the Bastion."],
+    benefits: ["DMG facility; enables circle logistics."],
     functions: [{
-      id: "teleport_recruit_spellcaster",
-      label: "Recruit: Spellcaster (odd/even)",
+      id: "teleport_circle_recruit",
+      label: "Recruit: Teleportation Services (DMG-driven)",
       orderType: "recruit",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type: "effect_note", qty: 1, label: "Teleportation Circle Invite", notes: "DMG: Roll any die. Odd: declines. Even: accepts, arrives. While you’re in bastion, can cast 1 Wizard spell (L4 or lower; L8 if you’re level 17+). You pay costly material components." }
-      ],
-      notes: ["DMG'24 Special Facility Order: Recruit."]
+        { type:"note", name:"Teleportation Circle Result", qty:1, gp:0, notes:"DMG: Teleportation Circle effects depend on your campaign's travel/contacts. Use this as a tracked order; record any outcomes/resources gained." }
+      ]
     }]
   },
 
-  theater: {
+  "theater": {
     label: "Theater",
-    orderType: "empower",
-    hirelings: 2,
-    benefits: ["Performance and morale."],
+    hirelings: 4,
+    benefits: ["Empower: Theatrical Event (DMG)."],
     functions: [{
       id: "theater_empower",
-      label: "Empower: Inspire Performance",
+      label: "Empower: Theatrical Event (rehearsal+performances)",
       orderType: "empower",
-      durationTurns: 1,
+      durationTurns: 2, // DMG: 14 days rehearsal + 7 days performances minimum (tracked as 2 turns in your 7-day model)
       costGP: 0,
       outputsToWarehouse: [
-        { type: "effect_note", qty: 1, label: "Theater Empower", notes: "DMG: Empower benefit tied to performances. Apply the DMG benefit as written for your table; record any named beneficiary here." }
-      ],
-      notes: ["DMG'24 Special Facility Order: Empower."]
+        { type:"note", name:"Theater Production", qty:1, gp:0, notes:"DMG: Rehearsals 14 days, then 7+ days performances. Contributors roll DC15 Performance at end of rehearsal; if more succeed than fail, each gains a Theater die (d6; lvl13 d8; lvl17 d10) usable to add to a d20 test after rolling." }
+      ]
     }]
   },
 
-  training_area: {
+  "training_area": {
     label: "Training Area",
-    orderType: "empower",
-    hirelings: 2,
-    benefits: ["Training, drills, and physical conditioning."],
+    hirelings: 4,
+    benefits: ["Choose an Expert Trainer; can swap each Bastion turn (DMG)."],
     functions: [{
-      id: "training_empower",
-      label: "Empower: Training Regimen",
+      id: "training_area_empower",
+      label: "Empower: Training (7 days)",
       orderType: "empower",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type: "effect_note", qty: 1, label: "Training Area Empower", notes: "DMG: Empower benefit tied to training. Apply the DMG benefit as written; record details here." }
-      ],
-      notes: ["DMG'24 Special Facility Order: Empower."]
+        { type:"note", name:"Training Area Benefit", qty:1, gp:0, notes:"DMG: 7 days training. Any character training 8h/day gains trainer-specific benefit for 7 days (Battle/Skills/Tools/Unarmed/Weapon Expert). Record chosen trainer + beneficiary." }
+      ]
     }]
   },
 
-  trophy_room: {
+  "trophy_room": {
     label: "Trophy Room",
-    orderType: "research",
     hirelings: 1,
-    benefits: ["A curated collection that supports research and reputation."],
+    benefits: ["Research: Lore or Trinket Trophy (DMG)."],
     functions: [{
-      id: "trophy_research",
-      label: "Research: Study Trophies",
+      id: "trophy_room_research_lore",
+      label: "Research: Lore (3 facts)",
       orderType: "research",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type: "intel_report", qty: 1, label: "Trophy Room Research", notes: "DMG: Use trophies to learn about a creature/faction or gain advantage on a future check (DM determines)." }
-      ],
-      notes: ["DMG'24 Special Facility Order: Research."]
+        { type:"note", name:"Trophy Room Lore", qty:1, gp:0, notes:"DMG: Hireling researches chosen topic (7 days) and shares up to 3 accurate pieces of information previously unknown to you." }
+      ]
+    },{
+      id: "trophy_room_research_trinket",
+      label: "Research: Trinket Trophy (odd/even)",
+      orderType: "research",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type:"note", name:"Trophy Room Trinket Roll", qty:1, gp:0, notes:"DMG: Roll any die. Odd = nothing useful. Even = magic item from Implements (Common) table (DMG ch7). Add result to Warehouse." }
+      ]
     }]
   },
 
   // Level 13
-  archive: {
+  "archive": {
     label: "Archive",
-    orderType: "research",
-    hirelings: 2,
-    benefits: ["Deep records and preserved knowledge."],
+    hirelings: 1,
+    benefits: ["Research: Legend Lore-style knowledge (DMG)."],
     functions: [{
       id: "archive_research",
-      label: "Research: Deep Records",
+      label: "Research: Helpful Lore (Legend Lore)",
       orderType: "research",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type: "intel_report", qty: 1, label: "Archive Research", notes: "DMG: Powerful research result. DM provides concrete clue, lore, map lead, or similar." }
-      ],
-      notes: ["DMG'24 Special Facility Order: Research."]
+        { type:"note", name:"Archive Research", qty:1, gp:0, notes:"DMG: Hireling researches (7 days) and gains knowledge as if casting Legend Lore, shares next time you speak." }
+      ]
     }]
   },
 
-  meditation_chamber: {
+  "meditation_chamber": {
     label: "Meditation Chamber",
-    orderType: "empower",
     hirelings: 1,
-    benefits: ["A focused space for mental clarity and spiritual practice."],
+    benefits: ["Fortify Self (7 days meditation; DMG)."],
     functions: [{
       id: "meditation_empower",
-      label: "Empower: Meditative Focus",
+      label: "Empower: Inner Peace (event roll advantage)",
       orderType: "empower",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type: "effect_note", qty: 1, label: "Meditation Chamber Empower", notes: "DMG: Apply the Meditation Chamber empower benefit as written; record who benefits and for how long." }
-      ],
-      notes: ["DMG'24 Special Facility Order: Empower."]
+        { type:"note", name:"Meditation Chamber: Inner Peace", qty:1, gp:0, notes:"DMG: Next Bastion event roll, roll twice and choose either result." }
+      ]
     }]
   },
 
-  menagerie: {
+  "menagerie": {
     label: "Menagerie",
-    orderType: "recruit",
     hirelings: 2,
-    benefits: ["Houses creatures and handlers."],
+    benefits: ["Creatures can count as Bastion Defenders (DMG)."],
     functions: [{
       id: "menagerie_recruit",
-      label: "Recruit: Creature/Handlers",
+      label: "Recruit: Creature (cost varies)",
       orderType: "recruit",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type: "effect_note", qty: 1, label: "Menagerie Recruit", notes: "DMG: Recruit a creature/handlers as written; DM determines exact result appropriate to campaign." }
-      ],
-      notes: ["DMG'24 Special Facility Order: Recruit."]
+        { type:"note", name:"Menagerie Recruitment", qty:1, gp:0, notes:"DMG: Recruit a creature from Menagerie table (7 days) paying listed cost (e.g., ape 500, owlbear 3500, etc.) or DM-approved creature by CR cost table. If counted as defender, add to defenders roster manually (or track separately)." }
+      ]
     }]
   },
 
-  observatory: {
+  "observatory": {
     label: "Observatory",
-    orderType: "empower",
-    hirelings: 2,
-    benefits: ["Skywatching, omens, and cosmic insight."],
+    hirelings: 1,
+    benefits: ["After Long Rest: 7-day Contact Other Plane Charm (DMG)."],
     functions: [{
       id: "observatory_empower",
-      label: "Empower: Celestial Insight",
+      label: "Empower: Eldritch Discovery (odd/even)",
       orderType: "empower",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type: "effect_note", qty: 1, label: "Observatory Empower", notes: "DMG: Apply the Observatory empower benefit; record details/beneficiary." }
-      ],
-      notes: ["DMG prereq: ability to use a Spellcasting Focus."]
+        { type:"note", name:"Observatory Discovery Roll", qty:1, gp:0, notes:"DMG: After 7 nights, roll a die. Even: nothing. Odd: grant Charm of Darkvision OR Heroism OR Vitality to you/another creature on same plane. Record result." }
+      ]
     }]
   },
 
-  pub: {
+  "pub": {
     label: "Pub",
-    orderType: "research",
-    hirelings: 2,
-    benefits: ["Information network and local gossip."],
+    hirelings: 1,
+    benefits: ["Research: spy network info (DMG).", "One magical beverage on tap (DMG)."],
     functions: [{
       id: "pub_research",
-      label: "Research: Rumors & Leads",
+      label: "Research: Information Gathering",
       orderType: "research",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type: "intel_report", qty: 1, label: "Pub Rumors", notes: "DMG: Gather rumors/leads, contacts, or local intel." }
-      ],
-      notes: ["DMG'24 Special Facility Order: Research."]
+        { type:"note", name:"Pub Intelligence", qty:1, gp:0, notes:"DMG: For next 7 days, spies know important events within 10 miles. Can locate a familiar creature within 50 miles (if not magically hidden/confined). Also learns target's previous 7 days location history if found." }
+      ]
     }]
   },
 
-  reliquary: {
+  "reliquary": {
     label: "Reliquary",
-    orderType: "harvest",
     hirelings: 2,
-    benefits: ["Sacred storage and spiritually charged harvests."],
+    benefits: ["Harvest: sacred resources (DMG)."],
     functions: [{
       id: "reliquary_harvest",
-      label: "Harvest: Sacred Boon",
+      label: "Harvest: Reliquary (DMG-driven)",
       orderType: "harvest",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type: "effect_note", qty: 1, label: "Reliquary Harvest", notes: "DMG: Harvest a sacred boon/consumable as written; DM determines exact item." }
-      ],
-      notes: ["DMG prereq: ability to use a Holy Symbol or Druidic Focus as a Spellcasting Focus."]
+        { type:"note", name:"Reliquary Harvest", qty:1, gp:0, notes:"DMG: Reliquary harvest results depend on relics/holy materials available in your story. Use as tracked harvest order; record items gained." }
+      ]
     }]
   },
 
   // Level 17
-  demiplane: {
+  "demiplane": {
     label: "Demiplane",
-    orderType: "empower",
-    hirelings: 2,
-    benefits: ["Extraplanar space with powerful empowerment potential."],
+    hirelings: 1,
+    benefits: ["Door to extradimensional stone room (DMG).", "Fabrication 1/Long Rest (DMG)."],
     functions: [{
       id: "demiplane_empower",
-      label: "Empower: Demiplanar Boon",
+      label: "Empower: Arcane Resilience (7 days)",
       orderType: "empower",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type: "effect_note", qty: 1, label: "Demiplane Empower", notes: "DMG: Apply Demiplane empower effect as written; record beneficiary and duration." }
-      ],
-      notes: ["DMG prereq: Arcane Focus or tool as Spellcasting Focus."]
+        { type:"note", name:"Demiplane Runes Active", qty:1, gp:0, notes:"DMG: For 7 days, after a Long Rest in the Demiplane you gain Temp HP = 5×your level." }
+      ]
     }]
   },
 
-  guildhall: {
+  "guildhall": {
     label: "Guildhall",
-    orderType: "recruit",
-    hirelings: 3,
-    benefits: ["A hub of professional expertise and recruitment."],
+    hirelings: 1,
+    benefits: ["A guild of ~50 members outside the Bastion (DMG)."],
     functions: [{
       id: "guildhall_recruit",
-      label: "Recruit: Skilled Allies",
+      label: "Recruit: Guild Assignment (DMG)",
       orderType: "recruit",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type: "effect_note", qty: 1, label: "Guildhall Recruit", notes: "DMG: Recruit skilled NPCs/allies as written; DM chooses specifics." }
-      ],
-      notes: ["DMG prereq: Expertise in a skill."]
+        { type:"note", name:"Guild Assignment", qty:1, gp:0, notes:"DMG: Choose a guild + assignment (e.g., Adventurers hunt CR2 beast; Bakers earn 500gp or a favor; Brewers deliver 50 barrels ale, etc.). Record the outcome here." }
+      ]
     }]
   },
 
-  sanctum: {
+  "sanctum": {
     label: "Sanctum",
-    orderType: "empower",
-    hirelings: 2,
-    benefits: ["High-tier sacred empowerment."],
+    hirelings: 4,
+    benefits: ["After Long Rest: 7-day Heal Charm (DMG).", "Word of Recall always prepared (DMG)."],
     functions: [{
       id: "sanctum_empower",
-      label: "Empower: Sanctum Blessing",
+      label: "Empower: Fortifying Rites (7 days)",
       orderType: "empower",
       durationTurns: 1,
       costGP: 0,
-      outputsToWarehouse: [
-        { type: "effect_note", qty: 1, label: "Sanctum Empower", notes: "DMG: Apply Sanctum empower effect as written; record beneficiary and duration." }
+      inputs: [
+        { type:"choose_beneficiary", label:"Beneficiary name", storeAs:"beneficiaryName" }
       ],
-      notes: ["DMG prereq: Holy Symbol or Druidic Focus as Spellcasting Focus."]
+      outputsToWarehouse: [
+        { type:"note", name:"Sanctum Fortifying Rites", qty:1, gp:0, notes:"DMG: Name a beneficiary (need not be in Bastion). For 7 days, after each Long Rest they gain Temp HP = your level." }
+      ]
     }]
   },
 
-  war_room: {
+  "war_room": {
     label: "War Room",
-    orderType: "recruit",
-    hirelings: 3,
-    benefits: ["Strategic coordination and recruitment."],
+    hirelings: 2,
+    benefits: ["Lieutenants reduce defender-loss dice during attacks if housed (DMG)."],
     functions: [{
       id: "war_room_recruit",
-      label: "Recruit: Tactical Forces",
+      label: "Recruit (choose option)",
       orderType: "recruit",
       durationTurns: 1,
       costGP: 0,
+      crafting: { modes: [
+        { id:"lieutenant", label:"Recruit: Lieutenant (max 10)" },
+        { id:"soldiers", label:"Recruit: Soldiers (army; upkeep costs; DMG)" }
+      ]},
       outputsToWarehouse: [
-        { type: "effect_note", qty: 1, label: "War Room Recruit", notes: "DMG: Recruit military help as written; DM determines exact result." }
-      ],
-      notes: ["DMG prereq: Fighting Style feature or Unarmored Defense feature."]
+        { type:"note", name:"War Room Recruitment", qty:1, gp:0, notes:"DMG: Choose Lieutenant (gain 1, max 10) OR Soldiers (each lieutenant musters 100 guards in 7 days, or 20 mounted; costs 1gp/day per guard/horse; must be led by you/lieutenant; disbands if unfed). Record outcome." }
+      ]
     }]
   }
 };
@@ -1486,7 +1479,13 @@ if (Array.isArray(fn.inputs)) {
     functionId: fnId,
     label: fn.label,
     remainingTurns: safeNum(fn.durationTurns, 1),
-    outputsToWarehouse: Array.isArray(fn.outputsToWarehouse) ? fn.outputsToWarehouse : [],
+    outputsToWarehouse: (() => {
+  // If the function defines mode-specific outputs, use them
+  if (chosenCraftMode && fn && fn.outputsByMode && fn.outputsByMode[chosenCraftMode]) {
+    return fn.outputsByMode[chosenCraftMode];
+  }
+  return Array.isArray(fn.outputsToWarehouse) ? fn.outputsToWarehouse : [];
+})(),
     notes: fn.notes || [],
     rosterEffects: fn.rosterEffects || null,
     crafting: fn.crafting || null,
