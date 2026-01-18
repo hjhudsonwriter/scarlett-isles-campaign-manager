@@ -624,26 +624,562 @@ function specialCatalogById(config, id) {
   return (config?.facilityCatalog || []).find(x => x.id === id) || null;
 }
 
-function ensureSpecialFacilityCard(runtimeState, config, specialId) {
+// ------------------------------------------------------------
+// DMG 2024 Special Facility definitions (used to build real cards)
+// Note: these are single-level cards for newly-built specials (v1.1).
+// They show hirelings + one order button. Some outcomes are DM-facing notes
+// (because DMG often says “roll any die” or “DM determines the goods”).
+// ------------------------------------------------------------
+const SPECIAL_FACILITY_DEFS = {
+  // Level 5
+  arcane_study: {
+    label: "Arcane Study",
+    orderType: "craft",
+    hirelings: 1,
+    benefits: [
+      "A quiet study for arcane work."
+    ],
+    functions: [{
+      id: "arcane_study_craft",
+      label: "Craft: Arcane Creation",
+      orderType: "craft",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "Arcane Study Craft Order", notes: "DMG: Hireling crafts an arcane-themed item (nonmagical or DM-approved). If your table uses specific crafting rules, apply them." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Craft."]
+    }]
+  },
+
+  armory: {
+    label: "Armory",
+    orderType: "trade",
+    hirelings: 1,
+    benefits: ["A secure place to store and issue arms and armor."],
+    functions: [{
+      id: "armory_trade",
+      label: "Trade: Stock Armory (DMG)",
+      orderType: "trade",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "Armory Stocked (DMG)", notes: "DMG: Stocking has a cost and affects Attack outcomes. If you’re using your custom Armoury card (armory_C), use that button instead." }
+      ],
+      notes: ["If you already have armory_C on the map, do not build this duplicate version."]
+    }]
+  },
+
+  barrack: {
+    label: "Barrack",
+    orderType: "recruit",
+    hirelings: 1,
+    benefits: ["Houses Bastion Defenders (capacity depends on the facility size)."],
+    functions: [{
+      id: "barrack_recruit",
+      label: "Recruit: Bastion Defenders (DMG)",
+      orderType: "recruit",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "Recruitment Attempt", notes: "DMG: Recruit defenders for the bastion. If you’re using your custom Barracks card (barracks_D), use that button instead." }
+      ],
+      notes: ["If you already have barracks_D on the map, do not build this duplicate version."]
+    }]
+  },
+
+  garden: {
+    label: "Garden",
+    orderType: "harvest",
+    hirelings: 1,
+    benefits: ["A tended garden that can produce useful natural materials."],
+    functions: [{
+      id: "garden_harvest",
+      label: "Harvest: Garden Produce",
+      orderType: "harvest",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "Garden Harvest", notes: "DMG: Hireling harvests useful plants/ingredients. DM chooses appropriate output (herbs, healing supplies, poisons, etc.) based on the garden type." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Harvest."]
+    }]
+  },
+
+  library: {
+    label: "Library",
+    orderType: "research",
+    hirelings: 1,
+    benefits: ["A library for collecting lore and conducting research."],
+    functions: [{
+      id: "library_research",
+      label: "Research: Gather Lore",
+      orderType: "research",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "intel_report", qty: 1, label: "Library Research Result", notes: "DMG: Hireling researches a topic. DM provides lore, rumor, map clue, or advantage on a future related check." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Research."]
+    }]
+  },
+
+  sanctuary: {
+    label: "Sanctuary",
+    orderType: "craft",
+    hirelings: 1,
+    benefits: ["A sacred space tied to divine or primal practice."],
+    functions: [{
+      id: "sanctuary_craft",
+      label: "Craft: Sacred Work",
+      orderType: "craft",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "Sanctuary Craft Order", notes: "DMG: Crafting tied to a holy/druidic focus. DM determines an appropriate crafted outcome (often a charm/consumable/ritual object) per campaign tone." }
+      ],
+      notes: ["Prereq in DMG: ability to use a Holy Symbol or Druidic Focus as a Spellcasting Focus."]
+    }]
+  },
+
+  smithy: {
+    label: "Smithy",
+    orderType: "craft",
+    hirelings: 1,
+    benefits: ["Metalwork and repairs. Halves certain Armory stocking costs at your table (per your rules)."],
+    functions: [{
+      id: "smithy_craft",
+      label: "Craft: Metalwork",
+      orderType: "craft",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "crafted_item", qty: 1, label: "Smithy Craft Output", notes: "DMG: Nonmagical metal item/repair completed (DM decides exact item)." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Craft."]
+    }]
+  },
+
+  storehouse: {
+    label: "Storehouse",
+    orderType: "trade",
+    hirelings: 1,
+    benefits: ["A secure storage space for trade goods."],
+    functions: [{
+      id: "storehouse_trade",
+      label: "Trade: Buy or Sell Goods",
+      orderType: "trade",
+      durationTurns: 1,
+      costGP: 0,
+      inputs: [
+        { type: "text", label: "Buy or Sell? (type buy or sell)", storeAs: "mode" },
+        { type: "text", label: "Notes (optional): what goods / who buyer is", storeAs: "detail" }
+      ],
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "Storehouse Trade", notes: "DMG: If BUY: procure nonmagical items up to value cap (500gp at L5, 2000gp at L9, 5000gp at L13). If SELL: buyer pays +10% (L5), +20% (L9), +50% (L13), +100% (L17)." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Trade. Exact goods are DM-determined; profits follow the listed %."]
+    }]
+  },
+
+  workshop: {
+    label: "Workshop",
+    orderType: "craft",
+    hirelings: 3,
+    benefits: ["Crafting space and tools."],
+    functions: [{
+      id: "workshop_craft",
+      label: "Craft: Workshop Project (DMG)",
+      orderType: "craft",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "Workshop Craft Order", notes: "DMG: Hirelings craft a nonmagical item. If you already have workshop_E on the map, use that card instead." }
+      ],
+      notes: ["If you already have workshop_E on the map, do not build this duplicate version."]
+    }]
+  },
+
+  // Level 9
+  gaming_hall: {
+    label: "Gaming Hall",
+    orderType: "trade",
+    hirelings: 2,
+    benefits: ["A public-facing hall for games, wagers, and social leverage."],
+    functions: [{
+      id: "gaming_hall_trade",
+      label: "Trade: Gaming Night",
+      orderType: "trade",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "coin", qty: 1, gp: "1d6*50", label: "Gaming Hall Proceeds", notes: "DMG: Earnings represent profits from events/games. Adjust if fiction demands." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Trade."]
+    }]
+  },
+
+  greenhouse: {
+    label: "Greenhouse",
+    orderType: "harvest",
+    hirelings: 2,
+    benefits: ["Controlled cultivation for rarer plants."],
+    functions: [{
+      id: "greenhouse_harvest",
+      label: "Harvest: Rare Botanicals",
+      orderType: "harvest",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "crafted_item", qty: 1, label: "Greenhouse Harvest", notes: "DMG: Harvest rare plants/ingredients. DM chooses output (antitoxin, potion ingredient, poison component, etc.)." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Harvest."]
+    }]
+  },
+
+  laboratory: {
+    label: "Laboratory",
+    orderType: "craft",
+    hirelings: 2,
+    benefits: ["Experimentation space for alchemy and formulas."],
+    functions: [{
+      id: "laboratory_craft",
+      label: "Craft: Experimental Concoction",
+      orderType: "craft",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "magic_consumable", qty: 1, rarity: "uncommon", label: "Laboratory Output", notes: "DMG: Often a potion/scroll-like consumable. DM may pick appropriate item." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Craft."]
+    }]
+  },
+
+  scriptorium: {
+    label: "Scriptorium",
+    orderType: "craft",
+    hirelings: 2,
+    benefits: ["Writing and duplication space for texts and scrollwork."],
+    functions: [{
+      id: "scriptorium_craft",
+      label: "Craft: Scribed Work",
+      orderType: "craft",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "Scriptorium Output", notes: "DMG: Produce documents, maps, copies, or campaign-relevant written work. DM determines specifics." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Craft."]
+    }]
+  },
+
+  stable: {
+    label: "Stable",
+    orderType: "trade",
+    hirelings: 1,
+    benefits: ["Houses and cares for mounts and animals."],
+    functions: [{
+      id: "stable_trade",
+      label: "Trade: Mount Services",
+      orderType: "trade",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "coin", qty: 1, gp: "1d6*25", label: "Stable Income", notes: "DMG: Represents boarding/trade services related to mounts." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Trade."]
+    }]
+  },
+
+  teleportation_circle: {
+    label: "Teleportation Circle",
+    orderType: "recruit",
+    hirelings: 1,
+    benefits: ["Invites a friendly NPC spellcaster who can cast a spell for you while you’re in the Bastion."],
+    functions: [{
+      id: "teleport_recruit_spellcaster",
+      label: "Recruit: Spellcaster (odd/even)",
+      orderType: "recruit",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "Teleportation Circle Invite", notes: "DMG: Roll any die. Odd: declines. Even: accepts, arrives. While you’re in bastion, can cast 1 Wizard spell (L4 or lower; L8 if you’re level 17+). You pay costly material components." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Recruit."]
+    }]
+  },
+
+  theater: {
+    label: "Theater",
+    orderType: "empower",
+    hirelings: 2,
+    benefits: ["Performance and morale."],
+    functions: [{
+      id: "theater_empower",
+      label: "Empower: Inspire Performance",
+      orderType: "empower",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "Theater Empower", notes: "DMG: Empower benefit tied to performances. Apply the DMG benefit as written for your table; record any named beneficiary here." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Empower."]
+    }]
+  },
+
+  training_area: {
+    label: "Training Area",
+    orderType: "empower",
+    hirelings: 2,
+    benefits: ["Training, drills, and physical conditioning."],
+    functions: [{
+      id: "training_empower",
+      label: "Empower: Training Regimen",
+      orderType: "empower",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "Training Area Empower", notes: "DMG: Empower benefit tied to training. Apply the DMG benefit as written; record details here." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Empower."]
+    }]
+  },
+
+  trophy_room: {
+    label: "Trophy Room",
+    orderType: "research",
+    hirelings: 1,
+    benefits: ["A curated collection that supports research and reputation."],
+    functions: [{
+      id: "trophy_research",
+      label: "Research: Study Trophies",
+      orderType: "research",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "intel_report", qty: 1, label: "Trophy Room Research", notes: "DMG: Use trophies to learn about a creature/faction or gain advantage on a future check (DM determines)." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Research."]
+    }]
+  },
+
+  // Level 13
+  archive: {
+    label: "Archive",
+    orderType: "research",
+    hirelings: 2,
+    benefits: ["Deep records and preserved knowledge."],
+    functions: [{
+      id: "archive_research",
+      label: "Research: Deep Records",
+      orderType: "research",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "intel_report", qty: 1, label: "Archive Research", notes: "DMG: Powerful research result. DM provides concrete clue, lore, map lead, or similar." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Research."]
+    }]
+  },
+
+  meditation_chamber: {
+    label: "Meditation Chamber",
+    orderType: "empower",
+    hirelings: 1,
+    benefits: ["A focused space for mental clarity and spiritual practice."],
+    functions: [{
+      id: "meditation_empower",
+      label: "Empower: Meditative Focus",
+      orderType: "empower",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "Meditation Chamber Empower", notes: "DMG: Apply the Meditation Chamber empower benefit as written; record who benefits and for how long." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Empower."]
+    }]
+  },
+
+  menagerie: {
+    label: "Menagerie",
+    orderType: "recruit",
+    hirelings: 2,
+    benefits: ["Houses creatures and handlers."],
+    functions: [{
+      id: "menagerie_recruit",
+      label: "Recruit: Creature/Handlers",
+      orderType: "recruit",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "Menagerie Recruit", notes: "DMG: Recruit a creature/handlers as written; DM determines exact result appropriate to campaign." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Recruit."]
+    }]
+  },
+
+  observatory: {
+    label: "Observatory",
+    orderType: "empower",
+    hirelings: 2,
+    benefits: ["Skywatching, omens, and cosmic insight."],
+    functions: [{
+      id: "observatory_empower",
+      label: "Empower: Celestial Insight",
+      orderType: "empower",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "Observatory Empower", notes: "DMG: Apply the Observatory empower benefit; record details/beneficiary." }
+      ],
+      notes: ["DMG prereq: ability to use a Spellcasting Focus."]
+    }]
+  },
+
+  pub: {
+    label: "Pub",
+    orderType: "research",
+    hirelings: 2,
+    benefits: ["Information network and local gossip."],
+    functions: [{
+      id: "pub_research",
+      label: "Research: Rumors & Leads",
+      orderType: "research",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "intel_report", qty: 1, label: "Pub Rumors", notes: "DMG: Gather rumors/leads, contacts, or local intel." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Research."]
+    }]
+  },
+
+  reliquary: {
+    label: "Reliquary",
+    orderType: "harvest",
+    hirelings: 2,
+    benefits: ["Sacred storage and spiritually charged harvests."],
+    functions: [{
+      id: "reliquary_harvest",
+      label: "Harvest: Sacred Boon",
+      orderType: "harvest",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "Reliquary Harvest", notes: "DMG: Harvest a sacred boon/consumable as written; DM determines exact item." }
+      ],
+      notes: ["DMG prereq: ability to use a Holy Symbol or Druidic Focus as a Spellcasting Focus."]
+    }]
+  },
+
+  // Level 17
+  demiplane: {
+    label: "Demiplane",
+    orderType: "empower",
+    hirelings: 2,
+    benefits: ["Extraplanar space with powerful empowerment potential."],
+    functions: [{
+      id: "demiplane_empower",
+      label: "Empower: Demiplanar Boon",
+      orderType: "empower",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "Demiplane Empower", notes: "DMG: Apply Demiplane empower effect as written; record beneficiary and duration." }
+      ],
+      notes: ["DMG prereq: Arcane Focus or tool as Spellcasting Focus."]
+    }]
+  },
+
+  guildhall: {
+    label: "Guildhall",
+    orderType: "recruit",
+    hirelings: 3,
+    benefits: ["A hub of professional expertise and recruitment."],
+    functions: [{
+      id: "guildhall_recruit",
+      label: "Recruit: Skilled Allies",
+      orderType: "recruit",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "Guildhall Recruit", notes: "DMG: Recruit skilled NPCs/allies as written; DM chooses specifics." }
+      ],
+      notes: ["DMG prereq: Expertise in a skill."]
+    }]
+  },
+
+  sanctum: {
+    label: "Sanctum",
+    orderType: "empower",
+    hirelings: 2,
+    benefits: ["High-tier sacred empowerment."],
+    functions: [{
+      id: "sanctum_empower",
+      label: "Empower: Sanctum Blessing",
+      orderType: "empower",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "Sanctum Empower", notes: "DMG: Apply Sanctum empower effect as written; record beneficiary and duration." }
+      ],
+      notes: ["DMG prereq: Holy Symbol or Druidic Focus as Spellcasting Focus."]
+    }]
+  },
+
+  war_room: {
+    label: "War Room",
+    orderType: "recruit",
+    hirelings: 3,
+    benefits: ["Strategic coordination and recruitment."],
+    functions: [{
+      id: "war_room_recruit",
+      label: "Recruit: Tactical Forces",
+      orderType: "recruit",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "War Room Recruit", notes: "DMG: Recruit military help as written; DM determines exact result." }
+      ],
+      notes: ["DMG prereq: Fighting Style feature or Unarmored Defense feature."]
+    }]
+  }
+};
+
+function ensureSpecialFacilityCard(runtimeState, specialId) {
   const baseId = `special_${specialId}`;
+
+  // prevent duplicates
   const already = (runtimeState.facilities || []).some(f => String(f.id) === baseId);
   if (already) return;
 
-  const cat = specialCatalogById(config, specialId);
-  const name = cat?.label || specialId;
+  // Lookup definition for this special
+  const def = SPECIAL_FACILITY_DEFS[String(specialId || "").toLowerCase()];
+  const cat = specialCatalogById(config, specialId); // catalog is still useful for label/cost notes
+
+  const name = def?.label || cat?.label || specialId;
+
+  // Build a real one-level facility card with hirelings + one order button
+  const hire = safeNum(def?.hirelings, 0);
 
   runtimeState.facilities = runtimeState.facilities || [];
   runtimeState.facilities.push({
     id: baseId,
     name,
-    maxLevel: 1,
+    type: "dmg24_special_facility_runtime",
     currentLevel: 1,
-    staffing: { hirelings: 0, notes: ["Special facility (v1.1). Add staffing/functions in JSON later if desired."] },
+    maxLevel: 1,
+    staffing: {
+      hirelingsBase: hire,
+      hirelingsByLevel: { "1": hire },
+      notes: (cat?.notes || []).length ? cat.notes : ["Special facility (DMG'24)."]
+    },
     levels: {
       "1": {
         label: "Active",
-        benefits: (cat?.notes || []).length ? cat.notes : ["Special facility active."],
-        functions: []
+        construction: { costGP: 0, turns: 0 },
+        benefits: (def?.benefits || []).length ? def.benefits : (cat?.notes || ["Special facility active."]),
+        functions: Array.isArray(def?.functions) ? def.functions : []
       }
     }
   });
