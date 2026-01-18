@@ -362,6 +362,181 @@
       }
     },
     {
+  "id": "telluria_shrine_T",
+  "mapKey": "T",
+  "name": "Shrine of Telluria",
+  "type": "custom_special_facility_telluria_shrine",
+  "currentLevel": 1,
+  "maxLevel": 3,
+  "staffing": {
+    "hirelingsBase": 0,
+    "hirelingsByLevel": {
+      "1": 0,
+      "2": 0,
+      "3": 0
+    },
+    "notes": [
+      "No hirelings required. The shrine's rites are maintained by existing bastion staff and devotees."
+    ]
+  },
+  "unlocking": {
+    "category": "special",
+    "minPlayerLevel": 5,
+    "notes": [
+      "This is a custom special facility. It begins at level 1 when unlocked."
+    ]
+  },
+  "autoUpgradeByPlayerLevel": {
+    "notes": [
+      "Auto-upgrades are applied when player level reaches the threshold. No GP cost."
+    ],
+    "rules": [
+      { "playerLevelAtLeast": 10, "setFacilityLevel": 2 },
+      { "playerLevelAtLeast": 15, "setFacilityLevel": 3 }
+    ]
+  },
+  "levels": {
+    "1": {
+      "label": "Basic Shrine",
+      "construction": {
+        "costGP": 0,
+        "turns": 0
+      },
+      "benefits": [
+        "Tellurian Rites (Empower): A chosen beneficiary gains Temporary Hit Points equal to your level after each Long Rest for 1 day."
+      ],
+      "functions": [
+        {
+          "id": "telluria_rites_empower",
+          "label": "Empower: Tellurian Rites (1 day)",
+          "orderType": "empower",
+          "durationTurns": 1,
+          "costGP": 0,
+          "inputs": [
+            {
+              "type": "choose_beneficiary",
+              "label": "Beneficiary name",
+              "storeAs": "beneficiaryName"
+            }
+          ],
+          "effects": [
+            {
+              "type": "status_effect_grant",
+              "effectId": "telluria_rites_temp_hp",
+              "beneficiaryFromInputKey": "beneficiaryName",
+              "durationDays": 1,
+              "tempHpFormula": "casterLevel"
+            }
+          ],
+          "outputsToWarehouse": [
+            {
+              "type": "effect_note",
+              "qty": 1,
+              "label": "Tellurian Rites Active (1 day)",
+              "notes": "Beneficiary gains Temporary Hit Points equal to your level after each Long Rest for 1 day. Beneficiary need not be in the Bastion."
+            }
+          ],
+          "notes": [
+            "Issue this order to inspire bastion rites. Beneficiary does not need to be present."
+          ]
+        }
+      ]
+    },
+    "2": {
+      "label": "Impressive Shrine",
+      "construction": {
+        "costGP": 0,
+        "turns": 0
+      },
+      "benefits": [
+        "Tellurian Rites (Empower): A chosen beneficiary gains Temporary Hit Points equal to your level after each Long Rest for 3 days."
+      ],
+      "functions": [
+        {
+          "id": "telluria_rites_empower",
+          "label": "Empower: Tellurian Rites (3 days)",
+          "orderType": "empower",
+          "durationTurns": 1,
+          "costGP": 0,
+          "inputs": [
+            {
+              "type": "choose_beneficiary",
+              "label": "Beneficiary name",
+              "storeAs": "beneficiaryName"
+            }
+          ],
+          "effects": [
+            {
+              "type": "status_effect_grant",
+              "effectId": "telluria_rites_temp_hp",
+              "beneficiaryFromInputKey": "beneficiaryName",
+              "durationDays": 3,
+              "tempHpFormula": "casterLevel"
+            }
+          ],
+          "outputsToWarehouse": [
+            {
+              "type": "effect_note",
+              "qty": 1,
+              "label": "Tellurian Rites Active (3 days)",
+              "notes": "Beneficiary gains Temporary Hit Points equal to your level after each Long Rest for 3 days. Beneficiary need not be in the Bastion."
+            }
+          ],
+          "notes": [
+            "Issue this order to inspire bastion rites. Beneficiary does not need to be present."
+          ]
+        }
+      ]
+    },
+    "3": {
+      "label": "Almighty Shrine",
+      "construction": {
+        "costGP": 0,
+        "turns": 0
+      },
+      "benefits": [
+        "Tellurian Rites (Empower): A chosen beneficiary gains Temporary Hit Points equal to your level after each Long Rest for 7 days."
+      ],
+      "functions": [
+        {
+          "id": "telluria_rites_empower",
+          "label": "Empower: Tellurian Rites (7 days)",
+          "orderType": "empower",
+          "durationTurns": 1,
+          "costGP": 0,
+          "inputs": [
+            {
+              "type": "choose_beneficiary",
+              "label": "Beneficiary name",
+              "storeAs": "beneficiaryName"
+            }
+          ],
+          "effects": [
+            {
+              "type": "status_effect_grant",
+              "effectId": "telluria_rites_temp_hp",
+              "beneficiaryFromInputKey": "beneficiaryName",
+              "durationDays": 7,
+              "tempHpFormula": "casterLevel"
+            }
+          ],
+          "outputsToWarehouse": [
+            {
+              "type": "effect_note",
+              "qty": 1,
+              "label": "Tellurian Rites Active (7 days)",
+              "notes": "Beneficiary gains Temporary Hit Points equal to your level after each Long Rest for 7 days. Beneficiary need not be in the Bastion."
+            }
+          ],
+          "notes": [
+            "Issue this order to inspire bastion rites. Beneficiary does not need to be present."
+          ]
+        }
+      ]
+    }
+  }
+},
+    {
       "id": "watchtower_B",
       "mapKey": "B",
       "name": "Watchtower",
