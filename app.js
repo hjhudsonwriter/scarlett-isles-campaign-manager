@@ -1147,11 +1147,40 @@ const SPECIAL_FACILITY_DEFS = {
 };
 
 function ensureSpecialFacilityCard(runtimeState, specialInput) {
-  // Accept "library" OR {id:"library", ...}
-  const specialId =
-    (typeof specialInput === "string") ? specialInput :
-    (specialInput && typeof specialInput === "object") ? (specialInput.id || specialInput.key || specialInput.name) :
-    "";
+  function ensureSpecialFacilityCard(runtimeState, specialInput) {
+  // Accept:
+  //  - "library"
+  //  - { id:"library" }
+  //  - { specialId:"library" }
+  //  - { facilityId:"library" }
+  //  - { facility:{ id:"library" } }
+  //  - { id:{ id:"library" } } (yes, this happens sometimes)
+
+  let specialId = "";
+
+  if (typeof specialInput === "string") {
+    specialId = specialInput;
+  } else if (specialInput && typeof specialInput === "object") {
+    const raw =
+      specialInput.id ??
+      specialInput.specialId ??
+      specialInput.facilityId ??
+      specialInput.key ??
+      specialInput.facility ??
+      specialInput.specialFacility ??
+      specialInput.data ??
+      "";
+
+    if (typeof raw === "string") {
+      specialId = raw;
+    } else if (raw && typeof raw === "object") {
+      // nested object forms
+      specialId = raw.id || raw.key || raw.name || raw.label || "";
+    } else {
+      // last-ditch: sometimes name is the id
+      specialId = specialInput.name || specialInput.label || "";
+    }
+  }
 
   const key = String(specialId || "").toLowerCase().trim();
   if (!key) return;
@@ -1181,10 +1210,11 @@ if (spec?.facilityCatalog && Array.isArray(spec.facilityCatalog)) {
   cat = spec.facilityCatalog.find(x => String(x?.id || "").toLowerCase() === key) || null;
 }
 
-  const name =
+    const name =
     def?.label ||
     cat?.name ||
     cat?.label ||
+    (specialInput && typeof specialInput === "object" ? (specialInput.name || specialInput.label) : "") ||
     String(specialId || "Special Facility");
 
   const hire = safeNum(def?.hirelings, 0);
