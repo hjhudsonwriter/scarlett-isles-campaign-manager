@@ -8,6 +8,7 @@ const BASE = (() => {
   return parts.length ? `/${parts[0]}/` : "/";
 })();
 
+
 function withBase(url) {
   if (!url) return url;
   if (url.startsWith("http") || url.startsWith("data:") || url.startsWith("blob:")) return url;
@@ -15,6 +16,7 @@ function withBase(url) {
   if (url.startsWith("/")) url = url.slice(1);
   return BASE + url;
 }
+
 
 function rewriteAssetUrls(containerEl) {
   containerEl.querySelectorAll("img").forEach(img => {
@@ -27,9 +29,11 @@ function rewriteAssetUrls(containerEl) {
   });
 }
 
+
 // ---------- Simple local "admin" ----------
 const LOCAL_KEY = "scarlettIsles.localEdits.v1";
 const EDIT_FLAG = "scarlettIsles.editMode";
+
 
 // LocalStorage for text + metadata
 function loadLocal() {
@@ -46,9 +50,11 @@ function setEditMode(on) {
   localStorage.setItem(EDIT_FLAG, on ? "1" : "0");
 }
 
+
 // IndexedDB for PDFs (blobs)
 const DB_NAME = "scarlettIslesFiles";
 const DB_STORE = "files";
+
 
 function idbOpen() {
   return new Promise((resolve, reject) => {
@@ -87,9 +93,11 @@ async function idbDel(key) {
   });
 }
 
+
 function blobToObjectURL(blob) {
   return URL.createObjectURL(blob);
 }
+
 
 // ---------- Wire edit buttons ----------
 const btnToggleEdit = document.getElementById("btnToggleEdit");
@@ -98,15 +106,18 @@ const btnExport = document.getElementById("btnExport");
 const btnImport = document.getElementById("btnImport");
 const importFile = document.getElementById("importFile");
 
+
 function updateModeUI() {
   if (modeLabel) modeLabel.textContent = isEditMode() ? "Edit" : "View";
 }
+
 
 btnToggleEdit?.addEventListener("click", () => {
   setEditMode(!isEditMode());
   updateModeUI();
   router();
 });
+
 
 btnExport?.addEventListener("click", () => {
   const data = loadLocal();
@@ -123,7 +134,9 @@ btnExport?.addEventListener("click", () => {
   URL.revokeObjectURL(url);
 });
 
+
 btnImport?.addEventListener("click", () => importFile?.click());
+
 
 importFile?.addEventListener("change", async () => {
   const file = importFile.files?.[0];
@@ -135,6 +148,7 @@ importFile?.addEventListener("change", async () => {
   router();
 });
 
+
 // ---------- Your site map ----------
 const TOP_TABS = [
   { id: "clans", title: "The Clans" },
@@ -143,6 +157,7 @@ const TOP_TABS = [
   { id: "story", title: "The Story" },
   { id: "tools", title: "Tools" },
 ];
+
 
 const CLAN_PAGES = [
   { id: "blackstone", title: "Blackstone", file: "./content/clans/blackstone.md" },
@@ -154,11 +169,13 @@ const CLAN_PAGES = [
   { id: "farmer", title: "Farmer", file: "./content/clans/farmer.md" },
 ];
 
+
 const TEMPLE_PAGES = [
   { id: "telluria", title: "Telluria", file: "./content/temples/telluria.md" },
   { id: "aurush", title: "Aurush", file: "./content/temples/aurush.md" },
   { id: "pelagos", title: "Pelagos", file: "./content/temples/pelagos.md" },
 ];
+
 
 // Hero defaults use your existing filenames
 const HEROES = [
@@ -169,12 +186,14 @@ const HEROES = [
   { id: "charles-vect", title: "Charles Vect", defaultPdf: "./assets/pdfs/CharlesVect%20CharacterSheet.pdf" } // space encoded
 ];
 
+
 const TOOL_PAGES = [
   { id: "bastion", title: "Bastion Management", type: "bastion" },
   { id: "roller", title: "Bastion Event Roller", type: "roller" },
   { id: "honour", title: "Honour Tracker", type: "honour" },
   { id: "explorer", title: "Scarlett Isles Explorer", type: "explorer" },
 ];
+
 
 // ---------- UI helpers ----------
 function renderTopNav(activeTab) {
@@ -183,6 +202,7 @@ function renderTopNav(activeTab) {
   ).join("");
 }
 
+
 function renderSideList(title, items, activeId, baseTab) {
   sideTitle.textContent = title;
   sideList.innerHTML = items.map(it =>
@@ -190,12 +210,14 @@ function renderSideList(title, items, activeId, baseTab) {
   ).join("");
 }
 
+
 async function loadMarkdown(file) {
   const res = await fetch(file, { cache: "no-store" });
   if (!res.ok) throw new Error(`Failed to load: ${file}`);
   const md = await res.text();
   return marked.parse(md);
 }
+
 
 function showError(err) {
   view.innerHTML = `
@@ -205,6 +227,7 @@ function showError(err) {
     <p class="badge">Tip: check the file path exists in the repo.</p>
   `;
 }
+
 
 // ---------- Story (Editable Recaps) ----------
 function getLocalRecaps() {
@@ -220,30 +243,36 @@ function getLocalRecaps() {
   return data.recaps;
 }
 
+
 function saveRecaps(recaps) {
   const data = loadLocal();
   data.recaps = recaps;
   saveLocal(data);
 }
 
+
 function sortRecapsNumeric(recaps) {
   return [...recaps].sort((a,b) => (a.number||0) - (b.number||0));
 }
 
+
 function recapPdfKey(id) {
   return `recapPdf:${id}`;
 }
+
 
 async function renderStory(activeId) {
   const recaps = sortRecapsNumeric(getLocalRecaps());
   const active = activeId || recaps[0]?.id || "session-001";
   renderSideList("Session Recaps", recaps.map(r => ({ id: r.id, title: r.title })), active, "story");
 
+
   const item = recaps.find(r => r.id === active) || recaps[0];
   if (!item) {
     view.innerHTML = "<h1>No recaps yet</h1>";
     return;
   }
+
 
   // Decide PDF src:
   // If user uploaded one into IndexedDB, use that.
@@ -258,11 +287,14 @@ async function renderStory(activeId) {
     pdfSrc = "";
   }
 
+
   const edit = isEditMode();
+
 
   view.innerHTML = `
     <h1>${item.title}</h1>
     ${edit ? `<p class="badge">Edit Mode is ON</p>` : ``}
+
 
     <h2>Recap Text</h2>
     ${edit ? `
@@ -274,7 +306,9 @@ async function renderStory(activeId) {
       ${item.text ? marked.parse(item.text) : `<p><small>No recap text yet. Toggle Edit Mode to add it.</small></p>`}
     `}
 
+
     <hr />
+
 
     <h2>Recap PDF</h2>
     ${edit ? `
@@ -283,12 +317,14 @@ async function renderStory(activeId) {
       <div style="margin-top:10px"><button id="btnSaveRecapPdf">Save PDF</button></div>
     ` : ``}
 
+
     ${pdfSrc ? `
       <iframe
         src="${pdfSrc}"
         style="width:100%;height:80vh;border:1px solid #28303a;border-radius:16px;background:#0f1216"
       ></iframe>
     ` : `<p><small>No PDF attached yet.</small></p>`}
+
 
     ${edit ? `
       <hr />
@@ -302,6 +338,7 @@ async function renderStory(activeId) {
     ` : ``}
   `;
 
+
   if (edit) {
     document.getElementById("btnSaveRecap")?.addEventListener("click", () => {
       const txt = document.getElementById("recapText").value;
@@ -310,6 +347,7 @@ async function renderStory(activeId) {
       router();
     });
 
+
     document.getElementById("btnSaveRecapPdf")?.addEventListener("click", async () => {
       const file = document.getElementById("recapPdfInput").files?.[0];
       if (!file) return alert("Choose a PDF first.");
@@ -317,14 +355,17 @@ async function renderStory(activeId) {
       router();
     });
 
+
     document.getElementById("btnAddRecap")?.addEventListener("click", () => {
       const num = Number(document.getElementById("newRecapNum").value);
       const title = document.getElementById("newRecapTitle").value.trim();
       if (!num || num < 1) return alert("Enter a session number (1, 2, 3...).");
       if (!title) return alert("Enter a title.");
 
+
       const id = `session-${String(num).padStart(3,"0")}`;
       if (recaps.some(r => r.id === id)) return alert("That session already exists.");
+
 
       const next = [...recaps, { id, number: num, title, text: "" }];
       saveRecaps(next);
@@ -333,25 +374,31 @@ async function renderStory(activeId) {
   }
 }
 
+
 // ---------- Heroes (Editable PDF swap) ----------
 function heroPdfKey(id) {
   return `heroPdf:${id}`;
 }
 
+
 async function renderHero(activeId) {
   const active = activeId || HEROES[0].id;
   renderSideList("The Heroes", HEROES.map(h => ({ id: h.id, title: h.title })), active, "heroes");
 
+
   const hero = HEROES.find(h => h.id === active) || HEROES[0];
   const edit = isEditMode();
+
 
   let pdfSrc = hero.defaultPdf;
   const blob = await idbGet(heroPdfKey(hero.id));
   if (blob) pdfSrc = blobToObjectURL(blob);
 
+
   view.innerHTML = `
     <h1>${hero.title}</h1>
     ${edit ? `<p class="badge">Edit Mode is ON</p>` : ``}
+
 
     <h2>Character Sheet</h2>
     ${edit ? `
@@ -363,11 +410,13 @@ async function renderHero(activeId) {
       </div>
     ` : ``}
 
+
     <iframe
       src="${pdfSrc}"
       style="width:100%;height:80vh;border:1px solid #28303a;border-radius:16px;background:#0f1216"
     ></iframe>
   `;
+
 
   if (edit) {
     document.getElementById("btnSaveHeroPdf")?.addEventListener("click", async () => {
@@ -377,6 +426,7 @@ async function renderHero(activeId) {
       router();
     });
 
+
     document.getElementById("btnClearHeroPdf")?.addEventListener("click", async () => {
   await idbDel(heroPdfKey(hero.id));
   router();
@@ -384,11 +434,13 @@ async function renderHero(activeId) {
   }
 }
 
+
 // ---------- Tools ----------
 // ---------- Bastion Manager (Ironbow) ----------
 // ---------- Bastion specs (safe switcher) ----------
 const BASTION_SPEC_V1_PATH = "./data/bastion.json"; // current working spec
 const BASTION_SPEC_V1_1_PATH = "./data/ironbow_bastion_v1_1.json"; // new additive spec
+
 
 const BASTION_SPEC_CHOICE_KEY = "bastion.ironbow.specChoice"; // local device
 function getBastionSpecChoice() {
@@ -419,23 +471,29 @@ const FACILITY_IMG_MAP = {
   warehouse: "./assets/facilities/warehouse.jpg",
   treasury: "./assets/facilities/treasury.png",
 
+
   // IMPORTANT: your file is "armoury.jpg" (UK spelling)
   armory: "./assets/facilities/armoury.jpg",
   armoury: "./assets/facilities/armoury.jpg",
 };
 
+
 function FACILITY_IMG(id) {
   // Normalise IDs like "dock_A", "Watchtower_B", "armory-C" -> "dock", "watchtower", "armory"
   const raw = String(id || "").trim();
 
+
   // Lowercase
   let key = raw.toLowerCase();
+
 
   // If it contains an underscore (dock_A), keep the left side
   if (key.includes("_")) key = key.split("_")[0];
 
+
   // If it contains a space, keep the first chunk
   if (key.includes(" ")) key = key.split(" ")[0];
+
 
   // If it contains a hyphen and ends in "-a" style, keep the left side
   // (safe: if your IDs are like "training-yard" this won't break because it only trims single-letter suffix)
@@ -445,8 +503,10 @@ function FACILITY_IMG(id) {
     key = parts.join("-");
   }
 
+
   return FACILITY_IMG_MAP[key] || "./assets/facilities/warehouse.jpg";
 }
+
 
 function safeNum(v, fallback = 0) {
   const n = Number(v);
@@ -454,7 +514,9 @@ function safeNum(v, fallback = 0) {
 }
 function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
 
+
 function deepClone(obj){ return JSON.parse(JSON.stringify(obj)); }
+
 
 function loadBastionSave() {
   try {
@@ -468,39 +530,49 @@ function saveBastionSave(saveObj) {
   localStorage.setItem(BASTION_STORE_KEY, JSON.stringify(saveObj));
 }
 
+
 function rollDie(sides) {
   return Math.floor(Math.random() * sides) + 1;
 }
+
 
 // Supports strings like "1d6*25", "2d4+3", "1d100"
 function rollDiceExpr(expr) {
   const raw = String(expr || "").trim();
   if (!raw) return 0;
 
+
   // If it's just a number like "25"
   if (/^\d+$/g.test(raw)) return safeNum(raw, 0);
+
 
   // Basic pattern: NdM with optional +K/-K and optional *X
   // Examples: "1d6*25", "2d4+3", "1d100", "3d8-2"
   const m = raw.match(/^(\d+)\s*d\s*(\d+)\s*([+-]\s*\d+)?\s*(\*\s*\d+)?$/i);
   if (!m) return 0;
 
+
   const n = safeNum(m[1], 0);
   const sides = safeNum(m[2], 0);
   const plusMinus = m[3] ? safeNum(m[3].replace(/\s+/g, ""), 0) : 0;
   const mult = m[4] ? safeNum(m[4].replace(/\s+/g, "").replace("*", ""), 1) : 1;
 
+
   if (!n || !sides) return 0;
+
 
   let total = 0;
   for (let i = 0; i < n; i++) total += rollDie(sides);
 
+
   total += plusMinus;
   total *= mult;
+
 
   return Math.max(0, Math.floor(total));
 }
 // ---------- Bastion v1.1 helpers (safe, additive) ----------
+
 
 // --- Facility ID helpers (supports "barracks_D" style IDs) ---
 function baseFacilityId(id) {
@@ -511,14 +583,17 @@ function baseFacilityId(id) {
   return raw;
 }
 
+
 function getFacilityById(runtimeState, idOrBase) {
   const facilities = (runtimeState?.facilities || []);
   const want = String(idOrBase || "").trim().toLowerCase();
   if (!want) return null;
 
+
   // 1) exact match first
   let f = facilities.find(x => String(x.id).toLowerCase() === want);
   if (f) return f;
+
 
   // 2) then base-id match ("barracks" matches "barracks_D")
   const wantBase = baseFacilityId(want);
@@ -526,14 +601,17 @@ function getFacilityById(runtimeState, idOrBase) {
   return f || null;
 }
 
+
 function getFacilityLevel(runtimeState, idOrBase) {
   const f = getFacilityById(runtimeState, idOrBase);
   return f ? safeNum(f.currentLevel, 0) : 0;
 }
 
+
 function hasFacility(runtimeState, idOrBase, minLevel = 1) {
   return getFacilityLevel(runtimeState, idOrBase) >= minLevel;
 }
+
 
 // Barracks capacity mapping: level -> max defenders
 // Spec says (0/12/12/25). We'll interpret as:
@@ -545,8 +623,10 @@ function getBarracksCapacity(runtimeState) {
   const barracks = getFacilityById(runtimeState, "barracks"); // will match barracks_D
   if (!barracks) return 0;
 
+
   const lvl = safeNum(barracks.currentLevel, 0);
   if (lvl <= 0) return 0;
+
 
   // Prefer JSON's capacityByLevel if present (v1.1 spec)
   const capMap = barracks?.capacityByLevel || null;
@@ -555,20 +635,24 @@ function getBarracksCapacity(runtimeState) {
     if (cap > 0) return cap;
   }
 
+
   // Fallback mapping if capacityByLevel missing
   if (lvl === 1) return 12;
   if (lvl === 2) return 12;
   return 25;
 }
 
+
 function ensureRosterState(runtimeState) {
   runtimeState.state.roster = runtimeState.state.roster || {};
+
 
   // defenders
   runtimeState.state.roster.defenders = runtimeState.state.roster.defenders || {};
   if (!Number.isFinite(Number(runtimeState.state.roster.defenders.count))) {
     runtimeState.state.roster.defenders.count = 0;
   }
+
 
   // hirelings (computed + manual adjustment)
   runtimeState.state.roster.hirelings = runtimeState.state.roster.hirelings || {};
@@ -577,10 +661,12 @@ function ensureRosterState(runtimeState) {
   }
 }
 
+
 // Hirelings computed from facilities staffing + manual adjustment
 function computeHirelings(runtimeState) {
   const facilities = runtimeState?.facilities || [];
   let base = 0;
+
 
   for (const f of facilities) {
     // staffing is on the facility spec; your UI already reads it
@@ -588,10 +674,12 @@ function computeHirelings(runtimeState) {
     base += h;
   }
 
+
   ensureRosterState(runtimeState);
   const adj = safeNum(runtimeState.state.roster.hirelings.manualAdjustment, 0);
   return { base, adj, total: base + adj };
 }
+
 
 // Defender count clamped by Barracks capacity
 function setDefenders(runtimeState, nextCount) {
@@ -602,6 +690,7 @@ function setDefenders(runtimeState, nextCount) {
   return { count: n, cap };
 }
 
+
 // Convenience: current defenders + cap
 function getDefenders(runtimeState) {
   ensureRosterState(runtimeState);
@@ -609,6 +698,7 @@ function getDefenders(runtimeState) {
   const count = clamp(safeNum(runtimeState.state.roster.defenders.count, 0), 0, cap);
   return { count, cap };
 }
+
 
 // Special facility slot milestones
 function computeSpecialSlots(playerLevel) {
@@ -620,9 +710,11 @@ function computeSpecialSlots(playerLevel) {
   return 0;
 }
 
+
 function specialCatalogById(config, id) {
   return (config?.facilityCatalog || []).find(x => x.id === id) || null;
 }
+
 
 // ------------------------------------------------------------
 // DMG 2024 Special Facility definitions (used to build real cards)
@@ -630,234 +722,257 @@ function specialCatalogById(config, id) {
 // They show hirelings + one order button. Some outcomes are DM-facing notes
 // (because DMG often says “roll any die” or “DM determines the goods”).
 // ------------------------------------------------------------
-// ---------- DMG'24 Special Facility rules (v1.1) ----------
-// Goal: each facility has at least one usable function; every completion produces a Warehouse entry.
-// Note: where DMG requires tables/odd-even/choices, we output a Warehouse "note" so it is still tracked + editable.
-
 const SPECIAL_FACILITY_DEFS = {
   // Level 5
-  "arcane_study": {
+  arcane_study: {
     label: "Arcane Study",
+    orderType: "craft",
     hirelings: 1,
     benefits: [
-      "After a Long Rest in the Bastion: gain a 7-day Identify Charm (DMG)."
+      "A quiet study for arcane work."
     ],
     functions: [{
       id: "arcane_study_craft",
-      label: "Craft (choose option)",
+      label: "Craft: Arcane Creation",
       orderType: "craft",
       durationTurns: 1,
       costGP: 0,
-      crafting: { modes: [
-        { id:"focus", label:"Craft: Arcane Focus" },
-        { id:"book",  label:"Craft: Blank Book (10 GP)" },
-        { id:"magic", label:"Craft: Magic Item (Arcana) (Lvl 9+; DMG rules)" }
-      ]},
-      // Default output if mode logic isn’t applied for some reason:
-      outputsToWarehouse: [{ type:"note", name:"Arcane Study: Craft", qty:1, gp:0, notes:"Choose: Arcane Focus (free), Blank Book (10gp), or Magic Item (Arcana tables; L9+; use DMG crafting rules)." }]
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "Arcane Study Craft Order", notes: "DMG: Hireling crafts an arcane-themed item (nonmagical or DM-approved). If your table uses specific crafting rules, apply them." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Craft."]
     }]
   },
 
-  "smithy": {
-    label: "Smithy",
-    hirelings: 2,
-    benefits: [
-      "Armory Stock cost is halved while a Smithy exists (DMG)."
-    ],
-    functions: [{
-      id: "smithy_craft",
-      label: "Craft (choose option)",
-      orderType: "craft",
-      durationTurns: 1,
-      costGP: 0,
-      crafting: { modes: [
-        { id:"smith_tools", label:"Craft: Smith's Tools (PHB crafting)" },
-        { id:"magic_armament", label:"Craft: Magic Item (Armaments) (Lvl 9+; DMG rules)" }
-      ]},
-      outputsToWarehouse: [{ type:"note", name:"Smithy: Craft", qty:1, gp:0, notes:"Choose: Smith's Tools crafting (PHB) or Magic Item (Armaments tables; L9+; DMG crafting rules/time/cost)." }]
-    }]
-  },
 
-  "library": {
-    label: "Library",
+  armory: {
+    label: "Armory",
+    orderType: "trade",
     hirelings: 1,
-    benefits: [
-      "A place of study and references (DMG)."
-    ],
+    benefits: ["A secure place to store and issue arms and armor."],
     functions: [{
-      id: "library_research",
-      label: "Research: Lore",
-      orderType: "research",
+      id: "armory_trade",
+      label: "Trade: Stock Armory (DMG)",
+      orderType: "trade",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type:"note", name:"Library Research Result", qty:1, gp:0, notes:"DMG: Hireling researches a topic you choose (7 days). DM provides useful lore/info next time you speak with them." }
-      ]
-    },{
-      id: "library_research_reward",
-      label: "Research: Discovery (scroll/potions/trinket)",
-      orderType: "research",
-      durationTurns: 1,
-      costGP: 0,
-      outputsToWarehouse: [
-        { type:"note", name:"Library Discovery Roll", qty:1, gp:0, notes:"DMG: Roll 1d4. 1=Spell Scroll (lvl1-3, Cleric/Wizard, chosen by DM); 2=2x Potion of Healing; 3-4=Trinket (DMG trinket table). Add the resulting item(s) to Warehouse." }
-      ]
+        { type: "effect_note", qty: 1, label: "Armory Stocked (DMG)", notes: "DMG: Stocking has a cost and affects Attack outcomes. If you’re using your custom Armoury card (armory_C), use that button instead." }
+      ],
+      notes: ["If you already have armory_C on the map, do not build this duplicate version."]
     }]
   },
 
-  "garden": {
+
+  barrack: {
+    label: "Barrack",
+    orderType: "recruit",
+    hirelings: 1,
+    benefits: ["Houses Bastion Defenders (capacity depends on the facility size)."],
+    functions: [{
+      id: "barrack_recruit",
+      label: "Recruit: Bastion Defenders (DMG)",
+      orderType: "recruit",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "Recruitment Attempt", notes: "DMG: Recruit defenders for the bastion. If you’re using your custom Barracks card (barracks_D), use that button instead." }
+      ],
+      notes: ["If you already have barracks_D on the map, do not build this duplicate version."]
+    }]
+  },
+
+
+  garden: {
     label: "Garden",
+    orderType: "harvest",
     hirelings: 1,
-    benefits: [
-      "Choose a Garden type when built (Decorative/Food/Herb/Poison). Can be changed (21 days) per DMG."
-    ],
+    benefits: ["A tended garden that can produce useful natural materials."],
     functions: [{
       id: "garden_harvest",
-      label: "Harvest: Garden Growth",
+      label: "Harvest: Garden Produce",
       orderType: "harvest",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type:"note", name:"Garden Harvest", qty:1, gp:0, notes:"DMG Harvest by Garden type (7 days): Decorative: choose 10 floral bouquets (5gp each) OR 10 perfume vials OR 10 candles. Food: 100 days rations. Herb: materials for 10 Healer's Kits OR 1 Potion of Healing. Poison: materials for 2 Antitoxin OR 1 Basic Poison. Add chosen result to Warehouse." }
-      ]
+        { type: "effect_note", qty: 1, label: "Garden Harvest", notes: "DMG: Hireling harvests useful plants/ingredients. DM chooses appropriate output (herbs, healing supplies, poisons, etc.) based on the garden type." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Harvest."]
     }]
   },
 
-  "sanctuary": {
-    label: "Sanctuary",
+
+  library: {
+    label: "Library",
+    orderType: "research",
     hirelings: 1,
-    benefits: [
-      "After a Long Rest in the Bastion: gain a 7-day Healing Word Charm (DMG)."
-    ],
+    benefits: ["A library for collecting lore and conducting research."],
     functions: [{
-      id: "sanctuary_craft_focus",
-      label: "Craft: Sacred Focus",
+      id: "library_research",
+      label: "Research: Gather Lore",
+      orderType: "research",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "intel_report", qty: 1, label: "Library Research Result", notes: "DMG: Hireling researches a topic. DM provides lore, rumor, map clue, or advantage on a future related check." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Research."]
+    }]
+  },
+
+
+  sanctuary: {
+    label: "Sanctuary",
+    orderType: "craft",
+    hirelings: 1,
+    benefits: ["A sacred space tied to divine or primal practice."],
+    functions: [{
+      id: "sanctuary_craft",
+      label: "Craft: Sacred Work",
       orderType: "craft",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type:"crafted_item", name:"Sacred Focus (Holy Symbol or Druidic Focus)", qty:1, gp:0, notes:"DMG: Crafted by hireling; remains in Bastion until claimed." }
-      ]
+        { type: "effect_note", qty: 1, label: "Sanctuary Craft Order", notes: "DMG: Crafting tied to a holy/druidic focus. DM determines an appropriate crafted outcome (often a charm/consumable/ritual object) per campaign tone." }
+      ],
+      notes: ["Prereq in DMG: ability to use a Holy Symbol or Druidic Focus as a Spellcasting Focus."]
     }]
   },
 
-  "storehouse": {
-    label: "Storehouse",
+
+  smithy: {
+    label: "Smithy",
+    orderType: "craft",
     hirelings: 1,
-    benefits: [
-      "Trade goods buying/selling support (DMG)."
-    ],
+    benefits: ["Metalwork and repairs. Halves certain Armory stocking costs at your table (per your rules)."],
+    functions: [{
+      id: "smithy_craft",
+      label: "Craft: Metalwork",
+      orderType: "craft",
+      durationTurns: 1,
+      costGP: 0,
+      outputsToWarehouse: [
+        { type: "crafted_item", qty: 1, label: "Smithy Craft Output", notes: "DMG: Nonmagical metal item/repair completed (DM decides exact item)." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Craft."]
+    }]
+  },
+
+
+  storehouse: {
+    label: "Storehouse",
+    orderType: "trade",
+    hirelings: 1,
+    benefits: ["A secure storage space for trade goods."],
     functions: [{
       id: "storehouse_trade",
-      label: "Trade: Buy/Sell Goods (profit by level)",
+      label: "Trade: Buy or Sell Goods",
       orderType: "trade",
       durationTurns: 1,
       costGP: 0,
+      inputs: [
+        { type: "text", label: "Buy or Sell? (type buy or sell)", storeAs: "mode" },
+        { type: "text", label: "Notes (optional): what goods / who buyer is", storeAs: "detail" }
+      ],
       outputsToWarehouse: [
-        { type:"note", name:"Storehouse Trade Result", qty:1, gp:0, notes:"DMG: Trade takes 7 days. You buy or sell nonmagical goods at normal prices. Profit on sales increases as you level (13+, 17+). Record purchases/sales and any profit as Warehouse edits." }
-      ]
+        { type: "effect_note", qty: 1, label: "Storehouse Trade", notes: "DMG: If BUY: procure nonmagical items up to value cap (500gp at L5, 2000gp at L9, 5000gp at L13). If SELL: buyer pays +10% (L5), +20% (L9), +50% (L13), +100% (L17)." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Trade. Exact goods are DM-determined; profits follow the listed %."]
     }]
   },
 
-  "workshop": {
+
+  workshop: {
     label: "Workshop",
+    orderType: "craft",
     hirelings: 3,
-    benefits: [
-      "Equipped with 6 artisan tools (DMG list). Short Rest in Workshop grants Heroic Inspiration (DMG)."
-    ],
+    benefits: ["Crafting space and tools."],
     functions: [{
       id: "workshop_craft",
-      label: "Craft (choose option)",
+      label: "Craft: Workshop Project (DMG)",
       orderType: "craft",
       durationTurns: 1,
       costGP: 0,
-      crafting: { modes: [
-        { id:"adventuring", label:"Craft: Adventuring Gear (PHB rules; using chosen tools)" },
-        { id:"magic_implement", label:"Craft: Magic Item (Implements) (Lvl 9+; DMG rules)" }
-      ]},
       outputsToWarehouse: [
-        { type:"note", name:"Workshop Craft Result", qty:1, gp:0, notes:"DMG: Choose Adventuring Gear (PHB crafting using available tools) OR Magic Item (Implements tables; L9+; DMG crafting rules/time/cost). Add resulting item(s) to Warehouse." }
-      ]
+        { type: "effect_note", qty: 1, label: "Workshop Craft Order", notes: "DMG: Hirelings craft a nonmagical item. If you already have workshop_E on the map, use that card instead." }
+      ],
+      notes: ["If you already have workshop_E on the map, do not build this duplicate version."]
     }]
   },
 
+
   // Level 9
-  "gaming_hall": {
+  gaming_hall: {
     label: "Gaming Hall",
-    hirelings: 4,
-    benefits: ["Trade: Gambling den (DMG)."],
+    orderType: "trade",
+    hirelings: 2,
+    benefits: ["A public-facing hall for games, wagers, and social leverage."],
     functions: [{
       id: "gaming_hall_trade",
-      label: "Trade: Gambling Hall (roll winnings)",
+      label: "Trade: Gaming Night",
       orderType: "trade",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type:"note", name:"Gaming Hall Winnings", qty:1, gp:0, notes:"DMG: After 7 days, roll 1d100. 01-50: 1d6×10 gp. 51-85: 2d6×10 gp. 86-95: 4d6×10 gp. 96-00: 10d6×10 gp. Add GP result to Treasury and/or record in Warehouse." }
-      ]
+        { type: "coin", qty: 1, gp: "1d6*50", label: "Gaming Hall Proceeds", notes: "DMG: Earnings represent profits from events/games. Adjust if fiction demands." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Trade."]
     }]
   },
 
-  "greenhouse": {
+
+  greenhouse: {
     label: "Greenhouse",
-    hirelings: 1,
-    benefits: ["Fruit of Restoration: 3 fruits daily; each = Lesser Restoration (DMG)."],
+    orderType: "harvest",
+    hirelings: 2,
+    benefits: ["Controlled cultivation for rarer plants."],
     functions: [{
       id: "greenhouse_harvest",
-      label: "Harvest (choose option)",
+      label: "Harvest: Rare Botanicals",
       orderType: "harvest",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type:"note", name:"Greenhouse Harvest", qty:1, gp:0, notes:"DMG (7 days): Choose: Potion of Healing (Greater) OR 1 poison (Assassin's Blood / Malice / Pale Tincture / Truth Serum). Add to Warehouse." }
-      ]
+        { type: "crafted_item", qty: 1, label: "Greenhouse Harvest", notes: "DMG: Harvest rare plants/ingredients. DM chooses output (antitoxin, potion ingredient, poison component, etc.)." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Harvest."]
     }]
   },
 
-  "laboratory": {
+
+  laboratory: {
     label: "Laboratory",
-    hirelings: 1,
-    benefits: ["Alchemical crafting space (DMG)."],
+    orderType: "craft",
+    hirelings: 2,
+    benefits: ["Alchemy, tinctures, and controlled experiments (DMG)."],
     functions: [{
       id: "laboratory_craft",
       label: "Craft (choose option)",
       orderType: "craft",
       durationTurns: 1,
       costGP: 0,
-      crafting: { modes: [
-        { id:"alchemist", label:"Craft: Alchemist's Supplies (PHB/DMG)" },
-        { id:"poison", label:"Craft: Poison (Burnt Othur Fumes / Essence of Ether / Torpor) (pay half cost)" }
-      ]},
-      outputsToWarehouse: [
-        { type:"note", name:"Laboratory Craft Result", qty:1, gp:0, notes:"DMG: Choose Alchemist's Supplies crafting OR craft 1 poison (Burnt Othur Fumes / Essence of Ether / Torpor) paying half its cost. Add result to Warehouse." }
+      outputsToWarehouse: [{ type: "note", qty: 1, label: "Laboratory Craft (see notes)", notes: "This order creates the chosen laboratory output." }],
+      crafting: {
+        modes: [
+          { id: "alchemists_fire", label: "Craft: Alchemist's Fire", costGP: 50, outputsToWarehouse: [{ type: "alchemists_fire", qty: 1 }] },
+          { id: "antitoxin", label: "Craft: Antitoxin", costGP: 50, outputsToWarehouse: [{ type: "antitoxin", qty: 1 }] },
+          { id: "oil_of_slipperiness", label: "Craft: Oil of Slipperiness", costGP: 200, outputsToWarehouse: [{ type: "oil_of_slipperiness", qty: 1 }] },
+          { id: "potion_of_healing", label: "Craft: Potion of Healing", costGP: 50, outputsToWarehouse: [{ type: "potion_of_healing", qty: 1 }] },
+          { id: "perfume_bundle", label: "Craft: Perfume (10 vials)", costGP: 10, outputsToWarehouse: [{ type: "perfume", qty: 10, notes: "10 vials" }] },
+          { id: "basic_poison", label: "Craft: Basic Poison", costGP: 100, outputsToWarehouse: [{ type: "basic_poison", qty: 1 }] }
+        ]
+      },
+      notes: [
+        "Choose one option. Costs are set to common PHB-style values (adjust if you want different baselines).",
+        "All outputs are logged to the Warehouse when the order completes."
       ]
     }]
   },
 
-  "sacristy": {
-    label: "Sacristy",
-    hirelings: 1,
-    benefits: [
-      "Short Rest in Bastion: regain 1 spell slot level 5 or lower (DMG)."
-    ],
-    functions: [{
-      id: "sacristy_craft",
-      label: "Craft (choose option)",
-      orderType: "craft",
-      durationTurns: 1,
-      costGP: 0,
-      crafting: { modes: [
-        { id:"holy_water", label:"Craft: Holy Water (free; +1d8 dmg per 100gp spent, max 500gp)" },
-        { id:"magic_relic", label:"Craft: Magic Item (Relics) (DMG crafting rules/time/cost)" }
-      ]},
-      outputsToWarehouse: [
-        { type:"note", name:"Sacristy Craft Result", qty:1, gp:0, notes:"DMG: Choose Holy Water (optionally spend 100-500gp to increase damage +1d8 per 100gp) OR Magic Item (Relics tables; DMG crafting rules/time/cost). Add result to Warehouse." }
-      ]
-    }]
-  },
 
-  "scriptorium": {
+  scriptorium: {
     label: "Scriptorium",
+    orderType: "craft",
     hirelings: 1,
     benefits: ["Writing/copying facility (DMG)."],
     functions: [{
@@ -866,344 +981,418 @@ const SPECIAL_FACILITY_DEFS = {
       orderType: "craft",
       durationTurns: 1,
       costGP: 0,
-      crafting: { modes: [
-        { id:"book_replica", label:"Craft: Book Replica (requires blank book)" },
-        { id:"spell_scroll", label:"Craft: Spell Scroll (Cleric/Wizard lvl 3 or lower; PHB scribing costs)" },
-        { id:"paperwork", label:"Craft: Paperwork (up to 50 copies, 1gp each; optional distribution)" }
-      ]},
       outputsToWarehouse: [
-        { type:"note", name:"Scriptorium Craft Result", qty:1, gp:0, notes:"DMG: Choose Book Replica (needs blank book), Spell Scroll (PHB scribing cost/time), or Paperwork (1gp per copy, up to 50). Add resulting item(s) to Warehouse." }
+        { type: "effect_note", qty: 1, label: "Scriptorium", notes: "Choose an option when you start this order." }
+      ],
+      crafting: {
+        modes: [
+          {
+            id: "book_replica",
+            label: "Craft: Book Replica (requires blank book)",
+            outputsToWarehouse: [
+              { type: "crafted_item", qty: 1, name: "Book Replica", notes: "Requires a blank book (not tracked automatically yet)." }
+            ]
+          },
+          {
+            id: "spell_scroll",
+            label: "Craft: Spell Scroll (Cleric/Wizard lvl 3 or lower; PHB scribing costs)",
+            outputsToWarehouse: [
+              { type: "crafted_item", qty: 1, name: "Spell Scroll (lvl 3 or lower)", notes: "Use PHB spell scroll scribing rules/costs." }
+            ]
+          },
+          {
+            id: "paperwork",
+            label: "Craft: Paperwork (up to 50 copies, 1gp each; optional distribution)",
+            inputs: [
+              { type: "number", label: "How many copies? (1-50)", storeAs: "copies" },
+              { type: "text", label: "Optional note (recipient / distribution)", storeAs: "distribution" }
+            ],
+            costPerUnitGP: 1,
+            unitInputKey: "copies",
+            outputsToWarehouse: [
+              { type: "effect_note", qty: 1, label: "Paperwork", notes: "Copies completed. See order notes for quantity/distribution." }
+            ]
+          }
+        ]
+      },
+      notes: [
+        "DMG facility. If you want strict inventory (blank books, ink, etc.) we can add it later."
       ]
     }]
   },
 
-  "stable": {
+
+  stable: {
     label: "Stable",
+    orderType: "trade",
     hirelings: 1,
-    benefits: [
-      "Comes with mounts when built (DMG).",
-      "Selling mounts: +20% over base price; becomes +50% at lvl13 and +100% at lvl17 (DMG)."
-    ],
+    benefits: ["Houses and cares for mounts and animals."],
     functions: [{
-      id: "stable_trade_animals",
-      label: "Trade: Animals (buy/sell mounts)",
+      id: "stable_trade",
+      label: "Trade: Mount Services",
       orderType: "trade",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type:"note", name:"Stable Trade", qty:1, gp:0, notes:"DMG: Buy/sell mounts at normal cost (DM decides availability). If selling a Stable mount: buyer pays +20% (lvl13: +50%, lvl17: +100%). Record bought/sold mounts and gp changes." }
-      ]
+        { type: "coin", qty: 1, gp: "1d6*25", label: "Stable Income", notes: "DMG: Represents boarding/trade services related to mounts." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Trade."]
     }]
   },
 
-  "teleportation_circle": {
+
+  teleportation_circle: {
     label: "Teleportation Circle",
+    orderType: "recruit",
     hirelings: 1,
-    benefits: ["DMG facility; enables circle logistics."],
+    benefits: ["Invites a friendly NPC spellcaster who can cast a spell for you while you’re in the Bastion."],
     functions: [{
-      id: "teleport_circle_recruit",
-      label: "Recruit: Teleportation Services (DMG-driven)",
+      id: "teleport_recruit_spellcaster",
+      label: "Recruit: Spellcaster (odd/even)",
       orderType: "recruit",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type:"note", name:"Teleportation Circle Result", qty:1, gp:0, notes:"DMG: Teleportation Circle effects depend on your campaign's travel/contacts. Use this as a tracked order; record any outcomes/resources gained." }
-      ]
+        { type: "effect_note", qty: 1, label: "Teleportation Circle Invite", notes: "DMG: Roll any die. Odd: declines. Even: accepts, arrives. While you’re in bastion, can cast 1 Wizard spell (L4 or lower; L8 if you’re level 17+). You pay costly material components." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Recruit."]
     }]
   },
 
-  "theater": {
+
+  theater: {
     label: "Theater",
-    hirelings: 4,
-    benefits: ["Empower: Theatrical Event (DMG)."],
+    orderType: "empower",
+    hirelings: 2,
+    benefits: ["Performance and morale."],
     functions: [{
       id: "theater_empower",
-      label: "Empower: Theatrical Event (rehearsal+performances)",
+      label: "Empower: Inspire Performance",
       orderType: "empower",
-      durationTurns: 2, // DMG: 14 days rehearsal + 7 days performances minimum (tracked as 2 turns in your 7-day model)
+      durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type:"note", name:"Theater Production", qty:1, gp:0, notes:"DMG: Rehearsals 14 days, then 7+ days performances. Contributors roll DC15 Performance at end of rehearsal; if more succeed than fail, each gains a Theater die (d6; lvl13 d8; lvl17 d10) usable to add to a d20 test after rolling." }
-      ]
+        { type: "effect_note", qty: 1, label: "Theater Empower", notes: "DMG: Empower benefit tied to performances. Apply the DMG benefit as written for your table; record any named beneficiary here." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Empower."]
     }]
   },
 
-  "training_area": {
+
+  training_area: {
     label: "Training Area",
-    hirelings: 4,
-    benefits: ["Choose an Expert Trainer; can swap each Bastion turn (DMG)."],
+    orderType: "empower",
+    hirelings: 2,
+    benefits: ["Training, drills, and physical conditioning."],
     functions: [{
-      id: "training_area_empower",
-      label: "Empower: Training (7 days)",
+      id: "training_empower",
+      label: "Empower: Training Regimen",
       orderType: "empower",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type:"note", name:"Training Area Benefit", qty:1, gp:0, notes:"DMG: 7 days training. Any character training 8h/day gains trainer-specific benefit for 7 days (Battle/Skills/Tools/Unarmed/Weapon Expert). Record chosen trainer + beneficiary." }
-      ]
+        { type: "effect_note", qty: 1, label: "Training Area Empower", notes: "DMG: Empower benefit tied to training. Apply the DMG benefit as written; record details here." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Empower."]
     }]
   },
 
-  "trophy_room": {
+
+  trophy_room: {
     label: "Trophy Room",
+    orderType: "research",
     hirelings: 1,
-    benefits: ["Research: Lore or Trinket Trophy (DMG)."],
+    benefits: ["A curated collection that supports research and reputation."],
     functions: [{
-      id: "trophy_room_research_lore",
-      label: "Research: Lore (3 facts)",
+      id: "trophy_research",
+      label: "Research: Study Trophies",
       orderType: "research",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type:"note", name:"Trophy Room Lore", qty:1, gp:0, notes:"DMG: Hireling researches chosen topic (7 days) and shares up to 3 accurate pieces of information previously unknown to you." }
-      ]
-    },{
-      id: "trophy_room_research_trinket",
-      label: "Research: Trinket Trophy (odd/even)",
-      orderType: "research",
-      durationTurns: 1,
-      costGP: 0,
-      outputsToWarehouse: [
-        { type:"note", name:"Trophy Room Trinket Roll", qty:1, gp:0, notes:"DMG: Roll any die. Odd = nothing useful. Even = magic item from Implements (Common) table (DMG ch7). Add result to Warehouse." }
-      ]
+        { type: "intel_report", qty: 1, label: "Trophy Room Research", notes: "DMG: Use trophies to learn about a creature/faction or gain advantage on a future check (DM determines)." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Research."]
     }]
   },
+
 
   // Level 13
-  "archive": {
+  archive: {
     label: "Archive",
-    hirelings: 1,
-    benefits: ["Research: Legend Lore-style knowledge (DMG)."],
+    orderType: "research",
+    hirelings: 2,
+    benefits: ["Deep records and preserved knowledge."],
     functions: [{
       id: "archive_research",
-      label: "Research: Helpful Lore (Legend Lore)",
+      label: "Research: Deep Records",
       orderType: "research",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type:"note", name:"Archive Research", qty:1, gp:0, notes:"DMG: Hireling researches (7 days) and gains knowledge as if casting Legend Lore, shares next time you speak." }
-      ]
+        { type: "intel_report", qty: 1, label: "Archive Research", notes: "DMG: Powerful research result. DM provides concrete clue, lore, map lead, or similar." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Research."]
     }]
   },
 
-  "meditation_chamber": {
+
+  meditation_chamber: {
     label: "Meditation Chamber",
+    orderType: "empower",
     hirelings: 1,
-    benefits: ["Fortify Self (7 days meditation; DMG)."],
+    benefits: ["A focused space for mental clarity and spiritual practice."],
     functions: [{
       id: "meditation_empower",
-      label: "Empower: Inner Peace (event roll advantage)",
+      label: "Empower: Meditative Focus",
       orderType: "empower",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type:"note", name:"Meditation Chamber: Inner Peace", qty:1, gp:0, notes:"DMG: Next Bastion event roll, roll twice and choose either result." }
-      ]
+        { type: "effect_note", qty: 1, label: "Meditation Chamber Empower", notes: "DMG: Apply the Meditation Chamber empower benefit as written; record who benefits and for how long." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Empower."]
     }]
   },
 
-  "menagerie": {
+
+  menagerie: {
     label: "Menagerie",
+    orderType: "recruit",
     hirelings: 2,
-    benefits: ["Creatures can count as Bastion Defenders (DMG)."],
+    benefits: ["Buy and keep creatures; includes caretakers (DMG)."],
     functions: [{
       id: "menagerie_recruit",
-      label: "Recruit: Creature (cost varies)",
+      label: "Recruit (choose creature)",
       orderType: "recruit",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type:"note", name:"Menagerie Recruitment", qty:1, gp:0, notes:"DMG: Recruit a creature from Menagerie table (7 days) paying listed cost (e.g., ape 500, owlbear 3500, etc.) or DM-approved creature by CR cost table. If counted as defender, add to defenders roster manually (or track separately)." }
-      ]
+        { type: "effect_note", qty: 1, label: "Menagerie", notes: "Recruit completed. See chosen creature in this note." }
+      ],
+      crafting: {
+        modes: [
+          { id: "blink_dog", label: "Blink Dog (200gp)", costGP: 200, outputsToWarehouse: [{ type: "effect_note", qty: 1, label: "Menagerie: Blink Dog", notes: "A Blink Dog is now available at your Bastion." }] },
+          { id: "displacer_beast", label: "Displacer Beast (500gp)", costGP: 500, outputsToWarehouse: [{ type: "effect_note", qty: 1, label: "Menagerie: Displacer Beast", notes: "A Displacer Beast is now available at your Bastion." }] },
+          { id: "griffin", label: "Griffin (500gp)", costGP: 500, outputsToWarehouse: [{ type: "effect_note", qty: 1, label: "Menagerie: Griffin", notes: "A Griffin is now available at your Bastion." }] },
+          { id: "hippogriff", label: "Hippogriff (350gp)", costGP: 350, outputsToWarehouse: [{ type: "effect_note", qty: 1, label: "Menagerie: Hippogriff", notes: "A Hippogriff is now available at your Bastion." }] },
+          { id: "panther", label: "Panther (80gp)", costGP: 80, outputsToWarehouse: [{ type: "effect_note", qty: 1, label: "Menagerie: Panther", notes: "A Panther is now available at your Bastion." }] }
+        ]
+      },
+      notes: ["Costs pulled from your sheet. You can expand this list later."]
     }]
   },
 
-  "observatory": {
+
+  observatory: {
     label: "Observatory",
-    hirelings: 1,
-    benefits: ["After Long Rest: 7-day Contact Other Plane Charm (DMG)."],
+    orderType: "empower",
+    hirelings: 2,
+    benefits: ["Skywatching, omens, and cosmic insight."],
     functions: [{
       id: "observatory_empower",
-      label: "Empower: Eldritch Discovery (odd/even)",
+      label: "Empower: Celestial Insight",
       orderType: "empower",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type:"note", name:"Observatory Discovery Roll", qty:1, gp:0, notes:"DMG: After 7 nights, roll a die. Even: nothing. Odd: grant Charm of Darkvision OR Heroism OR Vitality to you/another creature on same plane. Record result." }
-      ]
+        { type: "effect_note", qty: 1, label: "Observatory Empower", notes: "DMG: Apply the Observatory empower benefit; record details/beneficiary." }
+      ],
+      notes: ["DMG prereq: ability to use a Spellcasting Focus."]
     }]
   },
 
-  "pub": {
+
+  pub: {
     label: "Pub",
-    hirelings: 1,
-    benefits: ["Research: spy network info (DMG).", "One magical beverage on tap (DMG)."],
+    orderType: "research",
+    hirelings: 2,
+    benefits: ["Information network and local gossip."],
     functions: [{
       id: "pub_research",
-      label: "Research: Information Gathering",
+      label: "Research: Rumors & Leads",
       orderType: "research",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type:"note", name:"Pub Intelligence", qty:1, gp:0, notes:"DMG: For next 7 days, spies know important events within 10 miles. Can locate a familiar creature within 50 miles (if not magically hidden/confined). Also learns target's previous 7 days location history if found." }
-      ]
+        { type: "intel_report", qty: 1, label: "Pub Rumors", notes: "DMG: Gather rumors/leads, contacts, or local intel." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Research."]
     }]
   },
 
-  "reliquary": {
+
+  reliquary: {
     label: "Reliquary",
+    orderType: "harvest",
     hirelings: 2,
-    benefits: ["Harvest: sacred resources (DMG)."],
+    benefits: ["Sacred storage and spiritually charged harvests."],
     functions: [{
       id: "reliquary_harvest",
-      label: "Harvest: Reliquary (DMG-driven)",
+      label: "Harvest: Sacred Boon",
       orderType: "harvest",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type:"note", name:"Reliquary Harvest", qty:1, gp:0, notes:"DMG: Reliquary harvest results depend on relics/holy materials available in your story. Use as tracked harvest order; record items gained." }
-      ]
+        { type: "effect_note", qty: 1, label: "Reliquary Harvest", notes: "DMG: Harvest a sacred boon/consumable as written; DM determines exact item." }
+      ],
+      notes: ["DMG prereq: ability to use a Holy Symbol or Druidic Focus as a Spellcasting Focus."]
     }]
   },
+
 
   // Level 17
-  "demiplane": {
+  demiplane: {
     label: "Demiplane",
-    hirelings: 1,
-    benefits: ["Door to extradimensional stone room (DMG).", "Fabrication 1/Long Rest (DMG)."],
+    orderType: "empower",
+    hirelings: 2,
+    benefits: ["Extraplanar space with powerful empowerment potential."],
     functions: [{
       id: "demiplane_empower",
-      label: "Empower: Arcane Resilience (7 days)",
+      label: "Empower: Demiplanar Boon",
       orderType: "empower",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type:"note", name:"Demiplane Runes Active", qty:1, gp:0, notes:"DMG: For 7 days, after a Long Rest in the Demiplane you gain Temp HP = 5×your level." }
-      ]
+        { type: "effect_note", qty: 1, label: "Demiplane Empower", notes: "DMG: Apply Demiplane empower effect as written; record beneficiary and duration." }
+      ],
+      notes: ["DMG prereq: Arcane Focus or tool as Spellcasting Focus."]
     }]
   },
 
-  "guildhall": {
+
+  guildhall: {
     label: "Guildhall",
-    hirelings: 1,
-    benefits: ["A guild of ~50 members outside the Bastion (DMG)."],
+    orderType: "recruit",
+    hirelings: 3,
+    benefits: ["A hub of professional expertise and recruitment."],
     functions: [{
       id: "guildhall_recruit",
-      label: "Recruit: Guild Assignment (DMG)",
+      label: "Recruit: Skilled Allies",
       orderType: "recruit",
       durationTurns: 1,
       costGP: 0,
       outputsToWarehouse: [
-        { type:"note", name:"Guild Assignment", qty:1, gp:0, notes:"DMG: Choose a guild + assignment (e.g., Adventurers hunt CR2 beast; Bakers earn 500gp or a favor; Brewers deliver 50 barrels ale, etc.). Record the outcome here." }
-      ]
+        { type: "effect_note", qty: 1, label: "Guildhall Recruit", notes: "DMG: Recruit skilled NPCs/allies as written; DM chooses specifics." }
+      ],
+      notes: ["DMG prereq: Expertise in a skill."]
     }]
   },
 
-  "sanctum": {
+
+  sanctum: {
     label: "Sanctum",
-    hirelings: 4,
-    benefits: ["After Long Rest: 7-day Heal Charm (DMG).", "Word of Recall always prepared (DMG)."],
+    orderType: "empower",
+    hirelings: 2,
+    benefits: ["High-tier sacred empowerment."],
     functions: [{
       id: "sanctum_empower",
-      label: "Empower: Fortifying Rites (7 days)",
+      label: "Empower: Sanctum Blessing",
       orderType: "empower",
       durationTurns: 1,
       costGP: 0,
-      inputs: [
-        { type:"choose_beneficiary", label:"Beneficiary name", storeAs:"beneficiaryName" }
-      ],
       outputsToWarehouse: [
-        { type:"note", name:"Sanctum Fortifying Rites", qty:1, gp:0, notes:"DMG: Name a beneficiary (need not be in Bastion). For 7 days, after each Long Rest they gain Temp HP = your level." }
-      ]
+        { type: "effect_note", qty: 1, label: "Sanctum Empower", notes: "DMG: Apply Sanctum empower effect as written; record beneficiary and duration." }
+      ],
+      notes: ["DMG prereq: Holy Symbol or Druidic Focus as Spellcasting Focus."]
     }]
   },
 
-  "war_room": {
+
+  war_room: {
     label: "War Room",
-    hirelings: 2,
-    benefits: ["Lieutenants reduce defender-loss dice during attacks if housed (DMG)."],
+    orderType: "recruit",
+    hirelings: 3,
+    benefits: ["Strategic coordination and recruitment."],
     functions: [{
       id: "war_room_recruit",
-      label: "Recruit (choose option)",
+      label: "Recruit: Tactical Forces",
       orderType: "recruit",
       durationTurns: 1,
       costGP: 0,
-      crafting: { modes: [
-        { id:"lieutenant", label:"Recruit: Lieutenant (max 10)" },
-        { id:"soldiers", label:"Recruit: Soldiers (army; upkeep costs; DMG)" }
-      ]},
       outputsToWarehouse: [
-        { type:"note", name:"War Room Recruitment", qty:1, gp:0, notes:"DMG: Choose Lieutenant (gain 1, max 10) OR Soldiers (each lieutenant musters 100 guards in 7 days, or 20 mounted; costs 1gp/day per guard/horse; must be led by you/lieutenant; disbands if unfed). Record outcome." }
-      ]
+        { type: "effect_note", qty: 1, label: "War Room Recruit", notes: "DMG: Recruit military help as written; DM determines exact result." }
+      ],
+      notes: ["DMG prereq: Fighting Style feature or Unarmored Defense feature."]
     }]
   }
 };
 
-  function ensureSpecialFacilityCard(runtimeState, specialInput, maybeSpecialId) {
-  // BACKWARD COMPAT:
-  // Old calls were: ensureSpecialFacilityCard(runtimeState, config, "library")
-  // New calls are: ensureSpecialFacilityCard(runtimeState, "library")
-  // So if a 3rd argument exists, that is the real ID.
-  const effectiveInput = (typeof maybeSpecialId !== "undefined") ? maybeSpecialId : specialInput;
 
+  function ensureSpecialFacilityCard(runtimeState, specialInput) {
   // Accept:
   //  - "library"
   //  - { id:"library" }
   //  - { specialId:"library" }
   //  - { facilityId:"library" }
   //  - { facility:{ id:"library" } }
+  //  - { id:{ id:"library" } }
+
+
   let specialId = "";
 
-  if (typeof effectiveInput === "string") {
-    specialId = effectiveInput;
-  } else if (effectiveInput && typeof effectiveInput === "object") {
+
+  if (typeof specialInput === "string") {
+    specialId = specialInput;
+  } else if (specialInput && typeof specialInput === "object") {
     const raw =
-      (effectiveInput.id ?? effectiveInput.specialId ?? effectiveInput.facilityId ?? effectiveInput.key ??
-       effectiveInput.facility ?? effectiveInput.specialFacility ?? effectiveInput.data ?? "");
+      (specialInput.id ?? specialInput.specialId ?? specialInput.facilityId ?? specialInput.key ??
+       specialInput.facility ?? specialInput.specialFacility ?? specialInput.data ?? "");
+
 
     if (typeof raw === "string") {
       specialId = raw;
     } else if (raw && typeof raw === "object") {
       specialId = raw.id || raw.key || raw.name || raw.label || "";
     } else {
-      specialId = effectiveInput.name || effectiveInput.label || "";
+      specialId = specialInput.name || specialInput.label || "";
     }
   }
+
 
   const key = String(specialId || "").toLowerCase().trim();
   if (!key) return;
 
+
   const baseId = `special_${key}`;
 
+
   // prevent duplicates
-  runtimeState.facilities = Array.isArray(runtimeState.facilities) ? runtimeState.facilities : [];
-  const already = runtimeState.facilities.some(f => String(f.id) === baseId);
+  const already = (runtimeState.facilities || []).some(f => String(f.id) === baseId);
   if (already) return;
 
-  // defs map (safe if missing)
+
+  // Optional defs map (safe if empty)
   const def = (typeof SPECIAL_FACILITY_DEFS !== "undefined" && SPECIAL_FACILITY_DEFS)
     ? (SPECIAL_FACILITY_DEFS[key] || null)
     : null;
 
-  // Find facility catalog entry from the CURRENT loaded config/spec.
-  // In your app, runtimeState is the merged config+save object, so facilityCatalog should be here.
+
+  // Try to read facilityCatalog from the same spec object the page uses
   let cat = null;
-  if (Array.isArray(runtimeState.facilityCatalog)) {
-    cat = runtimeState.facilityCatalog.find(x => String(x?.id || "").toLowerCase() === key) || null;
-  } else if (typeof bastionSpec !== "undefined" && bastionSpec && Array.isArray(bastionSpec.facilityCatalog)) {
-    cat = bastionSpec.facilityCatalog.find(x => String(x?.id || "").toLowerCase() === key) || null;
-  } else if (typeof BASTION_SPEC !== "undefined" && BASTION_SPEC && Array.isArray(BASTION_SPEC.facilityCatalog)) {
-    cat = BASTION_SPEC.facilityCatalog.find(x => String(x?.id || "").toLowerCase() === key) || null;
+  const spec =
+    (typeof bastionSpec !== "undefined" && bastionSpec) ? bastionSpec :
+    (typeof BASTION_SPEC !== "undefined" && BASTION_SPEC) ? BASTION_SPEC :
+    null;
+
+
+  if (spec?.facilityCatalog && Array.isArray(spec.facilityCatalog)) {
+    cat = spec.facilityCatalog.find(x => String(x?.id || "").toLowerCase() === key) || null;
   }
+
 
   const name =
     def?.label ||
     cat?.name ||
     cat?.label ||
+    (specialInput && typeof specialInput === "object" ? (specialInput.name || specialInput.label) : "") ||
     String(specialId || "Special Facility");
+
 
   const hire = safeNum(def?.hirelings, 0);
 
+
+  runtimeState.facilities = runtimeState.facilities || [];
   runtimeState.facilities.push({
     id: baseId,
     name,
@@ -1213,9 +1402,7 @@ const SPECIAL_FACILITY_DEFS = {
     staffing: {
       hirelingsBase: hire,
       hirelingsByLevel: { "1": hire },
-      notes: (cat?.notes && cat.notes.length)
-        ? cat.notes
-        : (def?.benefits || ["Special facility (DMG'24)."])
+      notes: (cat?.notes && cat.notes.length) ? cat.notes : (def?.benefits || ["Special facility (DMG'24)."])
     },
     levels: {
       "1": {
@@ -1230,6 +1417,7 @@ const SPECIAL_FACILITY_DEFS = {
   });
 }
 
+
 // Armoury stock cost rule:
 // cost = 100 + 100 * defenders
 // halved if Smithy OR Workshop exists
@@ -1242,6 +1430,7 @@ function computeArmouryStockCost(runtimeState) {
   return cost;
 }
 
+
 // Apply a "defenders-loss on ones" effect: roll NdM and lose 1 defender per die == 1
 function applyDefendersLossOnOnes(runtimeState, diceExpr) {
   // Expect "6d6" etc.
@@ -1249,6 +1438,7 @@ function applyDefendersLossOnOnes(runtimeState, diceExpr) {
   const n = m ? safeNum(m[1], 0) : 0;
   const sides = m ? safeNum(m[2], 0) : 0;
   if (!n || !sides) return { rolled: [], lost: 0 };
+
 
   const rolls = [];
   let lost = 0;
@@ -1258,31 +1448,38 @@ function applyDefendersLossOnOnes(runtimeState, diceExpr) {
     if (r === 1) lost += 1;
   }
 
+
   const def = getDefenders(runtimeState);
   setDefenders(runtimeState, def.count - lost);
   return { rolled: rolls, lost };
 }
+
 
 function computeUpkeep(config, runtimeState) {
   const phaseId = config?.economy?.activeUpkeepPhaseId;
   const phase = (config?.economy?.upkeepPhases || []).find(p => p.id === phaseId);
   const base = safeNum(phase?.partyPaysFlatGPPertTurn, 0);
 
+
   const rep = String(safeNum(runtimeState?.state?.bastionReputation, 1));
   const repEffects = runtimeState?.state?.reputationEffects || {};
   const mult = safeNum(repEffects?.[rep]?.upkeepMultiplier, 1);
+
 
   // future upkeep add effects (from events)
   const mods = runtimeState?.state?.pendingUpkeepAdds || [];
   const addGP = mods.reduce((a, x) => a + safeNum(x?.gp, 0), 0);
 
+
   return Math.ceil((base + addGP) * mult);
 }
+
 
 function trafficLightClass(config, treasuryGP, nextUpkeep) {
   const cfg = config?.state?.treasury?.trafficLightConfig;
   const greenTurns = safeNum(cfg?.greenIfRemainingGPGreaterOrEqualTo?.turns, 2);
   const amberTurns = safeNum(cfg?.amberIfRemainingGPGreaterOrEqualTo?.turns, 1);
+
 
   const remaining = treasuryGP - nextUpkeep;
   if (remaining >= nextUpkeep * greenTurns) return "traffic-green";
@@ -1290,11 +1487,13 @@ function trafficLightClass(config, treasuryGP, nextUpkeep) {
   return "traffic-red";
 }
 
+
 function ensureRuntimeState(config, saved) {
   // Runtime state contains:
   // - config (immutable-ish)
   // - state (mutable and persisted)
   const base = deepClone(config);
+
 
   // Add extra runtime-only fields if missing
   base.state.turnCount = safeNum(base.state.turnCount, 0);
@@ -1307,11 +1506,13 @@ function ensureRuntimeState(config, saved) {
     // v1.1 additive scaffolding
   ensureRosterState(base);
 
+
   base.state.artisanTools = base.state.artisanTools || { slots: Array(6).fill(null), presets: [] };
   base.state.artisanTools.slots = Array.isArray(base.state.artisanTools.slots) ? base.state.artisanTools.slots.slice(0, 6) : Array(6).fill(null);
   while (base.state.artisanTools.slots.length < 6) base.state.artisanTools.slots.push(null);
   base.state.workshop = base.state.workshop || { selectedTool: "", selectedItem: "" };
   base.state.activeEffects = Array.isArray(base.state.activeEffects) ? base.state.activeEffects : [];
+
 
   base.state.specialFacilities = Array.isArray(base.state.specialFacilities) ? base.state.specialFacilities : [];
   base.state.specialConstruction = Array.isArray(base.state.specialConstruction) ? base.state.specialConstruction : [];
@@ -1321,7 +1522,9 @@ for (const sf of base.state.specialFacilities) {
   if (id) ensureSpecialFacilityCard(base, base, id);
 }
 
+
   if (!saved) return base;
+
 
   // Merge saved.state into base.state safely (keep schema additions from config)
   const merged = deepClone(base);
@@ -1329,11 +1532,13 @@ for (const sf of base.state.specialFacilities) {
     // v1.1 additive scaffolding (after merge)
   ensureRosterState(merged);
 
+
   merged.state.artisanTools = merged.state.artisanTools || { slots: Array(6).fill(null), presets: [] };
   merged.state.artisanTools.slots = Array.isArray(merged.state.artisanTools.slots) ? merged.state.artisanTools.slots.slice(0, 6) : Array(6).fill(null);
   while (merged.state.artisanTools.slots.length < 6) merged.state.artisanTools.slots.push(null);
   merged.state.workshop = merged.state.workshop || { selectedTool: "", selectedItem: "" };
   merged.state.activeEffects = Array.isArray(merged.state.activeEffects) ? merged.state.activeEffects : [];
+
 
   merged.state.specialFacilities = Array.isArray(merged.state.specialFacilities) ? merged.state.specialFacilities : [];
   merged.state.specialConstruction = Array.isArray(merged.state.specialConstruction) ? merged.state.specialConstruction : [];
@@ -1341,6 +1546,7 @@ for (const sf of base.state.specialFacilities) {
   const id = (sf && typeof sf === "object") ? sf.id : sf;
   if (id) ensureSpecialFacilityCard(merged, merged, id);
 }
+
 
   // ensure arrays still arrays
   merged.state.warehouse = merged.state.warehouse || { items: [], editable: true };
@@ -1350,6 +1556,7 @@ for (const sf of base.state.specialFacilities) {
   merged.state.pendingUpkeepAdds = Array.isArray(merged.state.pendingUpkeepAdds) ? merged.state.pendingUpkeepAdds : [];
   merged.state.turnCount = safeNum(merged.state.turnCount, 0);
   merged.state.lastEventTurn = safeNum(merged.state.lastEventTurn, 0);
+
 
   // facilities currentLevel is stored in config.facilities[] in your spec,
   // so we also merge currentLevel values from saved.facilities into merged.facilities.
@@ -1362,47 +1569,58 @@ for (const sf of base.state.specialFacilities) {
     });
   }
 
+
   return merged;
 }
+
 
 function exportBastion(runtimeState) {
   const out = deepClone(runtimeState);
   return JSON.stringify(out, null, 2);
 }
 
+
 function parseJsonSafe(text) {
   try { return JSON.parse(text); } catch { return null; }
 }
 
+
 function findFacility(config, facilityId) {
   return (config.facilities || []).find(f => f.id === facilityId) || null;
 }
+
 
 function facilityLevelData(facility, lvl) {
   if (!facility?.levels) return null;
   return facility.levels[String(lvl)] || null;
 }
 
+
 function isUnderConstruction(runtimeState, facilityId) {
   return (runtimeState.state.constructionInProgress || []).some(c => c.facilityId === facilityId);
 }
 
+
 function startUpgrade(runtimeState, facilityId) {
   const fac = findFacility(runtimeState, facilityId);
   if (!fac) return { ok:false, msg:"Facility not found." };
+
 
   const current = safeNum(fac.currentLevel, 0);
   const max = safeNum(fac.maxLevel, current);
   if (current >= max) return { ok:false, msg:"Already at max level." };
   if (isUnderConstruction(runtimeState, facilityId)) return { ok:false, msg:"Already under construction." };
 
+
   const next = current + 1;
   const lvl = facilityLevelData(fac, next);
   const cost = safeNum(lvl?.construction?.costGP, 0);
   const turns = safeNum(lvl?.construction?.turns, 0);
 
+
   const treasury = safeNum(runtimeState.state?.treasury?.gp, 0);
   if (treasury < cost) return { ok:false, msg:"Not enough GP in treasury." };
+
 
   runtimeState.state.treasury.gp = treasury - cost;
   runtimeState.state.constructionInProgress.push({
@@ -1411,33 +1629,55 @@ function startUpgrade(runtimeState, facilityId) {
     remainingTurns: turns
   });
 
+
   return { ok:true };
 }
+
 
 function startFunctionOrder(runtimeState, facilityId, fnId) {
   const fac = findFacility(runtimeState, facilityId);
   if (!fac) return { ok:false, msg:"Facility not found." };
+
 
   const lvl = safeNum(fac.currentLevel, 0);
   const lvlData = facilityLevelData(fac, lvl);
   const fns = lvlData?.functions || [];
   const fn = fns.find(x => x.id === fnId);
   if (!fn) return { ok:false, msg:"Function not found for current level." };
-    // v1.1: crafting mode prompt (if the function declares crafting modes)
+  // v1.1: crafting mode selection (robust)
+  // NOTE: prompts are a temporary UI. This version lets you type:
+  //  - the mode id (e.g. "book_replica")
+  //  - the label (e.g. "Book Replica")
+  //  - a number (1, 2, 3...)
   let chosenCraftMode = null;
+  let chosenModeObj = null;
   const modes = fn?.crafting?.modes;
   if (Array.isArray(modes) && modes.length) {
-    const labels = modes.map(m => m.label || m.id || "mode").join(" / ");
-    const pick = prompt(`Choose crafting mode: ${labels}`, modes[0]?.id || "");
-    const hit = modes.find(m => (m.id || "") === pick) || modes[0];
-    chosenCraftMode = hit?.id || null;
+    const lines = modes.map((m, i) => `${i + 1}) ${m.label || m.id || "mode"}`).join("\n");
+    const pickRaw = window.prompt(`Choose crafting mode (type number, id, or label):\n\n${lines}`, "1");
+    const pick = String(pickRaw || "").trim();
+
+    // numeric pick
+    const asNum = Number(pick);
+    if (Number.isFinite(asNum) && asNum >= 1 && asNum <= modes.length) {
+      chosenModeObj = modes[Math.floor(asNum) - 1];
+    } else {
+      // id match
+      chosenModeObj = modes.find(m => String(m?.id || "").toLowerCase() === pick.toLowerCase())
+        // label match
+        || modes.find(m => String(m?.label || "").toLowerCase() === pick.toLowerCase())
+        || modes[0];
+    }
+    chosenCraftMode = chosenModeObj?.id || null;
   }
+
 
   if (isUnderConstruction(runtimeState, facilityId)) {
     // Still can use current level functions while building next tier in many systems,
     // but your spec says "prevent using the new tier until complete" – current tier is fine.
     // So we allow orders here.
   }
+
 
   // Collect simple input values (v1: prompt-based)
 const inputValues = {};
@@ -1447,45 +1687,87 @@ if (Array.isArray(fn.inputs)) {
     const key = inp.storeAs;
     if (!key) continue;
 
+
     // Basic prompt UI for now
     const label = inp.label || key;
     const v = window.prompt(label, inputValues[key] || "");
     if (v != null && String(v).trim() !== "") inputValues[key] = String(v).trim();
   }
 }
+
+  // If this function has crafting modes, collect any EXTRA inputs for the chosen mode
+  // and swap the outputs/cost to match the chosen option.
+  let chosenModeObj = null;
+  if (chosenCraftMode && Array.isArray(modes)) {
+    chosenModeObj = modes.find(m => String(m?.id || "") === String(chosenCraftMode)) || null;
+  }
+
+  if (chosenModeObj && Array.isArray(chosenModeObj.inputs)) {
+    for (const inp of chosenModeObj.inputs) {
+      if (!inp || typeof inp !== "object") continue;
+      const k = inp.storeAs;
+      if (!k) continue;
+      const label = inp.label || k;
+      const v = window.prompt(label, inputValues[k] || "");
+      if (v != null && String(v).trim() !== "") inputValues[k] = String(v).trim();
+    }
+  }
+
+  // Outputs for this order (default: function outputs). If mode provides outputs, use them.
+  let outputsForOrder = Array.isArray(fn.outputsToWarehouse) ? fn.outputsToWarehouse : [];
+  if (chosenModeObj && Array.isArray(chosenModeObj.outputsToWarehouse)) {
+    outputsForOrder = chosenModeObj.outputsToWarehouse;
+  }
+
   // prevent duplicate same order in progress
   const exists = (runtimeState.state.ordersInProgress || []).some(o => o.facilityId === facilityId && o.functionId === fnId);
   if (exists) return { ok:false, msg:"That function is already active." };
 
+
   // cost handling
-    // cost handling (supports v1.1 dynamic cost)
+  // cost handling (supports v1.1 dynamic cost and per-mode overrides)
   let cost = safeNum(fn.costGP, 0);
+
+  // If a crafting mode specifies a flat cost, use it.
+  if (chosenModeObj && chosenModeObj.costGP != null) {
+    cost = safeNum(chosenModeObj.costGP, cost);
+  }
+
+  // If a crafting mode specifies a per-unit cost, multiply it by an input.
+  // Example: paperwork copies @ 1gp each.
+  if (chosenModeObj && chosenModeObj.costPerUnitGP != null && chosenModeObj.unitInputKey) {
+    const n = safeNum(inputValues[chosenModeObj.unitInputKey], 0);
+    cost = safeNum(chosenModeObj.costPerUnitGP, 0) * Math.max(0, n);
+  }
+
 
   // Armoury "Stock" rule: 100 + 100 per defender, halved if Smithy OR Workshop exists
   const isArmoury = (String(facilityId) === "armoury" || String(facilityId) === "armory");
   const isStockFn = String(fnId).toLowerCase().includes("stock");
 
+
   if (isArmoury && isStockFn) {
     cost = computeArmouryStockCost(runtimeState);
   }
 
+
   const treasury = safeNum(runtimeState.state?.treasury?.gp, 0);
+
 
   if (treasury < cost) return { ok:false, msg:"Not enough GP for that function." };
   runtimeState.state.treasury.gp = treasury - cost;
 
-      runtimeState.state.ordersInProgress.push({
+
+  const orderLabel = (chosenModeObj && chosenModeObj.label)
+    ? `${fn.label}: ${chosenModeObj.label}`
+    : fn.label;
+
+  runtimeState.state.ordersInProgress.push({
     facilityId,
     functionId: fnId,
-    label: fn.label,
+    label: orderLabel,
     remainingTurns: safeNum(fn.durationTurns, 1),
-    outputsToWarehouse: (() => {
-  // If the function defines mode-specific outputs, use them
-  if (chosenCraftMode && fn && fn.outputsByMode && fn.outputsByMode[chosenCraftMode]) {
-    return fn.outputsByMode[chosenCraftMode];
-  }
-  return Array.isArray(fn.outputsToWarehouse) ? fn.outputsToWarehouse : [];
-})(),
+    outputsToWarehouse: outputsForOrder,
     notes: fn.notes || [],
     rosterEffects: fn.rosterEffects || null,
     crafting: fn.crafting || null,
@@ -1494,21 +1776,27 @@ if (Array.isArray(fn.inputs)) {
     inputValues
   });
 
+
   return { ok:true };
 }
+
 
 function applyOrderEffects(runtimeState, order) {
   const effects = order?.effects;
   if (!effects) return;
 
+
   const list = Array.isArray(effects) ? effects : [effects];
+
 
   runtimeState.state.activeEffects = Array.isArray(runtimeState.state.activeEffects)
     ? runtimeState.state.activeEffects
     : [];
 
+
   for (const eff of list) {
     if (!eff || typeof eff !== "object") continue;
+
 
     // Store persistent "status-like" effects for the DM to track.
     // Example use: Tellurian Rites temp HP after Long Rest for X days.
@@ -1534,15 +1822,19 @@ function applyOrderEffects(runtimeState, order) {
       });
     }
 
+
     // Future-proof: you can add more effect types here later.
   }
 }
 
+
 function applyOutputsToWarehouse(runtimeState, outputs) {
   const items = runtimeState.state.warehouse.items;
 
+
   outputs.forEach(out => {
     if (!out || typeof out !== "object") return;
+
 
     // Resolve dice gp outputs
     if (out.type === "coin" && typeof out.gp === "string") {
@@ -1550,6 +1842,7 @@ function applyOutputsToWarehouse(runtimeState, outputs) {
       items.push({ type: "coin", qty: 1, gp, label: "Coin", notes: `Rolled ${out.gp}` });
       return;
     }
+
 
     // Trade goods with max value
     if (out.type === "trade_goods") {
@@ -1564,8 +1857,10 @@ function applyOutputsToWarehouse(runtimeState, outputs) {
       return;
     }
 
+
     // Generic item objects (ensure label so it always shows in Warehouse)
     const cloned = deepClone(out);
+
 
     if (!cloned.label) {
       if (cloned.name) cloned.label = String(cloned.name);
@@ -1575,24 +1870,30 @@ function applyOutputsToWarehouse(runtimeState, outputs) {
       else cloned.label = "Item";
     }
 
+
     if (cloned.qty == null) cloned.qty = 1;
+
 
     items.push(cloned);
   });
 }
+
 
 // --- Workshop Crafting: create an order that deposits a chosen item into Warehouse ---
 function createWorkshopCraftOrder(runtimeState, toolName, itemName) {
   const safeTool = String(toolName || "").trim();
   const safeItem = String(itemName || "").trim();
 
+
   // Fallbacks so it never breaks
   const tool = safeTool || "Artisan tools";
   const item = safeItem || "Crafted item";
 
+
   // Decide duration/cost (simple defaults; you can tune later)
   const durationTurns = 1;
   const costGP = 0;
+
 
   // Spend GP if needed
   const treasuryNow = safeNum(runtimeState.state?.treasury?.gp, 0);
@@ -1600,6 +1901,7 @@ function createWorkshopCraftOrder(runtimeState, toolName, itemName) {
     return { ok: false, msg: "Not enough GP in Treasury for this craft." };
   }
   runtimeState.state.treasury.gp = treasuryNow - costGP;
+
 
   // Create a standard “order” that your pipeline already understands
   const order = {
@@ -1618,22 +1920,28 @@ function createWorkshopCraftOrder(runtimeState, toolName, itemName) {
     notes: [`Workshop Crafting: ${tool} → ${item}`]
   };
 
+
   return { ok: true, order };
 }
+
 
 function rollEvent(runtimeState) {
   const table = runtimeState?.events?.d100Table || [];
   const roll = rollDie(100);
   const hit = table.find(e => roll >= safeNum(e.range?.[0], 1) && roll <= safeNum(e.range?.[1], 100)) || null;
 
+
   return { roll, event: hit };
 }
+
 
 function applyEventEffects(runtimeState, eventObj) {
   if (!eventObj?.effects) return;
 
+
   for (const eff of eventObj.effects) {
     if (!eff || typeof eff !== "object") continue;
+
 
     if (eff.type === "future_upkeep_add") {
       runtimeState.state.pendingUpkeepAdds.push({
@@ -1642,19 +1950,23 @@ function applyEventEffects(runtimeState, eventObj) {
       });
     }
 
+
     if (eff.type === "treasury_gain") {
       const gp = typeof eff.gp === "string" ? rollDiceExpr(eff.gp) : safeNum(eff.gp, 0);
       runtimeState.state.treasury.gp = safeNum(runtimeState.state.treasury.gp, 0) + gp;
     }
 
+
     if (eff.type === "warehouse_add" && eff.item) {
       runtimeState.state.warehouse.items.push(deepClone(eff.item));
     }
+
 
         // v1.1 structured roster effects (must be INSIDE the eff loop)
     if (eff.type === "defenders_loss_on_ones") {
       const dice = eff.dice || "6d6";
       const out = applyDefendersLossOnOnes(runtimeState, dice);
+
 
       runtimeState.state.lastEventApplied = runtimeState.state.lastEventApplied || [];
       runtimeState.state.lastEventApplied.push({
@@ -1665,25 +1977,31 @@ function applyEventEffects(runtimeState, eventObj) {
       });
     }
 
+
     if (eff.type === "hirelings_delta") {
       ensureRosterState(runtimeState);
       runtimeState.state.roster.hirelings.manualAdjustment =
         safeNum(runtimeState.state.roster.hirelings.manualAdjustment, 0) + safeNum(eff.delta, 0);
     }
 
+
     // other effects are displayed as notes for DM handling
   }
 }
+
 
 function advanceTurnPipeline(runtimeState, opts = { maintainIssued:false }) {
   // 1) calculate upkeep
   const nextUpkeep = computeUpkeep(runtimeState, runtimeState);
 
+
   // 2) auto deduct upkeep
   const auto = !!runtimeState?.turnSystem?.upkeep?.autoDeductFromTreasury;
   const treasury = safeNum(runtimeState.state?.treasury?.gp, 0);
 
+
   runtimeState.state.flags = runtimeState.state.flags || {};
+
 
   if (auto) {
     if (treasury >= nextUpkeep) {
@@ -1697,30 +2015,38 @@ function advanceTurnPipeline(runtimeState, opts = { maintainIssued:false }) {
     }
   }
 
+
     // 2.5) v1.1 rosterEffects tick (e.g. Barracks Recruit adds defenders per turn while active)
 if (Array.isArray(runtimeState.state.ordersInProgress)) {
   for (const o of runtimeState.state.ordersInProgress) {
     const effects = o?.rosterEffects;
     if (!effects) continue;
 
+
     const list = Array.isArray(effects) ? effects : [effects];
+
 
     for (const eff of list) {
       if (!eff || typeof eff !== "object") continue;
+
 
       // defenders_add: { type:"defenders_add", dice:"1d4", capBy:{ facilityId:"barracks_D" } }
       if (eff.type === "defenders_add") {
         const gainExpr = eff.dice || eff.defendersGainDice || "1d4";
         const gain = typeof gainExpr === "string" ? rollDiceExpr(gainExpr) : safeNum(gainExpr, 0);
 
+
         const def = getDefenders(runtimeState);
+
 
         // Cap is driven by Barracks, regardless of whether eff says barracks_D or "barracks"
         const cap = getBarracksCapacity(runtimeState);
         const next = clamp(def.count + gain, 0, cap);
 
+
         ensureRosterState(runtimeState);
         runtimeState.state.roster.defenders.count = next;
+
 
         runtimeState.state.lastRosterTick = runtimeState.state.lastRosterTick || [];
         runtimeState.state.lastRosterTick.push({
@@ -1742,13 +2068,16 @@ if (Array.isArray(runtimeState.state.ordersInProgress)) {
     remainingTurns: safeNum(c.remainingTurns, 0) - 1
   }));
 
+
   const completedCon = runtimeState.state.constructionInProgress.filter(c => safeNum(c.remainingTurns, 0) <= 0);
   runtimeState.state.constructionInProgress = runtimeState.state.constructionInProgress.filter(c => safeNum(c.remainingTurns, 0) > 0);
+
 
   completedCon.forEach(c => {
     const fac = findFacility(runtimeState, c.facilityId);
     if (fac) fac.currentLevel = safeNum(c.targetLevel, fac.currentLevel);
   });
+
 
   // --- v1.1 Special Facilities construction completion ---
 runtimeState.state.specialConstruction = (runtimeState.state.specialConstruction || []).map(x => ({
@@ -1756,23 +2085,29 @@ runtimeState.state.specialConstruction = (runtimeState.state.specialConstruction
   remainingTurns: safeNum(x.remainingTurns, 0) - 1
 }));
 
+
 const doneSpecial = (runtimeState.state.specialConstruction || []).filter(x => safeNum(x.remainingTurns, 0) <= 0);
 runtimeState.state.specialConstruction = (runtimeState.state.specialConstruction || []).filter(x => safeNum(x.remainingTurns, 0) > 0);
+
 
 runtimeState.state.specialFacilities = Array.isArray(runtimeState.state.specialFacilities)
   ? runtimeState.state.specialFacilities
   : [];
 
+
 doneSpecial.forEach(x => {
   const fid = x.facilityId || x.id;
   if (!fid) return;
 
+
   const slotIndex = Number.isFinite(Number(x.slotIndex)) ? Number(x.slotIndex) : -1;
+
 
   // Ensure array exists and has enough length
   runtimeState.state.specialFacilities = Array.isArray(runtimeState.state.specialFacilities)
     ? runtimeState.state.specialFacilities
     : [];
+
 
   if (slotIndex >= 0) {
     // Put it in the exact slot that finished building
@@ -1787,9 +2122,11 @@ doneSpecial.forEach(x => {
     if (!exists) runtimeState.state.specialFacilities.push({ id: fid, name: x.name || fid, status: "active" });
   }
 
+
   // Create/attach a real facility card (NO duplicates)
   ensureSpecialFacilityCard(runtimeState, runtimeState, fid);
 });
+
 
   // 4) decrement order timers
   runtimeState.state.ordersInProgress = (runtimeState.state.ordersInProgress || []).map(o => ({
@@ -1797,29 +2134,36 @@ doneSpecial.forEach(x => {
     remainingTurns: safeNum(o.remainingTurns, 0) - 1
   }));
 
+
   // 5) resolve completed outputs
   const completedOrders = runtimeState.state.ordersInProgress.filter(o => safeNum(o.remainingTurns, 0) <= 0);
   runtimeState.state.ordersInProgress = runtimeState.state.ordersInProgress.filter(o => safeNum(o.remainingTurns, 0) > 0);
+
 
   completedOrders.forEach(o => {
   applyOrderEffects(runtimeState, o);
   applyOutputsToWarehouse(runtimeState, o.outputsToWarehouse || []);
 });
 
+
   // decrement pending upkeep adds duration
   runtimeState.state.pendingUpkeepAdds = (runtimeState.state.pendingUpkeepAdds || [])
     .map(x => ({ ...x, remainingTurns: safeNum(x.remainingTurns, 0) - 1 }))
     .filter(x => safeNum(x.remainingTurns, 0) > 0);
 
+
   // 6) monthly events every 4 turns OR maintain issued
   runtimeState.state.turnCount = safeNum(runtimeState.state.turnCount, 0) + 1;
   const turnCount = runtimeState.state.turnCount;
 
+
   let didRoll = false;
   let rolled = null;
 
+
   const monthly = runtimeState?.events?.frequency === "monthly";
   const dueMonthly = monthly && (turnCount % 4 === 0);
+
 
   if (opts.maintainIssued || dueMonthly) {
         runtimeState.state.lastEventApplied = [];
@@ -1828,7 +2172,9 @@ doneSpecial.forEach(x => {
     didRoll = true;
     runtimeState.state.lastEventTurn = turnCount;
 
+
     if (r.event) applyEventEffects(runtimeState, r.event);
+
 
         runtimeState.state.lastEventResult = {
       turn: turnCount,
@@ -1841,12 +2187,15 @@ doneSpecial.forEach(x => {
     };
   }
 
+
   return { nextUpkeep, didRoll, rolled };
 }
+
 
 function fmtJSON(obj) {
   try { return JSON.stringify(obj, null, 2); } catch { return String(obj); }
 }
+
 
 async function renderBastionManager() {
   // Load config
@@ -1862,30 +2211,37 @@ const res = await fetch(configPath, { cache: "no-store" });
     return;
   }
 
+
   // Load saved state or seed from config
   const saved = loadBastionSave();
   const runtimeState = ensureRuntimeState(config, saved);
+
 
   // Precompute
   const treasuryGP = safeNum(runtimeState.state?.treasury?.gp, 0);
   const nextUpkeep = computeUpkeep(runtimeState, runtimeState);
   const tlClass = trafficLightClass(runtimeState, treasuryGP, nextUpkeep);
 
+
   const rep = String(safeNum(runtimeState.state?.bastionReputation, 1));
   const repInfo = runtimeState.state?.reputationEffects?.[rep];
 
+
   const mapPath = runtimeState?.meta?.mapImage?.defaultPath || "";
   const mapTitle = runtimeState?.meta?.mapImage?.title || "Bastion Map";
+
 
   const facilities = runtimeState.facilities || [];
   const orders = runtimeState.state.ordersInProgress || [];
   const constructions = runtimeState.state.constructionInProgress || [];
   const lastEvent = runtimeState.state.lastEventResult;
 
+
   // --- Render HTML (ONLY HTML inside this template string) ---
   view.innerHTML = `
     <h1>Bastion Manager</h1>
     <p class="badge">${runtimeState?.meta?.name || "Bastion"} • ${runtimeState?.meta?.type || ""}</p>
+
 
     <div class="card">
       <h2>${mapTitle}</h2>
@@ -1903,6 +2259,7 @@ const res = await fetch(configPath, { cache: "no-store" });
       }
       <p class="small muted">Path: <code>${mapPath || "(none)"}</code></p>
     </div>
+
 
     <div class="grid2" style="margin-top:12px;">
       <div class="card">
@@ -1924,6 +2281,7 @@ const res = await fetch(configPath, { cache: "no-store" });
         </div>
       </div>
 
+
       <div class="card treasuryCard ${tlClass}">
         <h2>Treasury</h2>
         <div class="inputRow">
@@ -1944,20 +2302,24 @@ const res = await fetch(configPath, { cache: "no-store" });
       <h2>Bastion Roster</h2>
       <p class="small muted">v1.1: defenders + hirelings. Manual adjustment is for deaths/extra hires.</p>
 
+
       <div class="grid2">
         <div>
           <div class="pill">
             Defenders: <b id="bm_defCount">0</b> / <b id="bm_defCap">0</b>
           </div>
 
+
           <label style="display:block;margin-top:10px;">Edit defenders
             <input id="bm_defendersInput" type="number" min="0" step="1" value="0">
           </label>
+
 
           <div class="small muted" style="margin-top:8px;">
             Capacity is driven by <b>Barracks level</b>.
           </div>
         </div>
+
 
         <div>
           <div class="pill">
@@ -1973,10 +2335,12 @@ const res = await fetch(configPath, { cache: "no-store" });
       </div>
     </div>
 
+
     <!-- Warehouse (full width) -->
 <div class="card warehouseCard" style="margin-top:12px;">
   <h2>Warehouse</h2>
   <p class="small muted">DM editable. Function outputs append here automatically when completed.</p>
+
 
   <div class="tableWrap" style="overflow:auto;">
     <table class="table" style="min-width:780px;">
@@ -1993,11 +2357,13 @@ const res = await fetch(configPath, { cache: "no-store" });
     </table>
   </div>
 
+
   <div class="btnRow">
     <button id="bm_wh_add">Add Item</button>
     <button id="bm_wh_save">Save Warehouse</button>
   </div>
 </div>
+
 
 <!-- Import/Export (under Warehouse) -->
 <div class="card" style="margin-top:12px;">
@@ -2010,6 +2376,7 @@ const res = await fetch(configPath, { cache: "no-store" });
   </div>
   <p class="small muted">Saved under <code>${BASTION_STORE_KEY}</code> in localStorage.</p>
 
+
   ${lastEvent ? `
     <hr />
     <div class="card" style="margin-top:10px; background: rgba(18,22,27,.55)">
@@ -2020,7 +2387,9 @@ const res = await fetch(configPath, { cache: "no-store" });
   ` : ``}
 </div>
 
+
         <div class="card" style="margin-top:12px;">
+
 
 <!-- Workshop: Artisan Tools (if you already have this elsewhere in the template, do NOT duplicate it) -->
 <div class="card" style="margin-top:12px;">
@@ -2032,6 +2401,7 @@ const res = await fetch(configPath, { cache: "no-store" });
   </div>
 </div>
 
+
 <!-- Special Facilities -->
 <div class="card" style="margin-top:12px;">
   <h2>Special Facilities</h2>
@@ -2039,12 +2409,14 @@ const res = await fetch(configPath, { cache: "no-store" });
   <div id="bm_specialWrap"></div>
 </div>
 
+
 <!-- Facilities -->
 <div class="card" style="margin-top:12px;">
   <h2>Facilities</h2>
   <p class="small muted">Upgrade costs are deducted immediately. Construction timers tick down on Bastion Turns.</p>
   <div id="bm_facilities"></div>
 </div>
+
 
     <div class="card" style="margin-top:12px;">
       <h2>Current Upkeep</h2>
@@ -2054,6 +2426,7 @@ const res = await fetch(configPath, { cache: "no-store" });
         Monthly events roll every <b>4</b> Bastion Turns (and optionally on Maintain).
       </div>
 
+
       <div class="btnRow" style="margin-top:12px; align-items:center;">
         <label style="display:flex;gap:10px;align-items:center;">
           <input id="bm_maintain" type="checkbox">
@@ -2061,9 +2434,11 @@ const res = await fetch(configPath, { cache: "no-store" });
         </label>
       </div>
 
+
       <div class="btnRow" style="margin-top:12px;">
         <button id="bm_takeTurn" style="padding:12px 16px;">${runtimeState?.turnSystem?.takeTurnButtonLabel || "Take Bastion Turn"}</button>
       </div>
+
 
       <div id="bm_turnResult" class="small muted" style="margin-top:10px;"></div>
     </div>
@@ -2076,8 +2451,10 @@ const res = await fetch(configPath, { cache: "no-store" });
   };
   const opt = (id) => document.getElementById(id);
 
+
   // ----- Warehouse rows (clean editor) -----
   const whTbody = must("bm_wh_rows");
+
 
   function itemToFields(it) {
     const qty = safeNum(it?.qty ?? 1, 1);
@@ -2087,11 +2464,13 @@ const res = await fetch(configPath, { cache: "no-store" });
     return { qty, gp, notes, label };
   }
 
+
   function fieldsToItem(original, fields) {
     const out = { ...(original || {}) };
     out.qty = clamp(safeNum(fields.qty, 1), 0, 999999);
     out.label = fields.label || out.label || "Item";
     out.notes = fields.notes || "";
+
 
     const gpVal = fields.gp;
     if (gpVal !== "" && Number.isFinite(Number(gpVal))) {
@@ -2103,6 +2482,7 @@ const res = await fetch(configPath, { cache: "no-store" });
     }
     return out;
   }
+
 
   function renderWarehouseRows() {
     const items = runtimeState.state.warehouse.items || [];
@@ -2120,34 +2500,42 @@ const res = await fetch(configPath, { cache: "no-store" });
     }).join("");
   }
 
+
   renderWarehouseRows();
+
 
   must("bm_wh_add").addEventListener("click", () => {
     runtimeState.state.warehouse.items.push({ type: "item", qty: 1, label: "New Item", notes: "" });
     renderWarehouseRows();
   });
 
+
   must("bm_wh_save").addEventListener("click", () => {
     const rows = [...whTbody.querySelectorAll("tr")];
     const items = runtimeState.state.warehouse.items || [];
     const next = [];
 
+
     for (const r of rows) {
       const idx = safeNum(r.dataset.idx, -1);
       const original = items[idx] || { type: "item" };
+
 
       const label = r.querySelector(".bm_wh_label")?.value?.trim() || "Item";
       const qty = r.querySelector(".bm_wh_qty")?.value;
       const gp = r.querySelector(".bm_wh_gp")?.value;
       const notes = r.querySelector(".bm_wh_notes")?.value || "";
 
+
       next.push(fieldsToItem(original, { label, qty, gp, notes }));
     }
+
 
     runtimeState.state.warehouse.items = next;
     saveBastionSave(runtimeState);
     alert("Warehouse saved.");
   });
+
 
   whTbody.addEventListener("click", (e) => {
     const btn = e.target.closest(".bm_del");
@@ -2160,10 +2548,12 @@ const res = await fetch(configPath, { cache: "no-store" });
     }
   });
 
+
   // ----- Top state fields save on change -----
   const pl = document.getElementById("bm_playerLevel");
   const repInput = document.getElementById("bm_rep");
   const treasuryInput = document.getElementById("bm_treasury");
+
 
   function saveTopFields() {
     runtimeState.state.playerLevel = clamp(safeNum(pl.value, 1), 1, 20);
@@ -2172,18 +2562,22 @@ const res = await fetch(configPath, { cache: "no-store" });
     saveBastionSave(runtimeState);
   }
 
+
   pl.addEventListener("change", () => { saveTopFields(); renderBastionManager(); });
   repInput.addEventListener("change", () => { saveTopFields(); renderBastionManager(); });
   treasuryInput.addEventListener("change", () => { saveTopFields(); renderBastionManager(); });
+
 
     // ----- Roster (v1.1) -----
   const defCountEl = document.getElementById("bm_defCount");
   const defCapEl = document.getElementById("bm_defCap");
   const defendersInput = document.getElementById("bm_defendersInput");
 
+
   const hireBaseEl = document.getElementById("bm_hireBase");
   const hireAdjInput = document.getElementById("bm_hireAdj");
   const hireTotalEl = document.getElementById("bm_hireTotal");
+
 
   function refreshRosterUI() {
     const def = getDefenders(runtimeState);
@@ -2194,11 +2588,13 @@ const res = await fetch(configPath, { cache: "no-store" });
       defendersInput.value = String(def.count);
     }
 
+
     const h = computeHirelings(runtimeState);
     if (hireBaseEl) hireBaseEl.textContent = String(h.base);
     if (hireAdjInput) hireAdjInput.value = String(h.adj);
     if (hireTotalEl) hireTotalEl.textContent = String(h.total);
   }
+
 
   defendersInput?.addEventListener("change", () => {
     setDefenders(runtimeState, defendersInput.value);
@@ -2206,6 +2602,7 @@ const res = await fetch(configPath, { cache: "no-store" });
     refreshRosterUI();
     renderBastionManager();
   });
+
 
   hireAdjInput?.addEventListener("change", () => {
     ensureRosterState(runtimeState);
@@ -2215,11 +2612,14 @@ const res = await fetch(configPath, { cache: "no-store" });
     renderBastionManager();
   });
 
+
   refreshRosterUI();
+
 
     // ----- Workshop artisan tools (v1.1) -----
   const toolsWrap = document.getElementById("bm_toolsWrap");
   const toolsSaveBtn = document.getElementById("bm_toolsSave");
+
 
   function getToolPresets() {
     // Prefer presets in state; fallback list if none supplied by JSON
@@ -2233,8 +2633,10 @@ const res = await fetch(configPath, { cache: "no-store" });
     ];
   }
 
+
   function renderToolsUI() {
     if (!toolsWrap) return;
+
 
     runtimeState.state.artisanTools = runtimeState.state.artisanTools || { slots: Array(6).fill(null), presets: [] };
     runtimeState.state.artisanTools.slots = Array.isArray(runtimeState.state.artisanTools.slots)
@@ -2242,7 +2644,9 @@ const res = await fetch(configPath, { cache: "no-store" });
       : Array(6).fill(null);
     while (runtimeState.state.artisanTools.slots.length < 6) runtimeState.state.artisanTools.slots.push(null);
 
+
     const presets = getToolPresets();
+
 
     toolsWrap.innerHTML = runtimeState.state.artisanTools.slots.map((val, i) => {
       const v = val ? String(val) : "";
@@ -2258,6 +2662,7 @@ const res = await fetch(configPath, { cache: "no-store" });
       `;
     }).join("");
 
+
     toolsWrap.querySelectorAll(".bm_toolClear").forEach(btn => {
       btn.addEventListener("click", () => {
         const idx = safeNum(btn.dataset.idx, 0);
@@ -2266,6 +2671,7 @@ const res = await fetch(configPath, { cache: "no-store" });
       });
     });
   }
+
 
   toolsSaveBtn?.addEventListener("click", () => {
     const sels = toolsWrap?.querySelectorAll(".bm_toolSel") || [];
@@ -2278,48 +2684,61 @@ const res = await fetch(configPath, { cache: "no-store" });
     renderBastionManager();
   });
 
+
   renderToolsUI();
   
   // ----- Facilities rendering -----
   const facWrap = must("bm_facilities");
   if (!facWrap) throw new Error("Bastion Manager: #bm_facilities not found in the HTML (ID mismatch).");
 
+
     // ----- Special facilities (v1.1) -----
   const specialWrap = document.getElementById("bm_specialWrap");
+
 
   function getFacilityCatalogFromRuntime(runtimeState, config) {
     // Prefer config.facilityCatalog (your v1.1 JSON addition)
     if (Array.isArray(config?.facilityCatalog)) return config.facilityCatalog;
 
+
     // Backwards compatible: sometimes people nest under meta
     if (Array.isArray(config?.meta?.facilityCatalog)) return config.meta.facilityCatalog;
+
 
     return [];
   }
 
+
   function renderSpecialFacilities() {
     if (!specialWrap) return;
+
 
     const playerLevel = safeNum(runtimeState.state.playerLevel, 1);
     const slotCount = computeSpecialSlots(playerLevel);
 
+
     runtimeState.state.specialFacilities = Array.isArray(runtimeState.state.specialFacilities) ? runtimeState.state.specialFacilities : [];
     runtimeState.state.specialConstruction = Array.isArray(runtimeState.state.specialConstruction) ? runtimeState.state.specialConstruction : [];
+
 
     const built = runtimeState.state.specialFacilities;
     const building = runtimeState.state.specialConstruction;
 
+
     const catalog = getFacilityCatalogFromRuntime(runtimeState, config);
+
 
     if (slotCount <= 0) {
       specialWrap.innerHTML = `<p class="small muted">No special facility slots unlocked yet. (Unlocks at Player Level 5.)</p>`;
       return;
     }
 
+
     const rows = [];
     for (let i = 0; i < slotCount; i++) {
       const existing = built[i] || null;
       const con = building.find(x => safeNum(x.slotIndex, -1) === i) || null;
+
 
       if (existing) {
         rows.push(`
@@ -2334,6 +2753,7 @@ const res = await fetch(configPath, { cache: "no-store" });
         continue;
       }
 
+
       if (con) {
         rows.push(`
           <div class="pill" style="margin-top:10px; display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
@@ -2346,13 +2766,32 @@ const res = await fetch(configPath, { cache: "no-store" });
         continue;
       }
 
+
       // Empty slot: dropdown
-      const opts = (catalog || []).map(c => {
+      // Hide facilities you don't want cluttering the dropdown (they can still exist as cards if built).
+      const HIDDEN_SPECIAL = new Set([
+        "observatory",
+        "pub",
+        "reliquary",
+        "sanctum",
+        "theater",
+        "theatre",
+        "trophy_room",
+        "archive",
+        "meditation_chamber",
+        "chapel",
+        "vault"
+      ]);
+
+      const opts = (catalog || [])
+        .filter(c => !HIDDEN_SPECIAL.has(String(c?.id || "").toLowerCase()))
+        .map(c => {
         const min = safeNum(c.minPlayerLevel, 1);
         const disabled = playerLevel < min;
-        const label = `${c.name} (L${min}+ • ${safeNum(c.costGP, 0)}gp • ${safeNum(c.buildTurns, 1)} turns)`;
+        const label = `${c.name} (L${min}+ • ${safeNum(c.buildCostGP, 0)}gp • ${safeNum(c.buildTurns, 1)} turns)`;
         return `<option value="${c.id}" ${disabled ? "disabled" : ""}>${label}</option>`;
       }).join("");
+
 
       rows.push(`
         <div class="pill" style="margin-top:10px;">
@@ -2368,7 +2807,9 @@ const res = await fetch(configPath, { cache: "no-store" });
       `);
     }
 
+
     specialWrap.innerHTML = rows.join("");
+
 
     // Build action
     specialWrap.querySelectorAll(".bm_specialBuild").forEach(btn => {
@@ -2378,16 +2819,20 @@ const res = await fetch(configPath, { cache: "no-store" });
         const id = sel?.value;
         if (!id) return alert("Pick a facility first.");
 
+
         const entry = (catalog || []).find(x => x.id === id);
         if (!entry) return alert("Catalog entry not found.");
 
+
         const min = safeNum(entry.minPlayerLevel, 1);
         if (playerLevel < min) return alert("Player level too low for that facility.");
+
 
         const cost = safeNum(entry.costGP, 0);
         const turns = safeNum(entry.buildTurns, 1);
         const treasury = safeNum(runtimeState.state.treasury.gp, 0);
         if (treasury < cost) return alert("Not enough GP in Treasury.");
+
 
         runtimeState.state.treasury.gp = treasury - cost;
         runtimeState.state.specialConstruction.push({
@@ -2397,10 +2842,12 @@ const res = await fetch(configPath, { cache: "no-store" });
           remainingTurns: turns
         });
 
+
         saveBastionSave(runtimeState);
         renderBastionManager();
       });
     });
+
 
     // Remove action (DM control)
     specialWrap.querySelectorAll(".bm_specialRemove").forEach(btn => {
@@ -2409,12 +2856,14 @@ const res = await fetch(configPath, { cache: "no-store" });
         const ok = confirm("Remove this special facility from the slot?");
         if (!ok) return;
 
+
         runtimeState.state.specialFacilities[slotIndex] = null;
         saveBastionSave(runtimeState);
         renderBastionManager();
       });
     });
   }
+
 
   function renderFacilities() {
     facWrap.innerHTML = facilities.map(f => {
@@ -2423,15 +2872,19 @@ const res = await fetch(configPath, { cache: "no-store" });
       const nextLvl = lvl + 1;
       const nextData = facilityLevelData(f, nextLvl);
 
+
       const underCon = constructions.find(c => c.facilityId === f.id);
       const isBuilding = !!underCon;
+
 
       const upgradeCost = safeNum(nextData?.construction?.costGP, 0);
       const upgradeTurns = safeNum(nextData?.construction?.turns, 0);
       const canUpgrade = nextData && !isBuilding && safeNum(runtimeState.state.treasury.gp, 0) >= upgradeCost;
 
+
       const fns = lvlData?.functions || [];
       const activeOrders = orders.filter(o => o.facilityId === f.id);
+
 
       return `
         <div class="card facCard" style="margin-top:12px;">
@@ -2446,6 +2899,7 @@ const res = await fetch(configPath, { cache: "no-store" });
               </div>
             </div>
 
+
             <div style="min-width:280px;">
               <div class="pill">Hirelings: <b>${safeNum(f.staffing?.hirelings, safeNum(f.staffing?.hirelingsBase, 0))}</b></div>
               <div class="small muted" style="margin-top:8px;">
@@ -2454,14 +2908,18 @@ const res = await fetch(configPath, { cache: "no-store" });
             </div>
           </div>
 
+
           <hr />
+
 
           <h4>Benefits</h4>
           <div class="small muted">
             ${(lvlData?.benefits || []).map(b => `• ${b}`).join("<br>") || "No benefits listed."}
           </div>
 
+
           <hr />
+
 
           <h4>Functions</h4>
           ${baseFacilityId(f.id) === "workshop" ? `
@@ -2469,19 +2927,23 @@ const res = await fetch(configPath, { cache: "no-store" });
     <h4 style="margin-top:0;">Workshop Crafting</h4>
     <p class="small muted">Pick a saved artisan tool, then pick an item. This starts a Workshop craft order and deposits the result into the Warehouse when complete.</p>
 
+
     <div class="grid2">
       <label>Tool
         <select id="bm_craftTool"></select>
       </label>
+
 
       <label>Item
         <select id="bm_craftItem"></select>
       </label>
     </div>
 
+
     <div class="btnRow" style="margin-top:10px;">
       <button id="bm_craftStart" type="button">Start Craft</button>
     </div>
+
 
     <div class="small muted" id="bm_craftHint" style="margin-top:10px;"></div>
   </div>
@@ -2495,6 +2957,7 @@ const res = await fetch(configPath, { cache: "no-store" });
                   const outputs = (fn.outputsToWarehouse || []).length
                     ? fn.outputsToWarehouse.map(o => `<code>${o.type || "item"}</code>`).join(" ")
                     : "<span class='small muted'>None</span>";
+
 
                   return `
                     <tr>
@@ -2515,10 +2978,12 @@ const res = await fetch(configPath, { cache: "no-store" });
     const treasuryNow = safeNum(runtimeState.state?.treasury?.gp, 0);
     const disabled = treasuryNow < dynCost;
 
+
     return `<button class="bm_startFn" data-fid="${f.id}" data-fnid="${fn.id}" ${disabled ? "disabled" : ""}>
       Start (${dynCost}gp)
     </button>`;
   })()
+
 
                         }
                       </td>
@@ -2529,11 +2994,14 @@ const res = await fetch(configPath, { cache: "no-store" });
             </table>
           ` : `<p class="small muted">No functions at this level.</p>`}
 
+
           <hr />
+
 
           <h4>Upgrade</h4>
           ${nextData ? `
             <div class="small muted">Next: <b>${nextData.label || `Level ${nextLvl}`}</b></div>
+
 
             <div class="iconLine">
               <div class="pill iconStat">
@@ -2546,6 +3014,7 @@ const res = await fetch(configPath, { cache: "no-store" });
               </div>
             </div>
 
+
             <div class="btnRow" style="margin-top:10px;">
               <button class="bm_upgrade" data-fid="${f.id}" ${canUpgrade ? "" : "disabled"}>Apply Upgrade</button>
               ${!canUpgrade ? `<span class="small muted">${isBuilding ? "Already building." : (safeNum(runtimeState.state.treasury.gp,0) < upgradeCost ? "Insufficient treasury." : "")}</span>` : ""}
@@ -2556,7 +3025,9 @@ const res = await fetch(configPath, { cache: "no-store" });
     }).join("");
   }
 
+
   renderFacilities();
+
 
     // ----- Workshop Crafting (inside Workshop card) -----
   function normaliseToolKey(name) {
@@ -2566,6 +3037,7 @@ const res = await fetch(configPath, { cache: "no-store" });
       .replace(/[^a-z0-9]+/g, "_")   // non-alphanum -> _
       .replace(/^_+|_+$/g, "");      // trim _
   }
+
 
   // Basic craft list (you can expand later)
   const CRAFTABLES_BY_TOOL = {
@@ -2579,6 +3051,7 @@ const res = await fetch(configPath, { cache: "no-store" });
     woodcarvers_tools: ["Wooden tokens set", "Carved idol", "Arrow shafts (20)"]
   };
 
+
   function parseQtyFromLabel(label) {
     // "Arrows (20)" -> { name:"Arrows", qty:20 }
     const s = String(label || "").trim();
@@ -2587,22 +3060,27 @@ const res = await fetch(configPath, { cache: "no-store" });
     return { name: m[1].trim(), qty: Number(m[2]) || 1 };
   }
 
+
   function findWorkshopCraftFunctionId() {
     // Find the workshop facility in your runtime state
     const wf = (runtimeState.facilities || []).find(x => baseFacilityId(x.id) === "workshop");
     if (!wf) return { facilityId: null, functionId: null };
 
+
     const lvl = safeNum(wf.currentLevel, 0);
     const lvlData = facilityLevelData(wf, lvl);
     const fns = lvlData?.functions || [];
+
 
     // Prefer explicit orderType:"craft" if present
     const craftFn = fns.find(fn => fn?.orderType === "craft")
       || fns.find(fn => String(fn?.id || "").toLowerCase().includes("craft"))
       || null;
 
+
     return { facilityId: wf.id, functionId: craftFn?.id || null };
   }
+
 
   function wireWorkshopCraftUI() {
     const toolSel = document.getElementById("bm_craftTool");
@@ -2610,12 +3088,15 @@ const res = await fetch(configPath, { cache: "no-store" });
     const startBtn = document.getElementById("bm_craftStart");
     const hint = document.getElementById("bm_craftHint");
 
+
     // If we’re not currently rendering the Workshop card, these won’t exist.
     if (!toolSel || !itemSel || !startBtn) return;
+
 
     // Pull chosen artisan tools from saved slots
     const slots = runtimeState?.state?.artisanTools?.slots || [];
     const chosenTools = slots.filter(Boolean).map(String);
+
 
     if (!chosenTools.length) {
       toolSel.innerHTML = `<option value="">(no tools saved)</option>`;
@@ -2625,10 +3106,13 @@ const res = await fetch(configPath, { cache: "no-store" });
       return;
     }
 
+
     startBtn.disabled = false;
+
 
     // Fill tool dropdown
     toolSel.innerHTML = chosenTools.map(t => `<option value="${t.replace(/"/g, "&quot;")}">${t}</option>`).join("");
+
 
     function refreshItemsForTool(toolName) {
       const key = normaliseToolKey(toolName);
@@ -2637,24 +3121,30 @@ const res = await fetch(configPath, { cache: "no-store" });
       if (hint) hint.textContent = "Selected tool controls available crafts. Expand the craft list in app.js anytime.";
     }
 
+
     refreshItemsForTool(toolSel.value);
+
 
     toolSel.addEventListener("change", () => {
       refreshItemsForTool(toolSel.value);
     });
 
+
     startBtn.addEventListener("click", () => {
       const tool = toolSel.value;
       const item = itemSel.value;
 
+
       if (!tool) return alert("Pick a tool first.");
       if (!item) return alert("Pick an item first.");
+
 
       const { facilityId, functionId } = findWorkshopCraftFunctionId();
       if (!facilityId || !functionId) {
         alert("Could not find a Workshop craft function in the Workshop facility card. Check your workshop function IDs in the JSON.");
         return;
       }
+
 
       // Start the actual Workshop function order
       const r = startFunctionOrder(runtimeState, facilityId, functionId);
@@ -2663,9 +3153,11 @@ const res = await fetch(configPath, { cache: "no-store" });
         return;
       }
 
+
       // Override the output so the chosen item goes into the warehouse when the order completes
       const parsed = parseQtyFromLabel(item);
       const order = runtimeState.state.ordersInProgress[runtimeState.state.ordersInProgress.length - 1];
+
 
       if (order) {
         order.label = `Craft: ${parsed.name}`;
@@ -2678,14 +3170,17 @@ const res = await fetch(configPath, { cache: "no-store" });
         order.craftPick = { tool, itemLabel: item, qty: parsed.qty };
       }
 
+
       saveBastionSave(runtimeState);
       if (hint) hint.textContent = `Craft started: ${item}. Take Bastion Turns until it completes, then check Warehouse.`;
       renderBastionManager();
     });
   }
 
+
   wireWorkshopCraftUI();
     renderSpecialFacilities();
+
 
   facWrap.addEventListener("click", (e) => {
     const up = e.target.closest(".bm_upgrade");
@@ -2698,6 +3193,7 @@ const res = await fetch(configPath, { cache: "no-store" });
       return;
     }
 
+
     const st = e.target.closest(".bm_startFn");
     if (st) {
       const fid = st.dataset.fid;
@@ -2705,6 +3201,7 @@ const res = await fetch(configPath, { cache: "no-store" });
       // Workshop craft prompt (v1.1)
 const fac = findFacility(runtimeState, fid);
 const facBase = baseFacilityId(fid);
+
 
 const r = startFunctionOrder(runtimeState, fid, fnid);
       if (!r.ok) alert(r.msg || "Could not start function.");
@@ -2714,6 +3211,7 @@ const r = startFunctionOrder(runtimeState, fid, fnid);
     }
   });
     // Special facilities are wired inside renderSpecialFacilities() (fresh DOM each render)
+
 
   // ----- Import / Export -----
   must("bm_export").addEventListener("click", () => {
@@ -2726,9 +3224,11 @@ const r = startFunctionOrder(runtimeState, fid, fnid);
     URL.revokeObjectURL(url);
   });
 
+
   const importBtn = must("bm_import_btn");
   const importInput = must("bm_import_file");
   importBtn.addEventListener("click", () => importInput.click());
+
 
   importInput.addEventListener("change", async () => {
     const file = importInput.files?.[0];
@@ -2741,19 +3241,23 @@ const r = startFunctionOrder(runtimeState, fid, fnid);
     renderBastionManager();
   });
 
+
   must("bm_reset").addEventListener("click", () => {
     localStorage.removeItem(BASTION_STORE_KEY);
     alert("Reset to spec baseline. Reloading...");
     renderBastionManager();
   });
 
+
   // ----- Take Bastion Turn -----
   must("bm_takeTurn").addEventListener("click", () => {
     saveTopFields();
     const maintain = !!document.getElementById("bm_maintain").checked;
 
+
     const result = advanceTurnPipeline(runtimeState, { maintainIssued: maintain });
     saveBastionSave(runtimeState);
+
 
             const out = opt("bm_turnResult");
     if (out) {
@@ -2765,12 +3269,14 @@ const r = startFunctionOrder(runtimeState, fid, fnid);
     renderBastionManager();
   });
 
+
     // ----- Spec selector (safe) -----
   const specSelect = document.getElementById("bm_specSelect");
   if (specSelect) {
     specSelect.value = getBastionSpecChoice();
     specSelect.addEventListener("change", () => {
       setBastionSpecChoice(specSelect.value);
+
 
       // IMPORTANT: refresh the page view so the new loader + store key apply cleanly
       alert("Spec switched. Reloading Bastion Manager...");
@@ -2780,6 +3286,7 @@ const r = startFunctionOrder(runtimeState, fid, fnid);
   // Persist after initial render
   saveBastionSave(runtimeState);
 }
+
 
 function renderHonourTracker() {
   view.innerHTML = `
@@ -2802,7 +3309,9 @@ function renderHonourTracker() {
    - Saves map + grid + token state to localStorage
 ================================== */
 
+
 const EXPLORER_KEY = "scarlettIsles.explorer.v1";
+
 
 function explorerUid() {
   return Math.random().toString(16).slice(2) + Date.now().toString(16);
@@ -2836,17 +3345,21 @@ function explorerDefaultState() {
   milesUsed: 0
 }));
 
+
   return {
     mapDataUrl: null,
+
 
     snap: {
       enabled: false
     },
 
+
     travel: {
       day: 1,
       milesUsed: 0
     },
+
 
     grid: {
       enabled: true,
@@ -2856,9 +3369,11 @@ function explorerDefaultState() {
       opacity: 0.35
     },
 
+
     tokens
   };
 }
+
 
 function renderExplorer() {
   // If we previously mounted Explorer, clean up listeners to avoid stacking
@@ -2866,6 +3381,7 @@ function renderExplorer() {
     try { window.__explorerCleanup(); } catch {}
     window.__explorerCleanup = null;
   }
+
 
   // Build UI
   view.innerHTML = `
@@ -2879,6 +3395,7 @@ function renderExplorer() {
         </div>
       </div>
 
+
       <div class="explorer-fswrap" id="explorerFsWrap">
       <div class="explorer-controls">
         <label class="btn">
@@ -2886,19 +3403,24 @@ function renderExplorer() {
           <input id="explorerMapUpload" type="file" accept="image/*" hidden />
         </label>
 
+
         <button class="btn ghost" id="explorerClearMap" type="button">Clear map</button>
         <button class="btn ghost" id="explorerFullscreen" type="button">Fullscreen</button>
         <button class="btn ghost" id="explorerHideUi" type="button">Hide UI</button>
 
+
         <span class="explorer-divider"></span>
+
 
         <button class="btn" id="explorerGridToggle" type="button">Hex Grid: On</button>
         <button class="btn ghost" id="explorerSnapToggle" type="button">Snap: Off</button>
+
 
         <div class="explorer-group">
           <button class="btn ghost" id="explorerGridSm" type="button">Hex −</button>
           <button class="btn ghost" id="explorerGridLg" type="button">Hex +</button>
         </div>
+
 
         <div class="explorer-group">
           <button class="btn ghost" id="explorerGridLeft" type="button">◀</button>
@@ -2907,25 +3429,31 @@ function renderExplorer() {
           <button class="btn ghost" id="explorerGridRight" type="button">▶</button>
         </div>
 
+
         <div class="explorer-opacity">
           <span class="muted tiny">Grid opacity</span>
           <input id="explorerGridOpacity" type="range" min="0" max="1" step="0.05" />
         </div>
 
+
         <span class="explorer-divider"></span>
+
 
         <div class="explorer-group">
           <button class="btn ghost" id="explorerTokSm" type="button">Token −</button>
           <button class="btn ghost" id="explorerTokLg" type="button">Token +</button>
         </div>
 
+
         <div class="explorer-group">
           <button class="btn" id="explorerGroup" type="button">Group</button>
           <button class="btn ghost" id="explorerUngroup" type="button">Ungroup</button>
         </div>
 
+
         <span class="hint" id="explorerReadout">Hex: —</span>
       </div>
+
 
       <div class="explorer-stage" id="explorerStage">
         <div class="explorer-world" id="explorerWorld">
@@ -2935,6 +3463,7 @@ function renderExplorer() {
           <div id="explorerMarquee" class="explorer-marquee" hidden></div>
         </div>
       </div>
+
 
       <div class="hint" style="margin-top:10px">
   Tips: ...
@@ -2950,6 +3479,7 @@ function renderExplorer() {
         <span class="tiny">Remaining: <strong id="explorerMilesLeft">30</strong></span>
       </div>
 
+
       <div class="explorer-travelLine tiny">
         <span class="muted">Mode:</span>
         <strong id="explorerMode">—</strong>
@@ -2961,6 +3491,7 @@ function renderExplorer() {
       <div id="explorerMilesList" class="explorer-milesList"></div>
     </div>
 
+
     <div class="explorer-travelRight">
   <button class="btn ghost" id="explorerResetTravel" type="button">Reset Travel</button>
   <button class="btn" id="explorerMakeCamp" type="button">Make Camp</button>
@@ -2971,12 +3502,14 @@ function renderExplorer() {
 </div> <!-- end explorer-wrap -->
   `;
 
+
   const root = view.querySelector(".explorer-wrap");
   const mapUpload = root.querySelector("#explorerMapUpload");
   const btnClear = root.querySelector("#explorerClearMap");
   const btnFs = root.querySelector("#explorerFullscreen");
   const btnHideUi = root.querySelector("#explorerHideUi");
   const btnSnapToggle = root.querySelector("#explorerSnapToggle");
+
 
 const dayLabel = root.querySelector("#explorerDayLabel");
 const milesUsedEl = root.querySelector("#explorerMilesUsed");
@@ -2992,6 +3525,7 @@ const btnMakeCamp = root.querySelector("#explorerMakeCamp");
   noticeEl.textContent = msg || "";
 }
 
+
   const btnGridToggle = root.querySelector("#explorerGridToggle");
   const btnGridSm = root.querySelector("#explorerGridSm");
   const btnGridLg = root.querySelector("#explorerGridLg");
@@ -3002,10 +3536,12 @@ const btnMakeCamp = root.querySelector("#explorerMakeCamp");
   const gridOpacity = root.querySelector("#explorerGridOpacity");
   const readout = root.querySelector("#explorerReadout");
 
+
   const btnTokSm = root.querySelector("#explorerTokSm");
   const btnTokLg = root.querySelector("#explorerTokLg");
   const btnGroup = root.querySelector("#explorerGroup");
   const btnUngroup = root.querySelector("#explorerUngroup");
+
 
   const stage = root.querySelector("#explorerStage");
   const fsWrap = root.querySelector("#explorerFsWrap");
@@ -3017,14 +3553,17 @@ const btnMakeCamp = root.querySelector("#explorerMakeCamp");
 stage.style.touchAction = "none";
   const marquee = root.querySelector("#explorerMarquee");
 
+
   // Load state (merge defaults)
   const saved = explorerLoad();
   const state = explorerDefaultState();
+
 
   if (typeof saved.mapDataUrl === "string") state.mapDataUrl = saved.mapDataUrl;
   if (saved.grid) state.grid = { ...state.grid, ...saved.grid };
   if (saved.snap) state.snap = { ...state.snap, ...saved.snap };
 if (saved.travel) state.travel = { ...state.travel, ...saved.travel };
+
 
   if (Array.isArray(saved.tokens)) {
   // merge by id, keep defaults for any missing heroes
@@ -3045,12 +3584,15 @@ if (saved.travel) state.travel = { ...state.travel, ...saved.travel };
   });
 }
 
+
   // Selection state (not persisted)
   const selected = new Set();
+
 
   // Drag state must exist BEFORE first renderTokens() call
   let drag = null;
   let travelFocusId = state.tokens[0]?.id || null;
+
 
   function saveNow() {
     explorerSave({
@@ -3061,6 +3603,7 @@ if (saved.travel) state.travel = { ...state.travel, ...saved.travel };
   tokens: state.tokens
 });
   }
+
 
   function stageDims() {
     return {
@@ -3076,6 +3619,7 @@ if (saved.travel) state.travel = { ...state.travel, ...saved.travel };
     const { w, h } = stageDims();
     return { x: px / w, y: py / h };
   }
+
 
   // ---------- Hex snap math (pointy-top axial coords) ----------
 // Using grid.r as size and grid offsets as origin.
@@ -3094,6 +3638,7 @@ function pixelToAxial(px, py) {
   const { ox, oy } = gridOrigin();
   const x = px - ox;
   const y = py - oy;
+
 
   const q = (Math.sqrt(3)/3 * x - 1/3 * y) / s;
   const r = (2/3 * y) / s;
@@ -3117,22 +3662,27 @@ function axialRound(aq, ar) {
     r = Number(ar);
   }
 
+
   // cube round then convert back
   let x = q;
   let z = r;
   let y = -x - z;
 
+
   let rx = Math.round(x);
   let ry = Math.round(y);
   let rz = Math.round(z);
+
 
   const xDiff = Math.abs(rx - x);
   const yDiff = Math.abs(ry - y);
   const zDiff = Math.abs(rz - z);
 
+
   if (xDiff > yDiff && xDiff > zDiff) rx = -ry - rz;
   else if (yDiff > zDiff) ry = -rx - rz;
   else rz = -rx - ry;
+
 
   return { q: rx, r: rz };
 }
@@ -3145,12 +3695,14 @@ function hexDistance(a, b) {
   return (Math.abs(dq) + Math.abs(dr) + Math.abs(ds)) / 2;
 }
 
+
   function updateReadout() {
     const r = Number(state.grid.r) || 0;
     const w = Math.round(Math.sqrt(3) * r);
     btnGridToggle.textContent = `Hex Grid: ${state.grid.enabled ? "On" : "Off"}`;
     readout.textContent = r ? `Hex: r=${Math.round(r)}px (≈ ${w}px wide)` : "Hex: —";
   }
+
 
   function travelModeFromMiles(m) {
   if (m <= 0) return { mode: "—", effects: "—" };
@@ -3159,19 +3711,24 @@ function hexDistance(a, b) {
   return { mode: "Fast (≤30 miles)", effects: "−5 Passive Perception" };
 }
 
+
 function updateTravelUI() {
   const focus = state.tokens.find(t => t.id === travelFocusId) || state.tokens[0];
 
+
   const used = explorerClamp(Number(focus?.milesUsed) || 0, 0, 30);
   const left = 30 - used;
+
 
   if (dayLabel) dayLabel.textContent = `Day ${state.travel.day || 1}`;
   if (milesUsedEl) milesUsedEl.textContent = String(used);
   if (milesLeftEl) milesLeftEl.textContent = String(left);
 
+
   const t = travelModeFromMiles(used);
   if (modeEl) modeEl.textContent = t.mode;
   if (effectsEl) effectsEl.textContent = t.effects;
+
 
   // Render per-hero list
   if (milesListEl) {
@@ -3179,6 +3736,7 @@ function updateTravelUI() {
       const u = explorerClamp(Number(tok.milesUsed) || 0, 0, 30);
       const isFocus = tok.id === travelFocusId;
       const done = u >= 30;
+
 
       return `
         <button type="button"
@@ -3189,6 +3747,7 @@ function updateTravelUI() {
       `;
     }).join("");
 
+
     milesListEl.querySelectorAll(".milesPill").forEach(btn => {
       btn.addEventListener("click", () => {
         travelFocusId = btn.dataset.id;
@@ -3197,9 +3756,11 @@ function updateTravelUI() {
     });
   }
 
+
   // IMPORTANT: do NOT globally lock all tokens anymore
   tokenLayer.style.pointerEvents = "";
 }
+
 
   function resizeGridCanvas() {
     const { w, h } = stageDims();
@@ -3212,38 +3773,47 @@ function updateTravelUI() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
+
   function drawHexGrid() {
   resizeGridCanvas();
   const ctx = gridCanvas.getContext("2d");
   const { w, h } = stageDims();
 
+
   ctx.clearRect(0, 0, w, h);
   if (!state.grid.enabled) return;
 
+
   const r = hexSize();
   const opacity = explorerClamp(Number(state.grid.opacity) || 0.35, 0, 1);
+
 
   ctx.globalAlpha = opacity;
   ctx.lineWidth = 1;
   ctx.strokeStyle = "rgba(231,231,234,0.9)";
 
+
   // We will iterate axial coords that cover the visible area.
   // Convert viewport corners to axial range (with padding) and draw each hex by axialToPixel.
   const pad = 3;
+
 
   const aTL = pixelToAxial(0, 0);
   const aTR = pixelToAxial(w, 0);
   const aBL = pixelToAxial(0, h);
   const aBR = pixelToAxial(w, h);
 
+
   const rs = [aTL.r, aTR.r, aBL.r, aBR.r];
   const rMin = Math.floor(Math.min(...rs)) - pad;
   const rMax = Math.ceil(Math.max(...rs)) + pad;
+
 
   // q range is trickier because q shifts with r, so we overshoot a bit
   const qs = [aTL.q, aTR.q, aBL.q, aBR.q];
   const qMin0 = Math.floor(Math.min(...qs)) - pad - 6;
   const qMax0 = Math.ceil(Math.max(...qs)) + pad + 6;
+
 
   // draw function for a single hex at center (cx, cy)
   function strokeHex(cx, cy) {
@@ -3259,6 +3829,7 @@ function updateTravelUI() {
     ctx.stroke();
   }
 
+
   for (let rr = rMin; rr <= rMax; rr++) {
     for (let qq = qMin0; qq <= qMax0; qq++) {
       const p = axialToPixel(qq, rr);
@@ -3268,12 +3839,15 @@ function updateTravelUI() {
     }
   }
 
+
   ctx.globalAlpha = 1;
 }
+
 
   function renderTokens() {
   tokenLayer.innerHTML = "";
   const { w, h } = stageDims();
+
 
   // Group tokens by hex when snap is on (using t.axial if present)
   const groups = new Map();
@@ -3291,18 +3865,23 @@ function updateTravelUI() {
     });
   }
 
+
   state.tokens.forEach(t => {
     const token = document.createElement("div");
     token.className = "explorer-token";
     token.dataset.id = t.id;
 
+
     if (selected.has(t.id)) token.classList.add("isSelected");
     if (t.groupId) token.dataset.groupId = t.groupId;
+
 
     token.style.width = `${t.size}px`;
     token.style.height = `${t.size}px`;
 
+
     let x, y;
+
 
     // If snap is on and this token has an axial hex, draw it as a tight cluster INSIDE the hex
 if (state.snap.enabled) {
@@ -3316,36 +3895,44 @@ if (state.snap.enabled) {
   const key = `${t.axial.q},${t.axial.r}`;
   const cluster = (groups.get(key) || [t]).slice();
 
+
   // Put the "anchor" token first if we are currently dragging
   const anchorId = drag?.anchorId || null;
   if (anchorId) {
     cluster.sort((a, b) => (a.id === anchorId ? -1 : b.id === anchorId ? 1 : 0));
   }
 
+
   const idx = cluster.findIndex(tt => tt.id === t.id);
   const n = Math.max(1, cluster.length);
 
+
   // Hex center in pixels
   const center = axialToPixel(t.axial.q, t.axial.r);
+
 
   // SAFE inner radius so tokens stay well inside the hex
   // hexSize() is vertex radius; inradius ≈ 0.86 * size
   const inRadius = hexSize() * 0.86;
   const tokenRadius = t.size / 2;
 
+
   // Tiny cluster radius (keeps them clearly inside the hex)
   // idx 0 sits in the centre, others orbit in a small ring
   const maxClusterR = Math.max(0, inRadius - tokenRadius - 6);
   const clusterR = Math.min(maxClusterR, 12); // <= 12px feels “neat”
 
+
   let cx = center.x;
   let cy = center.y;
+
 
   if (idx > 0) {
     const angle = (Math.PI * 2 * (idx - 1)) / Math.max(1, (n - 1));
     cx = center.x + Math.cos(angle) * clusterR;
     cy = center.y + Math.sin(angle) * clusterR;
   }
+
 
   x = cx - tokenRadius;
   y = cy - tokenRadius;
@@ -3356,17 +3943,21 @@ if (state.snap.enabled) {
       y = px.y;
     }
 
+
     // Clamp to stage
     x = explorerClamp(x, 0, Math.max(0, w - t.size));
     y = explorerClamp(y, 0, Math.max(0, h - t.size));
 
+
     token.style.left = `${x}px`;
     token.style.top = `${y}px`;
+
 
     token.innerHTML = `<span>${t.initial}</span>`;
     tokenLayer.appendChild(token);
   });
 }
+
 
   function rerenderAll() {
     // Map
@@ -3378,15 +3969,18 @@ if (state.snap.enabled) {
       mapImg.style.display = "none";
     }
 
+
     // Grid UI
     gridOpacity.value = String(state.grid.opacity ?? 0.35);
     updateReadout();
+
 
     // Draw + tokens
     drawHexGrid();
     renderTokens();
     updateTravelUI();
   }
+
 
   // Initial render
   rerenderAll();
@@ -3397,29 +3991,36 @@ function updateSnapButton() {
 }
 updateSnapButton();
 
+
 btnSnapToggle.addEventListener("click", () => {
   state.snap.enabled = !state.snap.enabled;
+
 
   // When enabling snap, assign axial coords to all tokens based on current position
   if (state.snap.enabled) {
     const { w, h } = stageDims();
+
 
     state.tokens.forEach(tok => {
       const px = normToPx(tok.x, tok.y);
       const cx = px.x + tok.size / 2;
       const cy = px.y + tok.size / 2;
 
+
       const a = axialRound(pixelToAxial(cx, cy));
       tok.axial = a;
+
 
       // OPTIONAL but recommended: pull token neatly onto the hex centre
       const p = axialToPixel(a.q, a.r);
       const topLeft = { x: p.x - tok.size / 2, y: p.y - tok.size / 2 };
 
+
       const clamped = {
         x: explorerClamp(topLeft.x, 0, Math.max(0, w - tok.size)),
         y: explorerClamp(topLeft.y, 0, Math.max(0, h - tok.size))
       };
+
 
       const n = pxToNorm(clamped.x, clamped.y);
       tok.x = n.x;
@@ -3427,15 +4028,18 @@ btnSnapToggle.addEventListener("click", () => {
     });
   }
 
+
   saveNow();
   updateSnapButton();
   rerenderAll();
 });
 
+
   // ---------- Map upload / clear ----------
   function onMapUpload() {
     const file = mapUpload.files && mapUpload.files[0];
     if (!file) return;
+
 
     // localStorage is limited; warn early
     const maxBytes = 4 * 1024 * 1024;
@@ -3444,6 +4048,7 @@ btnSnapToggle.addEventListener("click", () => {
       mapUpload.value = "";
       return;
     }
+
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -3454,6 +4059,7 @@ btnSnapToggle.addEventListener("click", () => {
     reader.readAsDataURL(file);
   }
 
+
   function onClearMap() {
     const ok = confirm("Clear the uploaded map? (Tokens/grid will remain.)");
     if (!ok) return;
@@ -3462,8 +4068,10 @@ btnSnapToggle.addEventListener("click", () => {
     rerenderAll();
   }
 
+
   mapUpload.addEventListener("change", onMapUpload);
   btnClear.addEventListener("click", onClearMap);
+
 
   // ---------- Fullscreen ----------
   function onFullscreen() {
@@ -3472,6 +4080,7 @@ btnSnapToggle.addEventListener("click", () => {
     alert("Explorer fullscreen wrapper not found (explorerFsWrap).");
     return;
   }
+
 
   if (document.fullscreenElement) {
     document.exitFullscreen?.();
@@ -3484,7 +4093,9 @@ btnSnapToggle.addEventListener("click", () => {
   const target = document.fullscreenElement || fsWrap;
   if (!target) return;
 
+
   target.classList.toggle("uiHidden", !!hidden);
+
 
   // Update button label
   const isHidden = target.classList.contains("uiHidden");
@@ -3497,6 +4108,7 @@ btnHideUi?.addEventListener("click", () => {
   setUiHidden(!target.classList.contains("uiHidden"));
 });
 
+
 // Handy keyboard toggle while fullscreen: press H
 function onKeyToggleUi(e) {
   if (e.key.toLowerCase() !== "h") return;
@@ -3506,10 +4118,12 @@ function onKeyToggleUi(e) {
 }
 window.addEventListener("keydown", onKeyToggleUi);
 
+
   // Redraw on resize/fullscreen changes
   const onResize = () => rerenderAll();
   window.addEventListener("resize", onResize);
   document.addEventListener("fullscreenchange", onResize);
+
 
   // ---------- Grid controls ----------
   btnGridToggle.addEventListener("click", () => {
@@ -3517,6 +4131,7 @@ window.addEventListener("keydown", onKeyToggleUi);
     saveNow();
     rerenderAll();
   });
+
 
   btnGridSm.addEventListener("click", () => {
     state.grid.r = explorerClamp((Number(state.grid.r) || 38) - 2, 10, 220);
@@ -3529,6 +4144,7 @@ window.addEventListener("keydown", onKeyToggleUi);
     rerenderAll();
   });
 
+
   function nudge(dx, dy) {
     state.grid.offsetX = (Number(state.grid.offsetX) || 0) + dx;
     state.grid.offsetY = (Number(state.grid.offsetY) || 0) + dy;
@@ -3540,11 +4156,13 @@ window.addEventListener("keydown", onKeyToggleUi);
   btnGridUp.addEventListener("click", () => nudge(0, -2));
   btnGridDown.addEventListener("click", () => nudge(0, 2));
 
+
   gridOpacity.addEventListener("input", () => {
     state.grid.opacity = explorerClamp(Number(gridOpacity.value), 0, 1);
     saveNow();
     rerenderAll();
   });
+
 
   // ---------- Token size buttons ----------
   function changeSelectedTokenSize(delta) {
@@ -3559,6 +4177,7 @@ window.addEventListener("keydown", onKeyToggleUi);
   btnTokSm.addEventListener("click", () => changeSelectedTokenSize(-2));
   btnTokLg.addEventListener("click", () => changeSelectedTokenSize(2));
 
+
   // ---------- Group / Ungroup ----------
   btnGroup.addEventListener("click", () => {
     if (selected.size < 2) {
@@ -3572,6 +4191,7 @@ window.addEventListener("keydown", onKeyToggleUi);
     rerenderAll();
   });
 
+
   btnUngroup.addEventListener("click", () => {
     if (!selected.size) {
       alert("Select grouped tokens first.");
@@ -3583,29 +4203,36 @@ window.addEventListener("keydown", onKeyToggleUi);
     rerenderAll();
   });
 
+
   // ---------- Make Camp ----------
 btnMakeCamp.addEventListener("click", () => {
   state.travel.day = (Number(state.travel.day) || 1) + 1;
 
+
   // reset ALL heroes for the new day
   state.tokens.forEach(t => t.milesUsed = 0);
+
 
   saveNow();
   setNotice("");
   updateTravelUI();
 });
+
 
 btnResetTravel?.addEventListener("click", () => {
   const ok = confirm("Reset travel back to Day 1 and clear miles for ALL heroes?");
   if (!ok) return;
 
+
   state.travel.day = 1;
   state.tokens.forEach(t => t.milesUsed = 0);
+
 
   setNotice("");
   saveNow();
   updateTravelUI();
 });
+
 
   // ---------- Selection + dragging ----------
   function getTokenById(id) {
@@ -3615,9 +4242,11 @@ btnResetTravel?.addEventListener("click", () => {
     return state.tokens.filter(t => t.groupId === groupId).map(t => t.id);
   }
 
+
   // Ctrl+drag marquee selection on empty space
   let marqueeActive = false;
   let marqueeStart = null;
+
 
   function setMarquee(x1, y1, x2, y2) {
     const left = Math.min(x1, x2);
@@ -3625,32 +4254,39 @@ btnResetTravel?.addEventListener("click", () => {
     const width = Math.abs(x2 - x1);
     const height = Math.abs(y2 - y1);
 
+
     marquee.style.left = `${left}px`;
     marquee.style.top = `${top}px`;
     marquee.style.width = `${width}px`;
     marquee.style.height = `${height}px`;
   }
 
+
   function stagePointFromEvent(e) {
     const rect = stage.getBoundingClientRect();
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }
 
+
   stage.addEventListener("pointerdown", (e) => {
     // If clicking on a token, token handler will manage it
     if (e.target.closest(".explorer-token")) return;
 
+
     marqueeActive = true;
     marquee.hidden = false;
+
 
     const p = stagePointFromEvent(e);
     marqueeStart = p;
     setMarquee(p.x, p.y, p.x, p.y);
 
+
     // If not holding Ctrl, start fresh selection (box select replaces)
     if (!e.ctrlKey) selected.clear();
     rerenderAll();
   });
+
 
   stage.addEventListener("pointermove", (e) => {
     if (!marqueeActive || !marqueeStart) return;
@@ -3658,17 +4294,21 @@ btnResetTravel?.addEventListener("click", () => {
     setMarquee(marqueeStart.x, marqueeStart.y, p.x, p.y);
   });
 
+
   stage.addEventListener("pointerup", (e) => {
     if (!marqueeActive || !marqueeStart) return;
 
+
     marqueeActive = false;
     marquee.hidden = true;
+
 
     const p = stagePointFromEvent(e);
     const left = Math.min(marqueeStart.x, p.x);
     const top = Math.min(marqueeStart.y, p.y);
     const right = Math.max(marqueeStart.x, p.x);
     const bottom = Math.max(marqueeStart.y, p.y);
+
 
     // Select tokens whose centers fall inside the marquee
     state.tokens.forEach(t => {
@@ -3680,18 +4320,22 @@ btnResetTravel?.addEventListener("click", () => {
       }
     });
 
+
     marqueeStart = null;
     rerenderAll();
   });
+
 
   // Drag tokens (moves selection)
   tokenLayer.addEventListener("pointerdown", (e) => {
     const elTok = e.target.closest(".explorer-token");
     if (!elTok) return;
 
+
     const id = elTok.dataset.id;
     const t = getTokenById(id);
     if (!t) return;
+
 
     // Selection rules:
     // - Ctrl toggles token selection
@@ -3703,6 +4347,7 @@ btnResetTravel?.addEventListener("click", () => {
       return; // Ctrl click is just selection toggle
     }
 
+
     // No ctrl: select group if exists, otherwise just this token
     selected.clear();
     if (t.groupId) {
@@ -3712,15 +4357,18 @@ btnResetTravel?.addEventListener("click", () => {
     }
     rerenderAll();
 
+
     // Start drag for currently selected set
     const start = stagePointFromEvent(e);
     const dragIds = Array.from(selected);
+
 
     const startTokens = dragIds.map(tokId => {
       const tok = getTokenById(tokId);
       const px = normToPx(tok.x, tok.y);
       return { id: tokId, startX: px.x, startY: px.y, size: tok.size };
     });
+
 
     drag = { start, ids: dragIds, startTokens };
     drag.anchorId = id; // the token you grabbed
@@ -3731,6 +4379,7 @@ drag.startAxial = null;
 drag.startAxials = new Map();
 drag.lastTargetAx = null;
 
+
 const anchorTok = getTokenById(drag.anchorId);
 if (anchorTok) {
   const anchorPx = normToPx(anchorTok.x, anchorTok.y);
@@ -3740,6 +4389,7 @@ if (anchorTok) {
   };
   drag.startAxial = axialRound(pixelToAxial(anchorCenter.x, anchorCenter.y));
 }
+
 
 // Record starting axial for every dragged token (used for snap-group movement)
 drag.ids.forEach(tokId => {
@@ -3758,15 +4408,19 @@ drag.ids.forEach(tokId => {
 }
   });
 
+
   tokenLayer.addEventListener("pointermove", (e) => {
   if (!drag) return;
+
 
   // If max travel reached, block movement
   const anchor = getTokenById(drag.anchorId);
 if ((Number(anchor?.milesUsed) || 0) >= 30) return;
 
+
   const now = stagePointFromEvent(e);
   const { w, h } = stageDims();
+
 
   // SNAP MODE: move by whole hex deltas, preserving group formation in hex coords
   if (state.snap.enabled && drag.startAxial && drag.startAxials) {
@@ -3775,15 +4429,18 @@ if ((Number(anchor?.milesUsed) || 0) >= 30) return;
 const anchorTok = getTokenById(drag.anchorId);
 let tx = now.x, ty = now.y;
 
+
 if (anchorTok) {
   const aPx = normToPx(anchorTok.x, anchorTok.y);
   const acx = aPx.x + anchorTok.size / 2;
   const acy = aPx.y + anchorTok.size / 2;
 
+
   // 70% pointer, 30% current anchor centre
   tx = now.x * 0.7 + acx * 0.3;
   ty = now.y * 0.7 + acy * 0.3;
 }
+
 
 const targetAx = axialRound(pixelToAxial(tx, ty));
     // Don’t reapply positions if we’re still in the same target hex
@@ -3792,9 +4449,11 @@ if (drag.lastTargetAx && drag.lastTargetAx.q === targetAx.q && drag.lastTargetAx
 }
 drag.lastTargetAx = targetAx;
 
+
     // Hex delta from start
     const dq = targetAx.q - drag.startAxial.q;
     const dr = targetAx.r - drag.startAxial.r;
+
 
     // Apply that delta to every dragged token based on its starting axial
     drag.ids.forEach(tokId => {
@@ -3802,11 +4461,14 @@ drag.lastTargetAx = targetAx;
       const startA = drag.startAxials.get(tokId);
       if (!tok || !startA) return;
 
+
       const newA = { q: startA.q + dq, r: startA.r + dr };
       const p = axialToPixel(newA.q, newA.r);
 
+
       // Place token centered on hex center
       const topLeft = { x: p.x - tok.size/2, y: p.y - tok.size/2 };
+
 
       // Clamp to stage bounds
       const clamped = {
@@ -3814,31 +4476,38 @@ drag.lastTargetAx = targetAx;
         y: explorerClamp(topLeft.y, 0, Math.max(0, h - tok.size))
       };
 
+
       const n = pxToNorm(clamped.x, clamped.y);
       tok.x = n.x;
       tok.y = n.y;
       tok.axial = newA;
     });
 
+
     renderTokens();
     return;
   }
+
 
   // FREE MODE (no snap): normal pixel dragging
   const dx = now.x - drag.start.x;
   const dy = now.y - drag.start.y;
 
+
   drag.startTokens.forEach(st => {
     const tok = getTokenById(st.id);
     if (!tok) return;
+
 
     const nxPx = explorerClamp(st.startX + dx, 0, Math.max(0, w - st.size));
     const nyPx = explorerClamp(st.startY + dy, 0, Math.max(0, h - st.size));
     const n = pxToNorm(nxPx, nyPx);
 
+
     tok.x = n.x;
     tok.y = n.y;
   });
+
 
   renderTokens();
 });
@@ -3846,18 +4515,23 @@ drag.lastTargetAx = targetAx;
   function onTokenPointerUp() {
   if (!drag) return;
 
+
   if (drag.startAxial) {
     const anchorTok = getTokenById(drag.anchorId);
+
 
     if (anchorTok) {
       const px = normToPx(anchorTok.x, anchorTok.y);
       const center = { x: px.x + anchorTok.size / 2, y: px.y + anchorTok.size / 2 };
       const endAx = axialRound(pixelToAxial(center.x, center.y));
 
+
       const hexesMoved = hexDistance(drag.startAxial, endAx);
       const milesMoved = Math.round(hexesMoved * 6);
 
+
       const movedIds = Array.isArray(drag?.ids) ? drag.ids : [anchorTok.id];
+
 
       // Check if any moved token would exceed 30
       let wouldExceed = false;
@@ -3869,13 +4543,16 @@ drag.lastTargetAx = targetAx;
         if (after > 30) { wouldExceed = true; break; }
       }
 
+
       if (wouldExceed) {
         const { w, h } = stageDims();
+
 
         // Revert everyone in the move
         drag.startTokens.forEach(st => {
           const tok = getTokenById(st.id);
           if (!tok) return;
+
 
           const clampedX = explorerClamp(st.startX, 0, Math.max(0, w - st.size));
           const clampedY = explorerClamp(st.startY, 0, Math.max(0, h - st.size));
@@ -3883,15 +4560,18 @@ drag.lastTargetAx = targetAx;
           tok.x = n.x;
           tok.y = n.y;
 
+
           const a = drag.startAxials?.get(st.id);
           if (a) tok.axial = { q: a.q, r: a.r };
         });
+
 
         setNotice("Too far. One or more heroes would exceed 30 miles. Make Camp to reset.");
         drag = null;
         rerenderAll();
         return;
       }
+
 
       // Commit miles to everyone who moved
       for (const tokId of movedIds) {
@@ -3900,7 +4580,9 @@ drag.lastTargetAx = targetAx;
         tok.milesUsed = (Number(tok.milesUsed) || 0) + milesMoved;
       }
 
+
       travelFocusId = anchorTok.id;
+
 
       // Optional notice if the anchor hits max
       if ((Number(anchorTok.milesUsed) || 0) >= 30) {
@@ -3909,25 +4591,31 @@ drag.lastTargetAx = targetAx;
     }
   }
 
+
   drag = null;
   saveNow();
   rerenderAll();
 }
 
+
 tokenLayer.addEventListener("pointerup", onTokenPointerUp);
 window.addEventListener("pointerup", onTokenPointerUp);
+
 
   // Optional: mouse wheel to resize selected tokens (hover token)
   tokenLayer.addEventListener("wheel", (e) => {
     const elTok = e.target.closest(".explorer-token");
     if (!elTok) return;
 
+
     // Prevent page scroll while resizing
     e.preventDefault();
+
 
     const delta = (e.deltaY < 0) ? 2 : -2;
     changeSelectedTokenSize(delta);
   }, { passive: false });
+
 
   // Cleanup when navigating away
   // Cleanup when navigating away
@@ -3943,13 +4631,17 @@ window.__explorerCleanup = () => {
 async function router() {
   updateModeUI();
 
+
   const hash = location.hash.replace("#", "") || "/clans/blackstone";
   const parts = hash.split("/").filter(Boolean);
+
 
   const tab = parts[0] || "clans";
   const page = parts[1] || "";
 
+
   renderTopNav(tab);
+
 
   try {
     if (tab === "clans") {
@@ -3957,15 +4649,18 @@ async function router() {
   renderSideList("The Clans", CLAN_PAGES, active, "clans");
   const item = CLAN_PAGES.find(x => x.id === active) || CLAN_PAGES[0];
 
+
   view.innerHTML = await loadMarkdown(item.file);
   rewriteAssetUrls(view);
   return;
 }
 
+
     if (tab === "temples") {
   const active = page || "telluria";
   renderSideList("The Temples", TEMPLE_PAGES, active, "temples");
   const item = TEMPLE_PAGES.find(x => x.id === active) || TEMPLE_PAGES[0];
+
 
   view.innerHTML = await loadMarkdown(item.file);
   rewriteAssetUrls(view);
@@ -3977,16 +4672,19 @@ async function router() {
       return;
     }
 
+
     if (tab === "story") {
       const active = page || "";
       await renderStory(active);
       return;
     }
 
+
     if (tab === "tools") {
       const active = page || "bastion";
       renderSideList("Tools", TOOL_PAGES, active, "tools");
       const item = TOOL_PAGES.find(x => x.id === active) || TOOL_PAGES[0];
+
 
       if (item.type === "bastion") return await renderBastionManager();
 if (item.type === "roller") return await renderEventRoller();
@@ -3994,14 +4692,17 @@ if (item.type === "honour") return renderHonourTracker();
 if (item.type === "explorer") return renderExplorer();
     }
 
+
     location.hash = "#/clans/blackstone";
   } catch (err) {
     showError(err);
   }
 }
 
+
 // Run once on load
 router();
+
 
 // Re-run whenever the hash changes (tabs/sidebar clicks)
 window.addEventListener("hashchange", router);
