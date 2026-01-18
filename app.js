@@ -858,6 +858,20 @@ function startFunctionOrder(runtimeState, facilityId, fnId) {
     // So we allow orders here.
   }
 
+  // Collect simple input values (v1: prompt-based)
+const inputValues = {};
+if (Array.isArray(fn.inputs)) {
+  for (const inp of fn.inputs) {
+    if (!inp || typeof inp !== "object") continue;
+    const key = inp.storeAs;
+    if (!key) continue;
+
+    // Basic prompt UI for now
+    const label = inp.label || key;
+    const v = window.prompt(label, inputValues[key] || "");
+    if (v != null && String(v).trim() !== "") inputValues[key] = String(v).trim();
+  }
+}
   // prevent duplicate same order in progress
   const exists = (runtimeState.state.ordersInProgress || []).some(o => o.facilityId === facilityId && o.functionId === fnId);
   if (exists) return { ok:false, msg:"That function is already active." };
@@ -890,6 +904,7 @@ function startFunctionOrder(runtimeState, facilityId, fnId) {
     crafting: fn.crafting || null,
     craftingMode: chosenCraftMode,
     effects: fn.effects || null,
+    inputValues
   });
 
   return { ok:true };
@@ -912,10 +927,10 @@ function applyOrderEffects(runtimeState, order) {
     // Example use: Tellurian Rites temp HP after Long Rest for X days.
     if (eff.type === "status_effect_grant") {
       const beneficiary =
-        (eff.beneficiaryFromInputKey && order?.inputs?.[eff.beneficiaryFromInputKey]) ||
-        eff.beneficiary ||
-        "Unnamed";
-
+  (eff.beneficiaryFromInputKey && order?.inputValues?.[eff.beneficiaryFromInputKey]) ||
+  eff.beneficiary ||
+  "Unnamed";
+      
       runtimeState.state.activeEffects.push({
         id: eff.effectId || "effect",
         label: eff.label || eff.effectId || "Effect",
