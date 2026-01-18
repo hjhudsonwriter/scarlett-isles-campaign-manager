@@ -1146,7 +1146,6 @@ const SPECIAL_FACILITY_DEFS = {
   }
 };
 
-function ensureSpecialFacilityCard(runtimeState, specialInput) {
   function ensureSpecialFacilityCard(runtimeState, specialInput) {
   // Accept:
   //  - "library"
