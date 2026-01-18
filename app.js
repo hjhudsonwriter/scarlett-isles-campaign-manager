@@ -1697,7 +1697,6 @@ if (Array.isArray(fn.inputs)) {
 
   // If this function has crafting modes, collect any EXTRA inputs for the chosen mode
   // and swap the outputs/cost to match the chosen option.
-  let chosenModeObj = null;
   if (chosenCraftMode && Array.isArray(modes)) {
     chosenModeObj = modes.find(m => String(m?.id || "") === String(chosenCraftMode)) || null;
   }
