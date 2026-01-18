@@ -1146,30 +1146,34 @@ const SPECIAL_FACILITY_DEFS = {
   }
 };
 
-  function ensureSpecialFacilityCard(runtimeState, specialInput) {
+  function ensureSpecialFacilityCard(runtimeState, specialInput, maybeSpecialId) {
+  // BACKWARD COMPAT:
+  // Old calls were: ensureSpecialFacilityCard(runtimeState, config, "library")
+  // New calls are: ensureSpecialFacilityCard(runtimeState, "library")
+  // So if a 3rd argument exists, that is the real ID.
+  const effectiveInput = (typeof maybeSpecialId !== "undefined") ? maybeSpecialId : specialInput;
+
   // Accept:
   //  - "library"
   //  - { id:"library" }
   //  - { specialId:"library" }
   //  - { facilityId:"library" }
   //  - { facility:{ id:"library" } }
-  //  - { id:{ id:"library" } }
-
   let specialId = "";
 
-  if (typeof specialInput === "string") {
-    specialId = specialInput;
-  } else if (specialInput && typeof specialInput === "object") {
+  if (typeof effectiveInput === "string") {
+    specialId = effectiveInput;
+  } else if (effectiveInput && typeof effectiveInput === "object") {
     const raw =
-      (specialInput.id ?? specialInput.specialId ?? specialInput.facilityId ?? specialInput.key ??
-       specialInput.facility ?? specialInput.specialFacility ?? specialInput.data ?? "");
+      (effectiveInput.id ?? effectiveInput.specialId ?? effectiveInput.facilityId ?? effectiveInput.key ??
+       effectiveInput.facility ?? effectiveInput.specialFacility ?? effectiveInput.data ?? "");
 
     if (typeof raw === "string") {
       specialId = raw;
     } else if (raw && typeof raw === "object") {
       specialId = raw.id || raw.key || raw.name || raw.label || "";
     } else {
-      specialId = specialInput.name || specialInput.label || "";
+      specialId = effectiveInput.name || effectiveInput.label || "";
     }
   }
 
@@ -1179,35 +1183,34 @@ const SPECIAL_FACILITY_DEFS = {
   const baseId = `special_${key}`;
 
   // prevent duplicates
-  const already = (runtimeState.facilities || []).some(f => String(f.id) === baseId);
+  runtimeState.facilities = Array.isArray(runtimeState.facilities) ? runtimeState.facilities : [];
+  const already = runtimeState.facilities.some(f => String(f.id) === baseId);
   if (already) return;
 
-  // Optional defs map (safe if empty)
+  // defs map (safe if missing)
   const def = (typeof SPECIAL_FACILITY_DEFS !== "undefined" && SPECIAL_FACILITY_DEFS)
     ? (SPECIAL_FACILITY_DEFS[key] || null)
     : null;
 
-  // Try to read facilityCatalog from the same spec object the page uses
+  // Find facility catalog entry from the CURRENT loaded config/spec.
+  // In your app, runtimeState is the merged config+save object, so facilityCatalog should be here.
   let cat = null;
-  const spec =
-    (typeof bastionSpec !== "undefined" && bastionSpec) ? bastionSpec :
-    (typeof BASTION_SPEC !== "undefined" && BASTION_SPEC) ? BASTION_SPEC :
-    null;
-
-  if (spec?.facilityCatalog && Array.isArray(spec.facilityCatalog)) {
-    cat = spec.facilityCatalog.find(x => String(x?.id || "").toLowerCase() === key) || null;
+  if (Array.isArray(runtimeState.facilityCatalog)) {
+    cat = runtimeState.facilityCatalog.find(x => String(x?.id || "").toLowerCase() === key) || null;
+  } else if (typeof bastionSpec !== "undefined" && bastionSpec && Array.isArray(bastionSpec.facilityCatalog)) {
+    cat = bastionSpec.facilityCatalog.find(x => String(x?.id || "").toLowerCase() === key) || null;
+  } else if (typeof BASTION_SPEC !== "undefined" && BASTION_SPEC && Array.isArray(BASTION_SPEC.facilityCatalog)) {
+    cat = BASTION_SPEC.facilityCatalog.find(x => String(x?.id || "").toLowerCase() === key) || null;
   }
 
   const name =
     def?.label ||
     cat?.name ||
     cat?.label ||
-    (specialInput && typeof specialInput === "object" ? (specialInput.name || specialInput.label) : "") ||
     String(specialId || "Special Facility");
 
   const hire = safeNum(def?.hirelings, 0);
 
-  runtimeState.facilities = runtimeState.facilities || [];
   runtimeState.facilities.push({
     id: baseId,
     name,
@@ -1217,7 +1220,9 @@ const SPECIAL_FACILITY_DEFS = {
     staffing: {
       hirelingsBase: hire,
       hirelingsByLevel: { "1": hire },
-      notes: (cat?.notes && cat.notes.length) ? cat.notes : (def?.benefits || ["Special facility (DMG'24)."])
+      notes: (cat?.notes && cat.notes.length)
+        ? cat.notes
+        : (def?.benefits || ["Special facility (DMG'24)."])
     },
     levels: {
       "1": {
