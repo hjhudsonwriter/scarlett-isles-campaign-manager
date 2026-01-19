@@ -971,55 +971,86 @@ const SPECIAL_FACILITY_DEFS = {
 
 
   scriptorium: {
-    label: "Scriptorium",
+  label: "Scriptorium",
+  orderType: "craft",
+  hirelings: 1,
+  benefits: ["Copies, books, scrollwork, and official paperwork."],
+  functions: [{
+    id: "scriptorium_craft",
+    label: "Craft (choose output)",
     orderType: "craft",
-    hirelings: 1,
-    benefits: ["Writing/copying facility (DMG)."],
-    functions: [{
-      id: "scriptorium_craft",
-      label: "Craft (choose option)",
-      orderType: "craft",
-      durationTurns: 1,
-      costGP: 0,
-      outputsToWarehouse: [
-        { type: "effect_note", qty: 1, label: "Scriptorium", notes: "Choose an option when you start this order." }
-      ],
-      crafting: {
-        modes: [
-          {
-            id: "book_replica",
-            label: "Craft: Book Replica (requires blank book)",
-            outputsToWarehouse: [
-              { type: "crafted_item", qty: 1, name: "Book Replica", notes: "Requires a blank book (not tracked automatically yet)." }
-            ]
-          },
-          {
-            id: "spell_scroll",
-            label: "Craft: Spell Scroll (Cleric/Wizard lvl 3 or lower; PHB scribing costs)",
-            outputsToWarehouse: [
-              { type: "crafted_item", qty: 1, name: "Spell Scroll (lvl 3 or lower)", notes: "Use PHB spell scroll scribing rules/costs." }
-            ]
-          },
-          {
-            id: "paperwork",
-            label: "Craft: Paperwork (up to 50 copies, 1gp each; optional distribution)",
-            inputs: [
-              { type: "number", label: "How many copies? (1-50)", storeAs: "copies" },
-              { type: "text", label: "Optional note (recipient / distribution)", storeAs: "distribution" }
-            ],
-            costPerUnitGP: 1,
-            unitInputKey: "copies",
-            outputsToWarehouse: [
-              { type: "effect_note", qty: 1, label: "Paperwork", notes: "Copies completed. See order notes for quantity/distribution." }
-            ]
-          }
-        ]
-      },
-      notes: [
-        "DMG facility. If you want strict inventory (blank books, ink, etc.) we can add it later."
+    durationTurns: 1,
+    costGP: 0,
+    outputsToWarehouse: [],
+    crafting: {
+      modes: [
+        {
+          id: "book_replica",
+          label: "Book Replica (0gp) [requires blank book]",
+          costGP: 0,
+          outputsToWarehouse: [
+            { type: "item", qty: 1, label: "Book Replica", notes: "Requires at least 1 Blank Book in Warehouse (DM check for now)." }
+          ]
+        },
+        {
+          id: "spell_scroll_l1",
+          label: "Spell Scroll (Level 1) (0gp) [requires blank book]",
+          costGP: 0,
+          outputsToWarehouse: [
+            { type: "item", qty: 1, label: "Spell Scroll (Level 1)", notes: "Requires at least 1 Blank Book in Warehouse (DM check for now)." }
+          ]
+        },
+        {
+          id: "spell_scroll_l2",
+          label: "Spell Scroll (Level 2) (0gp) [requires blank book]",
+          costGP: 0,
+          outputsToWarehouse: [
+            { type: "item", qty: 1, label: "Spell Scroll (Level 2)", notes: "Requires at least 1 Blank Book in Warehouse (DM check for now)." }
+          ]
+        },
+        {
+          id: "spell_scroll_l3",
+          label: "Spell Scroll (Level 3) (0gp) [requires blank book]",
+          costGP: 0,
+          outputsToWarehouse: [
+            { type: "item", qty: 1, label: "Spell Scroll (Level 3)", notes: "Requires at least 1 Blank Book in Warehouse (DM check for now)." }
+          ]
+        },
+
+        // Paperwork: your sheet says 1gp per copy, up to 50 copies.
+        // We make it dead-simple dropdown modes so it ALWAYS does something.
+        {
+          id: "paperwork_10",
+          label: "Paperwork: 10 copies (10gp)",
+          costGP: 10,
+          outputsToWarehouse: [
+            { type: "item", qty: 10, label: "Paperwork Copies", gp: 0, notes: "10 copies created and can be distributed within 50 miles." }
+          ]
+        },
+        {
+          id: "paperwork_25",
+          label: "Paperwork: 25 copies (25gp)",
+          costGP: 25,
+          outputsToWarehouse: [
+            { type: "item", qty: 25, label: "Paperwork Copies", gp: 0, notes: "25 copies created and can be distributed within 50 miles." }
+          ]
+        },
+        {
+          id: "paperwork_50",
+          label: "Paperwork: 50 copies (50gp)",
+          costGP: 50,
+          outputsToWarehouse: [
+            { type: "item", qty: 50, label: "Paperwork Copies", gp: 0, notes: "50 copies created and can be distributed within 50 miles." }
+          ]
+        }
       ]
-    }]
-  },
+    },
+    notes: [
+      "Uses dropdown selection; creates real warehouse entries when completed.",
+      "Blank Book requirement is recorded in notes for now (we can automate checks next)."
+    ]
+  }]
+},
 
 
   stable: {
@@ -1635,7 +1666,7 @@ function startUpgrade(runtimeState, facilityId) {
 }
 
 
-function startFunctionOrder(runtimeState, facilityId, fnId) {
+function startFunctionOrder(runtimeState, facilityId, fnId, modeId) {
   const fac = findFacility(runtimeState, facilityId);
   if (!fac) return { ok:false, msg:"Facility not found." };
 
@@ -1654,23 +1685,32 @@ function startFunctionOrder(runtimeState, facilityId, fnId) {
   let chosenModeObj = null;
   const modes = fn?.crafting?.modes;
   if (Array.isArray(modes) && modes.length) {
+  // If a modeId is passed in (dropdown), use it. Otherwise fall back to prompt.
+  const pick = String(modeId || "").trim();
+
+  if (pick) {
+    chosenModeObj =
+      modes.find(m => String(m?.id || "") === pick) ||
+      modes.find(m => String(m?.label || "").toLowerCase() === pick.toLowerCase()) ||
+      modes[0];
+  } else {
     const lines = modes.map((m, i) => `${i + 1}) ${m.label || m.id || "mode"}`).join("\n");
     const pickRaw = window.prompt(`Choose crafting mode (type number, id, or label):\n\n${lines}`, "1");
-    const pick = String(pickRaw || "").trim();
+    const p = String(pickRaw || "").trim();
 
-    // numeric pick
-    const asNum = Number(pick);
+    const asNum = Number(p);
     if (Number.isFinite(asNum) && asNum >= 1 && asNum <= modes.length) {
       chosenModeObj = modes[Math.floor(asNum) - 1];
     } else {
-      // id match
-      chosenModeObj = modes.find(m => String(m?.id || "").toLowerCase() === pick.toLowerCase())
-        // label match
-        || modes.find(m => String(m?.label || "").toLowerCase() === pick.toLowerCase())
-        || modes[0];
+      chosenModeObj =
+        modes.find(m => String(m?.id || "").toLowerCase() === p.toLowerCase()) ||
+        modes.find(m => String(m?.label || "").toLowerCase() === p.toLowerCase()) ||
+        modes[0];
     }
-    chosenCraftMode = chosenModeObj?.id || null;
   }
+
+  chosenCraftMode = chosenModeObj?.id || null;
+}
 
 
   if (isUnderConstruction(runtimeState, facilityId)) {
@@ -2979,9 +3019,21 @@ const res = await fetch(configPath, { cache: "no-store" });
     const disabled = treasuryNow < dynCost;
 
 
-    return `<button class="bm_startFn" data-fid="${f.id}" data-fnid="${fn.id}" ${disabled ? "disabled" : ""}>
-      Start (${dynCost}gp)
-    </button>`;
+        const hasModes = Array.isArray(fn?.crafting?.modes) && fn.crafting.modes.length;
+
+    return `
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        ${hasModes ? `
+          <select class="bm_modeSel" data-fid="${f.id}" data-fnid="${fn.id}">
+            ${fn.crafting.modes.map(m => `<option value="${m.id}">${m.label || m.id}</option>`).join("")}
+          </select>
+        ` : ``}
+
+        <button class="bm_startFn" data-fid="${f.id}" data-fnid="${fn.id}" ${disabled ? "disabled" : ""}>
+          Start (${dynCost}gp)
+        </button>
+      </div>
+    `;
   })()
 
 
@@ -3027,7 +3079,31 @@ const res = await fetch(configPath, { cache: "no-store" });
 
 
   renderFacilities();
+    // Bind Start buttons (delegated) once
+  if (!window.__bmStartBound) {
+    window.__bmStartBound = true;
 
+    facWrap.addEventListener("click", (e) => {
+      const btn = e.target.closest(".bm_startFn");
+      if (!btn) return;
+
+      const fid = btn.getAttribute("data-fid");
+      const fnid = btn.getAttribute("data-fnid");
+
+      // Read dropdown mode if present for this function
+      const sel = facWrap.querySelector(`.bm_modeSel[data-fid="${fid}"][data-fnid="${fnid}"]`);
+      const modeId = sel ? sel.value : null;
+
+      const r = startFunctionOrder(runtimeState, fid, fnid, modeId);
+      if (!r?.ok) {
+        alert(r?.msg || "Could not start function.");
+        return;
+      }
+
+      saveBastionState(runtimeState);
+      renderBastionManager();
+    });
+  }
 
     // ----- Workshop Crafting (inside Workshop card) -----
   function normaliseToolKey(name) {
@@ -3147,7 +3223,7 @@ const res = await fetch(configPath, { cache: "no-store" });
 
 
       // Start the actual Workshop function order
-      const r = startFunctionOrder(runtimeState, facilityId, functionId);
+      const r = startFunctionOrder(runtimeState, facilityId, functionId, null);
       if (!r.ok) {
         alert(r.msg || "Could not start craft order.");
         return;
