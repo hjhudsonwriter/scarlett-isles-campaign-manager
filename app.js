@@ -2780,7 +2780,22 @@ const catalog = Array.isArray(spec.facilityCatalog) ? spec.facilityCatalog : [];
       return;
     }
 
-
+    // Empty slot: dropdown
+      // Hide facilities you don't want cluttering the dropdown (they can still exist as cards if built).
+      const HIDDEN_SPECIAL = new Set([
+        "observatory",
+        "pub",
+        "reliquary",
+        "sanctum",
+        "theater",
+        "theatre",
+        "trophy_room",
+        "archive",
+        "meditation_chamber",
+        "chapel",
+        "vault"
+      ]);
+    
     const rows = [];
     for (let i = 0; i < slotCount; i++) {
       const existing = built[i] || null;
@@ -2813,29 +2828,13 @@ const catalog = Array.isArray(spec.facilityCatalog) ? spec.facilityCatalog : [];
         continue;
       }
 
-
-      // Empty slot: dropdown
-      // Hide facilities you don't want cluttering the dropdown (they can still exist as cards if built).
-      const HIDDEN_SPECIAL = new Set([
-        "observatory",
-        "pub",
-        "reliquary",
-        "sanctum",
-        "theater",
-        "theatre",
-        "trophy_room",
-        "archive",
-        "meditation_chamber",
-        "chapel",
-        "vault"
-      ]);
-
       const opts = (catalog || [])
         .filter(c => !HIDDEN_SPECIAL.has(String(c?.id || "").toLowerCase()))
         .map(c => {
         const min = safeNum(c.minPlayerLevel, 1);
         const disabled = playerLevel < min;
-        const label = `${c.name} (L${min}+ • ${safeNum(c.buildCostGP, 0)}gp • ${safeNum(c.buildTurns, 1)} turns)`;
+        const nm = c.name || c.label || c.id;
+const label = `${nm} (L${min}+ • ${safeNum(c.buildCostGP, 0)}gp • ${safeNum(c.buildTurns, 1)} turns)`;
         return `<option value="${c.id}" ${disabled ? "disabled" : ""}>${label}</option>`;
       }).join("");
 
@@ -2875,7 +2874,7 @@ const catalog = Array.isArray(spec.facilityCatalog) ? spec.facilityCatalog : [];
         if (playerLevel < min) return alert("Player level too low for that facility.");
 
 
-        const cost = safeNum(entry.costGP, 0);
+        const cost = safeNum(entry.buildCostGP, 0);
         const turns = safeNum(entry.buildTurns, 1);
         const treasury = safeNum(runtimeState.state.treasury.gp, 0);
         if (treasury < cost) return alert("Not enough GP in Treasury.");
