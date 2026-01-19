@@ -1668,156 +1668,90 @@ function startUpgrade(runtimeState, facilityId) {
 }
 
 
-function startFunctionOrder(runtimeState, facilityId, fnId, modeId) {
+function startFunctionOrder(runtimeState, facilityId, fnId, opts = {}) {
   const fac = findFacility(runtimeState, facilityId);
   if (!fac) return { ok:false, msg:"Facility not found." };
-
 
   const lvl = safeNum(fac.currentLevel, 0);
   const lvlData = facilityLevelData(fac, lvl);
   const fns = lvlData?.functions || [];
   const fn = fns.find(x => x.id === fnId);
   if (!fn) return { ok:false, msg:"Function not found for current level." };
-  // v1.1: crafting mode selection (robust)
-  // NOTE: prompts are a temporary UI. This version lets you type:
-  //  - the mode id (e.g. "book_replica")
-  //  - the label (e.g. "Book Replica")
-  //  - a number (1, 2, 3...)
-  let chosenCraftMode = null;
-  let chosenModeObj = null;
+
+  // ---- Mode selection (NO PROMPT) ----
   const modes = fn?.crafting?.modes;
+  let chosenModeObj = null;
+  let chosenCraftMode = null;
+
+  // If UI passed a mode id, use it; otherwise default to first mode.
   if (Array.isArray(modes) && modes.length) {
-  // If a modeId is passed in (dropdown), use it. Otherwise fall back to prompt.
-  const pick = String(modeId || "").trim();
-
-  if (pick) {
+    const passed = (opts && opts.craftingMode != null) ? String(opts.craftingMode) : "";
     chosenModeObj =
-      modes.find(m => String(m?.id || "") === pick) ||
-      modes.find(m => String(m?.label || "").toLowerCase() === pick.toLowerCase()) ||
-      modes[0];
-  } else {
-    const lines = modes.map((m, i) => `${i + 1}) ${m.label || m.id || "mode"}`).join("\n");
-    const pickRaw = window.prompt(`Choose crafting mode (type number, id, or label):\n\n${lines}`, "1");
-    const p = String(pickRaw || "").trim();
-
-    const asNum = Number(p);
-    if (Number.isFinite(asNum) && asNum >= 1 && asNum <= modes.length) {
-      chosenModeObj = modes[Math.floor(asNum) - 1];
-    } else {
-      chosenModeObj =
-        modes.find(m => String(m?.id || "").toLowerCase() === p.toLowerCase()) ||
-        modes.find(m => String(m?.label || "").toLowerCase() === p.toLowerCase()) ||
-        modes[0];
-    }
+      (passed ? modes.find(m => String(m?.id || "") === passed) : null)
+      || modes[0];
+    chosenCraftMode = chosenModeObj?.id || null;
   }
 
-  chosenCraftMode = chosenModeObj?.id || null;
-}
+  // ---- Collect inputs (still prompt-based, but only for extra details) ----
+  const inputValues = {};
 
-
-  if (isUnderConstruction(runtimeState, facilityId)) {
-    // Still can use current level functions while building next tier in many systems,
-    // but your spec says "prevent using the new tier until complete" – current tier is fine.
-    // So we allow orders here.
-  }
-
-
-  // Collect simple input values (v1: prompt-based)
-const inputValues = {};
-if (Array.isArray(fn.inputs)) {
-  for (const inp of fn.inputs) {
-    if (!inp || typeof inp !== "object") continue;
-    const key = inp.storeAs;
-    if (!key) continue;
-
-
-    // Basic prompt UI for now
-    const label = inp.label || key;
-    const v = window.prompt(label, inputValues[key] || "");
-    if (v != null && String(v).trim() !== "") inputValues[key] = String(v).trim();
-  }
-}
-
-  // If this function has crafting modes, collect any EXTRA inputs for the chosen mode
-  // and swap the outputs/cost to match the chosen option.
-  if (chosenCraftMode && Array.isArray(modes)) {
-    chosenModeObj = modes.find(m => String(m?.id || "") === String(chosenCraftMode)) || null;
-  }
-
-  if (chosenModeObj && Array.isArray(chosenModeObj.inputs)) {
-    for (const inp of chosenModeObj.inputs) {
+  const collectInputs = (inputsArr) => {
+    if (!Array.isArray(inputsArr)) return;
+    for (const inp of inputsArr) {
       if (!inp || typeof inp !== "object") continue;
-      const k = inp.storeAs;
-      if (!k) continue;
-      const label = inp.label || k;
-      const v = window.prompt(label, inputValues[k] || "");
-      if (v != null && String(v).trim() !== "") inputValues[k] = String(v).trim();
+      const key = inp.storeAs;
+      if (!key) continue;
+      const label = inp.label || key;
+      const v = window.prompt(label, inputValues[key] || "");
+      if (v != null && String(v).trim() !== "") inputValues[key] = String(v).trim();
     }
-  }
+  };
 
-  // Outputs for this order (default: function outputs). If mode provides outputs, use them.
-  let outputsForOrder = Array.isArray(fn.outputsToWarehouse) ? fn.outputsToWarehouse : [];
-  if (chosenModeObj && Array.isArray(chosenModeObj.outputsToWarehouse)) {
-    outputsForOrder = chosenModeObj.outputsToWarehouse;
-  }
+  // base inputs, then mode-specific inputs
+  collectInputs(fn.inputs);
+  collectInputs(chosenModeObj?.inputs);
+
+  // ---- Build effective function data from the chosen mode (overrides) ----
+  const effLabel = (chosenModeObj?.label != null) ? chosenModeObj.label : fn.label;
+  const effDuration = safeNum(chosenModeObj?.durationTurns, safeNum(fn.durationTurns, 1));
+  const effCost = (chosenModeObj?.costGP != null) ? safeNum(chosenModeObj.costGP, 0) : safeNum(fn.costGP, 0);
+  const effOutputs = Array.isArray(chosenModeObj?.outputsToWarehouse)
+    ? chosenModeObj.outputsToWarehouse
+    : (Array.isArray(fn.outputsToWarehouse) ? fn.outputsToWarehouse : []);
+  const effNotes = Array.isArray(chosenModeObj?.notes) ? chosenModeObj.notes : (fn.notes || []);
+  const effEffects = Array.isArray(chosenModeObj?.effects) ? chosenModeObj.effects : (fn.effects || null);
 
   // prevent duplicate same order in progress
   const exists = (runtimeState.state.ordersInProgress || []).some(o => o.facilityId === facilityId && o.functionId === fnId);
   if (exists) return { ok:false, msg:"That function is already active." };
 
-
-  // cost handling
-  // cost handling (supports v1.1 dynamic cost and per-mode overrides)
-  let cost = safeNum(fn.costGP, 0);
-
-  // If a crafting mode specifies a flat cost, use it.
-  if (chosenModeObj && chosenModeObj.costGP != null) {
-    cost = safeNum(chosenModeObj.costGP, cost);
-  }
-
-  // If a crafting mode specifies a per-unit cost, multiply it by an input.
-  // Example: paperwork copies @ 1gp each.
-  if (chosenModeObj && chosenModeObj.costPerUnitGP != null && chosenModeObj.unitInputKey) {
-    const n = safeNum(inputValues[chosenModeObj.unitInputKey], 0);
-    cost = safeNum(chosenModeObj.costPerUnitGP, 0) * Math.max(0, n);
-  }
-
+  // ---- Cost handling ----
+  let cost = effCost;
 
   // Armoury "Stock" rule: 100 + 100 per defender, halved if Smithy OR Workshop exists
   const isArmoury = (String(facilityId) === "armoury" || String(facilityId) === "armory");
   const isStockFn = String(fnId).toLowerCase().includes("stock");
-
-
   if (isArmoury && isStockFn) {
     cost = computeArmouryStockCost(runtimeState);
   }
 
-
   const treasury = safeNum(runtimeState.state?.treasury?.gp, 0);
-
-
   if (treasury < cost) return { ok:false, msg:"Not enough GP for that function." };
   runtimeState.state.treasury.gp = treasury - cost;
-
-
-  const orderLabel = (chosenModeObj && chosenModeObj.label)
-    ? `${fn.label}: ${chosenModeObj.label}`
-    : fn.label;
 
   runtimeState.state.ordersInProgress.push({
     facilityId,
     functionId: fnId,
-    label: orderLabel,
-    remainingTurns: safeNum(fn.durationTurns, 1),
-    outputsToWarehouse: outputsForOrder,
-    notes: fn.notes || [],
+    label: effLabel,
+    remainingTurns: effDuration,
+    outputsToWarehouse: effOutputs,
+    notes: effNotes,
     rosterEffects: fn.rosterEffects || null,
     crafting: fn.crafting || null,
     craftingMode: chosenCraftMode,
-    effects: fn.effects || null,
-    inputValues
+    effects: effEffects,
+    inputValues,
   });
-
 
   return { ok:true };
 }
@@ -3075,9 +3009,17 @@ const label = `${nm} (L${min}+ • ${safeNum(c.buildCostGP, 0)}gp • ${safeNum(
           </select>
         ` : ``}
 
-        <button class="bm_startFn" data-fid="${f.id}" data-fnid="${fn.id}" ${disabled ? "disabled" : ""}>
-          Start (${dynCost}gp)
-        </button>
+        const hasModes = Array.isArray(fn?.crafting?.modes) && fn.crafting.modes.length;
+
+const modeSelect = hasModes
+  ? `<select class="bm_modeSelect" style="margin-right:10px; max-width:240px;">
+      ${fn.crafting.modes.map(m => `<option value="${m.id}">${m.label || m.id}</option>`).join("")}
+     </select>`
+  : "";
+
+return `${modeSelect}<button class="bm_startFn" data-fid="${f.id}" data-fnid="${fn.id}" ${disabled ? "disabled" : ""}>
+  Start (${dynCost}gp)
+</button>`;
       </div>
     `;
   })()
@@ -3325,7 +3267,11 @@ const fac = findFacility(runtimeState, fid);
 const facBase = baseFacilityId(fid);
 
 
-const r = startFunctionOrder(runtimeState, fid, fnid);
+const td = btn.closest("td");
+const modeSel = td ? td.querySelector(".bm_modeSelect") : null;
+const chosenMode = modeSel ? modeSel.value : null;
+
+const r = startFunctionOrder(runtimeState, fid, fnid, { craftingMode: chosenMode });
       if (!r.ok) alert(r.msg || "Could not start function.");
       saveBastionSave(runtimeState);
       renderBastionManager();
