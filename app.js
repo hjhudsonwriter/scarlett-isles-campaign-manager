@@ -2942,120 +2942,80 @@ const label = `${nm} (L${min}+ • ${safeNum(c.buildCostGP, 0)}gp • ${safeNum(
 
 
           <h4>Functions</h4>
-          ${baseFacilityId(f.id) === "workshop" ? `
-  <div class="card" style="margin:12px 0; background: rgba(18,22,27,.55);">
-    <h4 style="margin-top:0;">Workshop Crafting</h4>
-    <p class="small muted">Pick a saved artisan tool, then pick an item. This starts a Workshop craft order and deposits the result into the Warehouse when complete.</p>
+${fns.length ? `
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Function</th>
+        <th>Duration</th>
+        <th>Outputs</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${fns.map(fn => {
+        const active = activeOrders.find(o => o.functionId === fn.id);
+        const outputs = (fn.outputsToWarehouse || []).length
+          ? fn.outputsToWarehouse.map(o => `<code>${o.type || "item"}</code>`).join(" ")
+          : "<span class='small muted'>None</span>";
 
+        return `
+          <tr>
+            <td>
+              <b>${fn.label}</b><br>
+              <span class="small muted">${(fn.notes || []).join(" • ")}</span>
+            </td>
+            <td>${safeNum(fn.durationTurns,1)} turn(s)</td>
+            <td>${outputs}</td>
+            <td>
+              ${active
+                ? `<span class="pill">Active • ${safeNum(active.remainingTurns,0)} left</span>`
+                : (() => {
+                    const isArm = (String(f.id) === "armoury" || String(f.id) === "armory");
+                    const isStock = String(fn.id).toLowerCase().includes("stock");
+                    const dynCost = (isArm && isStock)
+                      ? computeArmouryStockCost(runtimeState)
+                      : safeNum(fn.costGP, 0);
 
-    <div class="grid2">
-      <label>Tool
-        <select id="bm_craftTool"></select>
-      </label>
+                    const treasuryNow = safeNum(runtimeState.state?.treasury?.gp, 0);
+                    const disabled = treasuryNow < dynCost;
 
+                    let modeSelectHtml = "";
+                    if (Array.isArray(fn?.crafting?.modes) && fn.crafting.modes.length) {
+                      modeSelectHtml = `
+                        <select class="bm_modeSelect"
+                                data-fid="${f.id}"
+                                data-fnid="${fn.id}"
+                                style="margin-right:10px; max-width:240px;">
+                          ${fn.crafting.modes.map(m =>
+                            `<option value="${m.id || ""}">${m.label || m.id}</option>`
+                          ).join("")}
+                        </select>
+                      `;
+                    }
 
-      <label>Item
-        <select id="bm_craftItem"></select>
-      </label>
-    </div>
+                    return `
+                      ${modeSelectHtml}
+                      <button class="bm_startFn"
+                              data-fid="${f.id}"
+                              data-fnid="${fn.id}"
+                              ${disabled ? "disabled" : ""}>
+                        Start (${dynCost}gp)
+                      </button>
+                    `;
+                  })()
+              }
+            </td>
+          </tr>
+        `;
+      }).join("")}
+    </tbody>
+  </table>
+` : `<p class="small muted">No functions at this level.</p>`}
 
-
-    <div class="btnRow" style="margin-top:10px;">
-      <button id="bm_craftStart" type="button">Start Craft</button>
-    </div>
-
-
-    <div class="small muted" id="bm_craftHint" style="margin-top:10px;"></div>
-  </div>
-` : ``}
-          ${fns.length ? `
-            <table class="table">
-              <thead><tr><th>Function</th><th>Duration</th><th>Outputs</th><th>Action</th></tr></thead>
-              <tbody>
-                ${fns.map(fn => {
-                  const active = activeOrders.find(o => o.functionId === fn.id);
-                  const outputs = (fn.outputsToWarehouse || []).length
-                    ? fn.outputsToWarehouse.map(o => `<code>${o.type || "item"}</code>`).join(" ")
-                    : "<span class='small muted'>None</span>";
-
-
-                  return `
-                    <tr>
-                      <td>
-                        <b>${fn.label}</b><br>
-                        <span class="small muted">${(fn.notes||[]).join(" • ")}</span>
-                      </td>
-                      <td>${safeNum(fn.durationTurns,1)} turn(s)</td>
-                      <td>${outputs}</td>
-                      <td>
-                        ${active
-                          ? `<span class="pill">Active • ${safeNum(active.remainingTurns,0)} left</span>`
-                         : (() => {
-    // compute dynamic armoury cost for display + disable if insufficient
-    const isArm = (String(f.id) === "armoury" || String(f.id) === "armory");
-    const isStock = String(fn.id).toLowerCase().includes("stock");
-    const dynCost = (isArm && isStock) ? computeArmouryStockCost(runtimeState) : safeNum(fn.costGP, 0);
-    const treasuryNow = safeNum(runtimeState.state?.treasury?.gp, 0);
-    const disabled = treasuryNow < dynCost;
-
-    // Optional mode dropdown (if this function has crafting modes)
-    let modeSelectHtml = "";
-    if (Array.isArray(fn?.crafting?.modes) && fn.crafting.modes.length) {
-      modeSelectHtml = `<select class="bm_modeSelect" data-fid="${f.id}" data-fnid="${fn.id}" style="margin-right:10px; max-width:240px;">
-        ${fn.crafting.modes.map(m => {
-          const label = m.label || m.id || "mode";
-          const id = m.id || label;
-          return `<option value="${id}">${label}</option>`;
-        }).join("")}
-      </select>`;
-    }
-
-    return `
-  <tr>
-    <td>
-      <b>${fn.label}</b><br>
-      <span class="small muted">${(fn.notes||[]).join(" • ")}</span>
-    </td>
-    <td>${safeNum(fn.durationTurns,1)} turn(s)</td>
-    <td>${outputs}</td>
-    <td>
-      ${active
-        ? `<span class="pill">Active • ${safeNum(active.remainingTurns,0)} left</span>`
-        : (() => {
-    // compute dynamic armoury cost for display + disable if insufficient
-    const isArm = (String(f.id) === "armoury" || String(f.id) === "armory");
-    const isStock = String(fn.id).toLowerCase().includes("stock");
-    const dynCost = (isArm && isStock) ? computeArmouryStockCost(runtimeState) : safeNum(fn.costGP, 0);
-
-    const treasuryNow = safeNum(runtimeState.state?.treasury?.gp, 0);
-    const disabled = treasuryNow < dynCost;
-
-    // Optional mode dropdown (if this function has crafting modes)
-    let modeSelectHtml = "";
-    if (Array.isArray(fn?.crafting?.modes) && fn.crafting.modes.length) {
-      modeSelectHtml = `<select class="bm_modeSelect" data-fid="${f.id}" data-fnid="${fn.id}" style="margin-right:10px; max-width:240px;">
-        ${fn.crafting.modes.map(m => `<option value="${m.id}">${m.label || m.id}</option>`).join("")}
-      </select>`;
-    }
-
-    return `${modeSelectHtml}<button class="bm_startFn" data-fid="${f.id}" data-fnid="${fn.id}" ${disabled ? "disabled" : ""}>
-      Start (${dynCost}gp)
-    </button>`;
-  })()
-      }
-    </td>
-  </tr>
-`;
-                           
-                }).join("")}
-              </tbody>
-            </table>
-          ` : `<p class="small muted">No functions at this level.</p>`}
 
 
           <hr />
-
-
           <h4>Upgrade</h4>
           ${nextData ? `
             <div class="small muted">Next: <b>${nextData.label || `Level ${nextLvl}`}</b></div>
