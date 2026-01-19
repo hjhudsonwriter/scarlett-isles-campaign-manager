@@ -2765,8 +2765,15 @@ const res = await fetch(configPath, { cache: "no-store" });
     const building = runtimeState.state.specialConstruction;
 
 
-    const catalog = getFacilityCatalogFromRuntime(runtimeState, config);
+    // Always resolve the bastion spec safely (prevents empty Build dropdown)
+const spec =
+  (runtimeState?.spec && typeof runtimeState.spec === "object") ? runtimeState.spec :
+  (runtimeState?.config && typeof runtimeState.config === "object") ? runtimeState.config :
+  (typeof bastionSpec !== "undefined" && bastionSpec) ? bastionSpec :
+  (typeof BASTION_SPEC !== "undefined" && BASTION_SPEC) ? BASTION_SPEC :
+  {};
 
+const catalog = Array.isArray(spec.facilityCatalog) ? spec.facilityCatalog : [];
 
     if (slotCount <= 0) {
       specialWrap.innerHTML = `<p class="small muted">No special facility slots unlocked yet. (Unlocks at Player Level 5.)</p>`;
