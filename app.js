@@ -2990,7 +2990,7 @@ const label = `${nm} (L${min}+ • ${safeNum(c.buildCostGP, 0)}gp • ${safeNum(
                       <td>
                         ${active
                           ? `<span class="pill">Active • ${safeNum(active.remainingTurns,0)} left</span>`
-                          : (() => {
+                         : (() => {
     // compute dynamic armoury cost for display + disable if insufficient
     const isArm = (String(f.id) === "armoury" || String(f.id) === "armory");
     const isStock = String(fn.id).toLowerCase().includes("stock");
@@ -2998,24 +2998,22 @@ const label = `${nm} (L${min}+ • ${safeNum(c.buildCostGP, 0)}gp • ${safeNum(
     const treasuryNow = safeNum(runtimeState.state?.treasury?.gp, 0);
     const disabled = treasuryNow < dynCost;
 
+    // Optional mode dropdown (if this function has crafting modes)
+    let modeSelectHtml = "";
+    if (Array.isArray(fn?.crafting?.modes) && fn.crafting.modes.length) {
+      modeSelectHtml = `<select class="bm_modeSelect" data-fid="${f.id}" data-fnid="${fn.id}" style="margin-right:10px; max-width:240px;">
+        ${fn.crafting.modes.map(m => {
+          const label = m.label || m.id || "mode";
+          const id = m.id || label;
+          return `<option value="${id}">${label}</option>`;
+        }).join("")}
+      </select>`;
+    }
 
-        let modeSelectHtml = "";
-
-if (Array.isArray(fn?.crafting?.modes) && fn.crafting.modes.length) {
-  modeSelectHtml = '<select class="bm_modeSelect" style="margin-right:10px; max-width:240px;">';
-  fn.crafting.modes.forEach(m => {
-    const label = m.label || m.id;
-    modeSelectHtml += `<option value="${m.id}">${label}</option>`;
-  });
-  modeSelectHtml += "</select>";
-}
-
-return `${modeSelectHtml}
-<button class="bm_startFn" data-fid="${f.id}" data-fnid="${fn.id}" ${disabled ? "disabled" : ""}>
-  Start (${dynCost}gp)
-</button>`;
-
-                        }
+    return `${modeSelectHtml}<button class="bm_startFn" data-fid="${f.id}" data-fnid="${fn.id}" ${disabled ? "disabled" : ""}>
+      Start (${dynCost}gp)
+    </button>`;
+  })()
                       </td>
                     </tr>
                   `;
