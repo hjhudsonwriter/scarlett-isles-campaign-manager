@@ -3010,13 +3010,43 @@ const label = `${nm} (L${min}+ • ${safeNum(c.buildCostGP, 0)}gp • ${safeNum(
       </select>`;
     }
 
-    return `${modeSelectHtml}<button class="bm_startFn" data-fid="${f.id}" data-fnid="${fn.id}" ${disabled ? "disabled" : ""}>
-      Start (${dynCost}gp)
-    </button>`;
-  })()
-                      </td>
-                    </tr>
-                  `;
+    return `
+  <tr>
+    <td>
+      <b>${fn.label}</b><br>
+      <span class="small muted">${(fn.notes||[]).join(" • ")}</span>
+    </td>
+    <td>${safeNum(fn.durationTurns,1)} turn(s)</td>
+    <td>${outputs}</td>
+    <td>
+      ${active
+        ? `<span class="pill">Active • ${safeNum(active.remainingTurns,0)} left</span>`
+        : (() => {
+            const isArm = (String(f.id) === "armoury" || String(f.id) === "armory");
+            const isStock = String(fn.id).toLowerCase().includes("stock");
+            const dynCost = (isArm && isStock)
+              ? computeArmouryStockCost(runtimeState)
+              : safeNum(fn.costGP, 0);
+
+            const treasuryNow = safeNum(runtimeState.state?.treasury?.gp, 0);
+            const disabled = treasuryNow < dynCost;
+
+            let modeSelectHtml = "";
+            if (Array.isArray(fn?.crafting?.modes) && fn.crafting.modes.length) {
+              modeSelectHtml = `<select class="bm_modeSelect" data-fid="${f.id}" data-fnid="${fn.id}" style="margin-right:10px; max-width:240px;">
+                ${fn.crafting.modes.map(m => `<option value="${m.id}">${m.label || m.id}</option>`).join("")}
+              </select>`;
+            }
+
+            return `${modeSelectHtml}<button class="bm_startFn" data-fid="${f.id}" data-fnid="${fn.id}" ${disabled ? "disabled" : ""}>
+              Start (${dynCost}gp)
+            </button>`;
+          })()
+      }
+    </td>
+  </tr>
+`;
+                           
                 }).join("")}
               </tbody>
             </table>
