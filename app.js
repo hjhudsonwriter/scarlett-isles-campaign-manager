@@ -3069,10 +3069,11 @@ return `${modeSelectHtml}
       const fnid = btn.getAttribute("data-fnid");
 
       // Read dropdown mode if present for this function
-      const sel = facWrap.querySelector(`.bm_modeSel[data-fid="${fid}"][data-fnid="${fnid}"]`);
-      const modeId = sel ? sel.value : null;
+      const td = btn.closest("td");
+const sel = td ? td.querySelector(".bm_modeSelect") : null;
+const modeId = sel ? sel.value : null;
 
-      const r = startFunctionOrder(runtimeState, fid, fnid, modeId);
+const r = startFunctionOrder(runtimeState, fid, fnid, { craftingMode: modeId });
       if (!r?.ok) {
         alert(r?.msg || "Could not start function.");
         return;
@@ -3235,39 +3236,6 @@ return `${modeSelectHtml}
   wireWorkshopCraftUI();
     renderSpecialFacilities();
 
-
-  facWrap.addEventListener("click", (e) => {
-    const up = e.target.closest(".bm_upgrade");
-    if (up) {
-      const fid = up.dataset.fid;
-      const r = startUpgrade(runtimeState, fid);
-      if (!r.ok) alert(r.msg || "Could not start upgrade.");
-      saveBastionSave(runtimeState);
-      renderBastionManager();
-      return;
-    }
-
-
-    const st = e.target.closest(".bm_startFn");
-    if (st) {
-      const fid = st.dataset.fid;
-      const fnid = st.dataset.fnid;
-      // Workshop craft prompt (v1.1)
-const fac = findFacility(runtimeState, fid);
-const facBase = baseFacilityId(fid);
-
-
-const td = btn.closest("td");
-const modeSel = td ? td.querySelector(".bm_modeSelect") : null;
-const chosenMode = modeSel ? modeSel.value : null;
-
-const r = startFunctionOrder(runtimeState, fid, fnid, { craftingMode: chosenMode });
-      if (!r.ok) alert(r.msg || "Could not start function.");
-      saveBastionSave(runtimeState);
-      renderBastionManager();
-      return;
-    }
-  });
     // Special facilities are wired inside renderSpecialFacilities() (fresh DOM each render)
 
 
@@ -4520,8 +4488,9 @@ drag.lastTargetAx = targetAx;
       if (!tok || !startA) return;
 
 
+      
       const newA = { q: startA.q + dq, r: startA.r + dr };
-      const p = axialToPixel(newA.q, newA.r);
+tok.axial = newA;
 
 
       // Place token centered on hex center
