@@ -2242,10 +2242,14 @@ async function renderBastionManager() {
   let config;
   try {
     const configPath = getBastionConfigPath();
-const res = await fetch(configPath, { cache: "no-store" });
+    const res = await fetch(configPath, { cache: "no-store" });
     if (!res.ok) throw new Error(`Could not load ${configPath}`);
     config = await res.json();
-    } catch (e) {
+
+    // 🔑 MAKE CONFIG AVAILABLE EVERYWHERE
+    runtimeState.spec = config;
+
+  } catch (e) {
     const configPath = getBastionConfigPath();
     view.innerHTML = `<h1>Bastion Manager</h1><p class="badge">Error loading ${configPath}</p><pre>${String(e)}</pre>`;
     return;
@@ -2827,7 +2831,7 @@ const catalog = Array.isArray(spec.facilityCatalog) ? spec.facilityCatalog : [];
         `);
         continue;
       }
-console.log("catalog count", catalog.length, catalog[0]);
+
       const opts = (catalog || [])
         .filter(c => !HIDDEN_SPECIAL.has(String(c?.id || "").toLowerCase()))
         .map(c => {
