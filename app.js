@@ -2827,7 +2827,7 @@ const catalog = Array.isArray(spec.facilityCatalog) ? spec.facilityCatalog : [];
         `);
         continue;
       }
-
+console.log("catalog count", catalog.length, catalog[0]);
       const opts = (catalog || [])
         .filter(c => !HIDDEN_SPECIAL.has(String(c?.id || "").toLowerCase()))
         .map(c => {
