@@ -8,6 +8,8 @@ const BASE = (() => {
   return parts.length ? `/${parts[0]}/` : "/";
 })();
 
+// Holds the loaded bastion config so renderSpecialFacilities() can access it
+let __BASTION_SPEC__ = null;
 
 function withBase(url) {
   if (!url) return url;
@@ -2246,8 +2248,9 @@ async function renderBastionManager() {
     if (!res.ok) throw new Error(`Could not load ${configPath}`);
     config = await res.json();
 
-    // 🔑 MAKE CONFIG AVAILABLE EVERYWHERE
-    runtimeState.spec = config;
+// 🔑 MAKE CONFIG AVAILABLE EVERYWHERE (runtimeState may not exist yet here)
+__BASTION_SPEC__ = config;
+
 
   } catch (e) {
     const configPath = getBastionConfigPath();
@@ -2259,6 +2262,7 @@ async function renderBastionManager() {
   // Load saved state or seed from config
   const saved = loadBastionSave();
   const runtimeState = ensureRuntimeState(config, saved);
+  runtimeState.spec = __BASTION_SPEC__ || config;
 
 
   // Precompute
