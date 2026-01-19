@@ -2777,11 +2777,43 @@ __BASTION_SPEC__ = config;
 const spec =
   (runtimeState?.spec && typeof runtimeState.spec === "object") ? runtimeState.spec :
   (runtimeState?.config && typeof runtimeState.config === "object") ? runtimeState.config :
+  (typeof __BASTION_SPEC__ !== "undefined" && __BASTION_SPEC__) ? __BASTION_SPEC__ :
   (typeof bastionSpec !== "undefined" && bastionSpec) ? bastionSpec :
   (typeof BASTION_SPEC !== "undefined" && BASTION_SPEC) ? BASTION_SPEC :
   {};
 
-const catalog = Array.isArray(spec.facilityCatalog) ? spec.facilityCatalog : [];
+// 1) Prefer JSON-provided facilityCatalog (v1.1)
+// 2) If missing (v1), FALL BACK to the built-in SPECIAL_FACILITY_DEFS so dropdown still works.
+let catalog = Array.isArray(spec.facilityCatalog) ? spec.facilityCatalog : [];
+
+// Fallback tier mapping (DMG-style unlock levels)
+const SPECIAL_TIER_MIN_LEVEL = {
+  // Level 5
+  arcane_study: 5, armory: 5, barrack: 5, garden: 5, library: 5, sanctuary: 5, smithy: 5, storehouse: 5, workshop: 5, stable: 5,
+  // Level 9
+  gaming_hall: 9, greenhouse: 9, laboratory: 9, scriptorium: 9, teleportation_circle: 9, theater: 9, theatre: 9, training_area: 9, trophy_room: 9,
+  // Level 13
+  archive: 13, meditation_chamber: 13, menagerie: 13, observatory: 13, pub: 13, reliquary: 13,
+  // Level 17
+  demiplane: 17, guildhall: 17, sanctum: 17, war_room: 17
+};
+
+if (!catalog.length && typeof SPECIAL_FACILITY_DEFS === "object" && SPECIAL_FACILITY_DEFS) {
+  catalog = Object.keys(SPECIAL_FACILITY_DEFS).map(id => {
+    const def = SPECIAL_FACILITY_DEFS[id];
+    const minPlayerLevel = SPECIAL_TIER_MIN_LEVEL[id] || 5;
+    return {
+      id,
+      name: def?.label || id,
+      minPlayerLevel,
+      buildCostGP: 0,   // safe default (you can wire real costs later)
+      buildTurns: 1     // safe default
+    };
+  });
+}
+
+// Debug (optional): shows why your dropdown is empty
+console.log("[special facilities] catalog count", catalog.length, Array.isArray(spec.facilityCatalog) ? "from JSON facilityCatalog" : "fallback SPECIAL_FACILITY_DEFS");
 
     if (slotCount <= 0) {
       specialWrap.innerHTML = `<p class="small muted">No special facility slots unlocked yet. (Unlocks at Player Level 5.)</p>`;
@@ -3114,7 +3146,7 @@ const label = `${nm} (L${min}+ • ${safeNum(c.buildCostGP, 0)}gp • ${safeNum(
         return;
       }
 
-      saveBastionState(runtimeState);
+      saveBastionSave(runtimeState);
       renderBastionManager();
     });
   }
