@@ -2999,23 +2999,22 @@ const label = `${nm} (L${min}+ • ${safeNum(c.buildCostGP, 0)}gp • ${safeNum(
     const disabled = treasuryNow < dynCost;
 
 
-        const hasModes = Array.isArray(fn?.crafting?.modes) && fn.crafting.modes.length;
+        let modeSelectHtml = "";
 
-    return `
-      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-        ${hasModes ? `
-          <select class="bm_modeSel" data-fid="${f.id}" data-fnid="${fn.id}">
-            ${fn.crafting.modes.map(m => `<option value="${m.id}">${m.label || m.id}</option>`).join("")}
-          </select>
-        ` : ``}
+if (Array.isArray(fn?.crafting?.modes) && fn.crafting.modes.length) {
+  modeSelectHtml = '<select class="bm_modeSelect" style="margin-right:10px; max-width:240px;">';
+  fn.crafting.modes.forEach(m => {
+    const label = m.label || m.id;
+    modeSelectHtml += `<option value="${m.id}">${label}</option>`;
+  });
+  modeSelectHtml += "</select>";
+}
 
-        const hasModes = Array.isArray(fn?.crafting?.modes) && fn.crafting.modes.length;
+return `${modeSelectHtml}
+<button class="bm_startFn" data-fid="${f.id}" data-fnid="${fn.id}" ${disabled ? "disabled" : ""}>
+  Start (${dynCost}gp)
+</button>`;
 
-const modeSelect = hasModes
-  ? `<select class="bm_modeSelect" style="margin-right:10px; max-width:240px;">
-      ${fn.crafting.modes.map(m => `<option value="${m.id}">${m.label || m.id}</option>`).join("")}
-     </select>`
-  : "";
 
 return `${modeSelect}<button class="bm_startFn" data-fid="${f.id}" data-fnid="${fn.id}" ${disabled ? "disabled" : ""}>
   Start (${dynCost}gp)
