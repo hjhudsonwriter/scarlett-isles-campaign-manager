@@ -3010,17 +3010,6 @@ if (Array.isArray(fn?.crafting?.modes) && fn.crafting.modes.length) {
   modeSelectHtml += "</select>";
 }
 
-let modeSelectHtml = "";
-
-if (Array.isArray(fn?.crafting?.modes) && fn.crafting.modes.length) {
-  modeSelectHtml = '<select class="bm_modeSelect" style="margin-right:10px; max-width:240px;">';
-  fn.crafting.modes.forEach(m => {
-    const label = m.label || m.id;
-    modeSelectHtml += `<option value="${m.id}">${label}</option>`;
-  });
-  modeSelectHtml += "</select>";
-}
-
 return `${modeSelectHtml}
 <button class="bm_startFn" data-fid="${f.id}" data-fnid="${fn.id}" ${disabled ? "disabled" : ""}>
   Start (${dynCost}gp)
