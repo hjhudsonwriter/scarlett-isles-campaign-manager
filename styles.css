@@ -144,6 +144,11 @@ input, select{
 }
 small{color:var(--muted)}
 /* ---------- Bastion Manager UI ---------- */
+.bm_storehouseModeBlock input,
+.bm_storehouseModeBlock select{
+  margin-bottom: 6px;
+}
+
 .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
 @media (max-width: 980px){ .grid2{ grid-template-columns:1fr; } }
 
