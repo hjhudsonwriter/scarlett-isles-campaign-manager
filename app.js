@@ -3308,50 +3308,37 @@ ${fns.length ? `
 
 
   renderFacilities();
-    // Bind Start buttons (delegated) once
-  if (!window.__bmStartBound) {
-    window.__bmStartBound = true;
+    // Bind Bastion Manager handlers once (delegated on document so re-renders don't break clicks)
+if (!window.__bmDelegatedBound) {
+  window.__bmDelegatedBound = true;
 
-        facWrap.addEventListener("change", (e) => {
-      const sel = e.target.closest(".bm_modeSelect");
-      if (!sel) return;
+  // Handle Start + Upgrade clicks
+  document.addEventListener("click", (e) => {
+    // ----- START FUNCTION -----
+    const startBtn = e.target.closest(".bm_startFn");
+    if (startBtn) {
+      const fid = startBtn.getAttribute("data-fid");
+      const fnid = startBtn.getAttribute("data-fnid");
 
-      const td = sel.closest("td");
-      if (!td) return;
+      const td = startBtn.closest("td");
+      const sel = td ? td.querySelector(".bm_modeSelect") : null;
+      const modeId = sel ? sel.value : null;
 
-      const mode = String(sel.value || "");
-      td.querySelectorAll(".bm_storehouseModeBlock").forEach(b => {
-        const m = b.getAttribute("data-mode");
-        b.style.display = (m === mode) ? "" : "none";
+      // Collect inline inputs (if any) for this function cell
+      const collectedInputs = {};
+      if (td) {
+        td.querySelectorAll(".bm_fnInput").forEach(el => {
+          const key = el.getAttribute("data-key");
+          if (!key) return;
+          const val = (el.value != null) ? String(el.value).trim() : "";
+          if (val !== "") collectedInputs[key] = val;
+        });
+      }
+
+      const r = startFunctionOrder(runtimeState, fid, fnid, {
+        craftingMode: modeId,
+        inputValues: collectedInputs
       });
-    });
-
-    facWrap.addEventListener("click", (e) => {
-      const btn = e.target.closest(".bm_startFn");
-      if (!btn) return;
-
-      const fid = btn.getAttribute("data-fid");
-      const fnid = btn.getAttribute("data-fnid");
-
-      // Read dropdown mode if present for this function
-      const td = btn.closest("td");
-const sel = td ? td.querySelector(".bm_modeSelect") : null;
-const modeId = sel ? sel.value : null;
-
-const collectedInputs = {};
-if (td) {
-  td.querySelectorAll(".bm_fnInput").forEach(el => {
-    const key = el.getAttribute("data-key");
-    if (!key) return;
-    const val = (el.value != null) ? String(el.value).trim() : "";
-    if (val !== "") collectedInputs[key] = val;
-  });
-}
-
-const r = startFunctionOrder(runtimeState, fid, fnid, {
-  craftingMode: modeId,
-  inputValues: collectedInputs
-});
 
       if (!r?.ok) {
         alert(r?.msg || "Could not start function.");
@@ -3360,8 +3347,42 @@ const r = startFunctionOrder(runtimeState, fid, fnid, {
 
       saveBastionSave(runtimeState);
       renderBastionManager();
+      return;
+    }
+
+    // ----- UPGRADE FACILITY -----
+    const upBtn = e.target.closest(".bm_upgrade");
+    if (upBtn) {
+      const fid = upBtn.getAttribute("data-fid");
+      const r = startUpgrade(runtimeState, fid);
+
+      if (!r?.ok) {
+        alert(r?.msg || "Could not start upgrade.");
+        return;
+      }
+
+      saveBastionSave(runtimeState);
+      renderBastionManager();
+      return;
+    }
+  });
+
+  // Handle mode dropdown changes (Storehouse input show/hide)
+  document.addEventListener("change", (e) => {
+    const sel = e.target.closest(".bm_modeSelect");
+    if (!sel) return;
+
+    const td = sel.closest("td");
+    if (!td) return;
+
+    const mode = String(sel.value || "");
+    td.querySelectorAll(".bm_storehouseModeBlock").forEach(b => {
+      const m = b.getAttribute("data-mode");
+      b.style.display = (m === mode) ? "" : "none";
     });
-  }
+  });
+}
+
 
     // ----- Workshop Crafting (inside Workshop card) -----
   function normaliseToolKey(name) {
