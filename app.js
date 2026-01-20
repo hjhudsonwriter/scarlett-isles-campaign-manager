@@ -1691,10 +1691,14 @@ function startUpgrade(runtimeState, facilityId) {
 }
 
 function startFunctionOrder(runtimeState, facilityId, fnId, opts = {}) {
-  const fac = (runtimeState.state.builtFacilities || []).find(x => x.id === facilityId);
-  if (!fac) return { ok:false, msg:"Facility not built." };
+    // Facilities live on runtimeState.facilities (from the JSON spec)
+  const fac = findFacility(runtimeState, facilityId);
+  if (!fac) return { ok:false, msg:"Facility not found." };
 
-  const lvl = safeNum(fac.level, 1);
+  // Treat currentLevel <= 0 as "not built"
+  const lvl = safeNum(fac.currentLevel, 0);
+  if (lvl <= 0) return { ok:false, msg:"Facility not built." };
+
   const lvlData = facilityLevelData(fac, lvl);
   const fn = (lvlData?.functions || []).find(x => x.id === fnId);
   if (!fn) return { ok:false, msg:"Function not found." };
@@ -1936,10 +1940,6 @@ function applyOrderEffects(runtimeState, order) {
         notes: "No valid trade mode selected (buy/sell)."
       });
     }
-
-        // Storehouse Trade (Buy/Sell) - structured logic
-    if (eff.type === "storehouse_trade") {
-      const pl = safeNum(runtimeState.state?.playerLevel, 1);
 
       // DMG caps/profit by player level
       const caps = (() => {
