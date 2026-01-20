@@ -1757,19 +1757,28 @@ function startFunctionOrder(runtimeState, facilityId, fnId, opts = {}) {
 
   // ---- Cost handling ----
   let cost = effCost;
-  // Storehouse Trade dynamic cost:
+    // Storehouse Trade dynamic cost:
   // - Buy costs "spendGp"
   // - Sell costs 0
   if (String(facilityId) === "storehouse" && String(fnId) === "storehouse_trade") {
     const mode = String(chosenCraftMode || "").toLowerCase();
+
     if (mode === "buy") {
       const spend = safeNum(inputValues?.spendGp, 0);
-      if (spend <= 0) return { ok:false, msg:"Storehouse Buy: enter a GP amount to spend." };
+
+      if (spend <= 0) {
+        return {
+          ok: false,
+          msg: "Storehouse Buy: enter a GP amount to spend."
+        };
+      }
+
       cost = spend;
     } else {
       cost = 0;
     }
   }
+
   // Armoury "Stock" rule: 100 + 100 per defender, halved if Smithy OR Workshop exists
   const isArmoury = (String(facilityId) === "armoury" || String(facilityId) === "armory");
   const isStockFn = String(fnId).toLowerCase().includes("stock");
