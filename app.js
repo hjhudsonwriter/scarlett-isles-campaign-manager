@@ -861,7 +861,7 @@ const SPECIAL_FACILITY_DEFS = {
   },
 
 
-      storehouse: {
+  storehouse: {
     label: "Storehouse",
     orderType: "trade",
     hirelings: 1,
@@ -871,38 +871,15 @@ const SPECIAL_FACILITY_DEFS = {
       label: "Trade: Buy or Sell Goods",
       orderType: "trade",
       durationTurns: 1,
-      costGP: 0, // dynamic for BUY, handled at start
-      crafting: {
-        modes: [
-          {
-            id: "buy",
-            label: "Buy (spend GP → add Trade Shipment)",
-            effects: [{ type: "storehouse_trade" }],
-            inputs: [
-              { type: "number", label: "Spend GP", storeAs: "spendGp", min: 1 }
-            ],
-            notes: [
-              "Creates a Trade Shipment entry in the Warehouse.",
-              "Cap depends on Player Level (DMG): 500gp (L5), 2000gp (L9), 5000gp (L13)."
-            ]
-          },
-          {
-            id: "sell",
-            label: "Sell (consume Trade Shipment → gain GP)",
-            effects: [{ type: "storehouse_trade" }],
-            inputs: [
-              { type: "select_shipment", label: "Choose Shipment to Sell", storeAs: "shipmentId" }
-            ],
-            notes: [
-              "Requires a Trade Shipment in the Warehouse.",
-              "Profit depends on Player Level (DMG): +10% (L5), +20% (L9), +50% (L13), +100% (L17)."
-            ]
-          }
-        ]
-      },
-      notes: [
-        "DMG'24 Special Facility Order: Trade (implemented with dropdowns and Warehouse shipments)."
-      ]
+      costGP: 0,
+      inputs: [
+        { type: "text", label: "Buy or Sell? (type buy or sell)", storeAs: "mode" },
+        { type: "text", label: "Notes (optional): what goods / who buyer is", storeAs: "detail" }
+      ],
+      outputsToWarehouse: [
+        { type: "effect_note", qty: 1, label: "Storehouse Trade", notes: "DMG: If BUY: procure nonmagical items up to value cap (500gp at L5, 2000gp at L9, 5000gp at L13). If SELL: buyer pays +10% (L5), +20% (L9), +50% (L13), +100% (L17)." }
+      ],
+      notes: ["DMG'24 Special Facility Order: Trade. Exact goods are DM-determined; profits follow the listed %."]
     }]
   },
 
@@ -1690,24 +1667,23 @@ function startUpgrade(runtimeState, facilityId) {
   return { ok:true };
 }
 
+
 function startFunctionOrder(runtimeState, facilityId, fnId, opts = {}) {
-    // Facilities live on runtimeState.facilities (from the JSON spec)
   const fac = findFacility(runtimeState, facilityId);
   if (!fac) return { ok:false, msg:"Facility not found." };
 
-  // Treat currentLevel <= 0 as "not built"
   const lvl = safeNum(fac.currentLevel, 0);
-  if (lvl <= 0) return { ok:false, msg:"Facility not built." };
-
   const lvlData = facilityLevelData(fac, lvl);
-  const fn = (lvlData?.functions || []).find(x => x.id === fnId);
-  if (!fn) return { ok:false, msg:"Function not found." };
+  const fns = lvlData?.functions || [];
+  const fn = fns.find(x => x.id === fnId);
+  if (!fn) return { ok:false, msg:"Function not found for current level." };
 
   // ---- Mode selection (NO PROMPT) ----
   const modes = fn?.crafting?.modes;
   let chosenModeObj = null;
   let chosenCraftMode = null;
 
+  // If UI passed a mode id, use it; otherwise default to first mode.
   if (Array.isArray(modes) && modes.length) {
     const passed = (opts && opts.craftingMode != null) ? String(opts.craftingMode) : "";
     chosenModeObj =
@@ -1716,14 +1692,10 @@ function startFunctionOrder(runtimeState, facilityId, fnId, opts = {}) {
     chosenCraftMode = chosenModeObj?.id || null;
   }
 
-  // ---- Collect inputs ----
-  // NEW: if UI provided opts.inputValues, use them (NO PROMPTS).
-  // Fallback: old prompt-based collection remains for legacy facilities.
-  const inputValues = (opts && opts.inputValues && typeof opts.inputValues === "object")
-    ? deepClone(opts.inputValues)
-    : {};
+  // ---- Collect inputs (still prompt-based, but only for extra details) ----
+  const inputValues = {};
 
-  const collectInputsPrompt = (inputsArr) => {
+  const collectInputs = (inputsArr) => {
     if (!Array.isArray(inputsArr)) return;
     for (const inp of inputsArr) {
       if (!inp || typeof inp !== "object") continue;
@@ -1735,11 +1707,9 @@ function startFunctionOrder(runtimeState, facilityId, fnId, opts = {}) {
     }
   };
 
-  // Only prompt if UI did NOT provide inputs
-  if (!(opts && opts.inputValues)) {
-    collectInputsPrompt(fn.inputs);
-    collectInputsPrompt(chosenModeObj?.inputs);
-  }
+  // base inputs, then mode-specific inputs
+  collectInputs(fn.inputs);
+  collectInputs(chosenModeObj?.inputs);
 
   // ---- Build effective function data from the chosen mode (overrides) ----
   const effLabel = (chosenModeObj?.label != null) ? chosenModeObj.label : fn.label;
@@ -1757,21 +1727,6 @@ function startFunctionOrder(runtimeState, facilityId, fnId, opts = {}) {
 
   // ---- Cost handling ----
   let cost = effCost;
-
-  // Storehouse Trade dynamic cost:
-  // - Buy costs "spendGp"
-  // - Sell costs 0
-  if (String(facilityId) === "storehouse" && String(fnId) === "storehouse_trade") {
-    const mode = String(chosenCraftMode || "").toLowerCase();
-
-    if (mode === "buy") {
-      const spend = safeNum(inputValues?.spendGp, 0);
-      if (spend <= 0) return { ok:false, msg:"Storehouse Buy: enter a GP amount to spend." };
-      cost = spend;
-    } else {
-      cost = 0;
-    }
-  }
 
   // Armoury "Stock" rule: 100 + 100 per defender, halved if Smithy OR Workshop exists
   const isArmoury = (String(facilityId) === "armoury" || String(facilityId) === "armory");
@@ -1843,186 +1798,6 @@ function applyOrderEffects(runtimeState, order) {
       });
     }
 
-
-        // Storehouse Trade (Buy/Sell) - structured logic (no placeholders)
-    if (eff.type === "storehouse_trade") {
-      const pl = safeNum(runtimeState.state?.playerLevel, 1);
-
-      // DMG caps/profit by player level
-      const caps = (() => {
-        // Buy caps: 500 (L5), 2000 (L9), 5000 (L13)
-        // Profit: +10% (L5), +20% (L9), +50% (L13), +100% (L17)
-        if (pl >= 17) return { buyCap: 5000, profitPct: 1.00 };
-        if (pl >= 13) return { buyCap: 5000, profitPct: 0.50 };
-        if (pl >= 9)  return { buyCap: 2000, profitPct: 0.20 };
-        return          { buyCap: 500,  profitPct: 0.10 };
-      })();
-
-      const mode = String(order?.craftingMode || order?.inputValues?.mode || "").toLowerCase();
-
-      runtimeState.state.warehouse = runtimeState.state.warehouse || { items: [], editable: true };
-      runtimeState.state.warehouse.items = Array.isArray(runtimeState.state.warehouse.items)
-        ? runtimeState.state.warehouse.items
-        : [];
-
-      const wh = runtimeState.state.warehouse.items;
-
-      const makeId = () => `wh_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-
-      if (mode === "buy") {
-        const spend = safeNum(order?.inputValues?.spendGp, 0);
-        if (spend <= 0) {
-          wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:"Buy selected but no spend GP was provided." });
-          return;
-        }
-        if (spend > caps.buyCap) {
-          wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:`Buy exceeds cap. Spend ${spend}gp > cap ${caps.buyCap}gp (Player Level ${pl}).` });
-          return;
-        }
-
-        // Shipment goes into warehouse
-        wh.push({
-          id: makeId(),
-          type: "trade_shipment",
-          qty: 1,
-          gp: spend,
-          label: "Trade Shipment (Storehouse)",
-          notes: `Purchased goods worth up to ${spend}gp. Cap at time: ${caps.buyCap}gp (PL ${pl}).`,
-          meta: { spentGp: spend, buyCapAtTime: caps.buyCap, playerLevelAtTime: pl },
-          sourceFacilityId: "storehouse",
-          sourceFunctionId: "storehouse_trade",
-          createdAt: new Date().toISOString()
-        });
-
-        return;
-      }
-
-      if (mode === "sell") {
-        const shipId = String(order?.inputValues?.shipmentId || "").trim();
-        if (!shipId) {
-          wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:"Sell selected but no shipment was chosen." });
-          return;
-        }
-
-        const idx = wh.findIndex(x => x && String(x.id || "") === shipId && x.type === "trade_shipment");
-        if (idx < 0) {
-          wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:"Selected shipment not found in Warehouse." });
-          return;
-        }
-
-        const shipment = wh[idx];
-        const base = safeNum(shipment.gp, safeNum(shipment.meta?.spentGp, 0));
-        const payout = Math.round(base * (1 + caps.profitPct));
-
-        // Remove shipment
-        wh.splice(idx, 1);
-
-        // Add GP to treasury
-        const tNow = safeNum(runtimeState.state?.treasury?.gp, 0);
-        runtimeState.state.treasury.gp = tNow + payout;
-
-        // Log result
-        wh.push({
-          type: "note",
-          qty: 1,
-          label: "Storehouse Sale Completed",
-          notes: `Sold Trade Shipment (base ${base}gp) for ${payout}gp (+${Math.round(caps.profitPct*100)}%). Player Level ${pl}.`
-        });
-
-        return;
-      }
-
-      // If mode is missing/unknown
-      wh.push({
-        type: "note",
-        qty: 1,
-        label: "Storehouse Trade Failed",
-        notes: "No valid trade mode selected (buy/sell)."
-      });
-    }
-
-      // DMG caps/profit by player level
-      const caps = (() => {
-        // Buy caps: 500 (L5), 2000 (L9), 5000 (L13)
-        // Profit: +10% (L5), +20% (L9), +50% (L13), +100% (L17)
-        if (pl >= 17) return { buyCap: 5000, profitPct: 1.00 };
-        if (pl >= 13) return { buyCap: 5000, profitPct: 0.50 };
-        if (pl >= 9)  return { buyCap: 2000, profitPct: 0.20 };
-        return          { buyCap: 500,  profitPct: 0.10 };
-      })();
-
-      runtimeState.state.warehouse = runtimeState.state.warehouse || { items: [], editable: true };
-      runtimeState.state.warehouse.items = Array.isArray(runtimeState.state.warehouse.items)
-        ? runtimeState.state.warehouse.items
-        : [];
-
-      const wh = runtimeState.state.warehouse.items;
-      const makeId = () => `wh_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-
-      const mode = String(order?.craftingMode || "").toLowerCase();
-
-      if (mode === "buy") {
-        const spend = safeNum(order?.inputValues?.spendGp, 0);
-
-        if (spend <= 0) {
-          wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:"Buy selected but no Spend GP was entered." });
-          return;
-        }
-        if (spend > caps.buyCap) {
-          wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:`Buy exceeds cap: ${spend}gp > ${caps.buyCap}gp (Player Level ${pl}).` });
-          return;
-        }
-
-        wh.push({
-          id: makeId(),
-          type: "trade_shipment",
-          qty: 1,
-          gp: spend,
-          label: "Trade Shipment (Storehouse)",
-          notes: `Goods purchased up to value ${spend}gp. Cap at time: ${caps.buyCap}gp (PL ${pl}).`,
-          meta: { spentGp: spend, buyCapAtTime: caps.buyCap, playerLevelAtTime: pl },
-          sourceFacilityId: "storehouse",
-          sourceFunctionId: "storehouse_trade",
-          createdAt: new Date().toISOString()
-        });
-
-        return;
-      }
-
-      if (mode === "sell") {
-        const shipId = String(order?.inputValues?.shipmentId || "").trim();
-        if (!shipId) {
-          wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:"Sell selected but no shipment was chosen." });
-          return;
-        }
-
-        const idx = wh.findIndex(x => x && String(x.id || "") === shipId && x.type === "trade_shipment");
-        if (idx < 0) {
-          wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:"Selected shipment not found in Warehouse." });
-          return;
-        }
-
-        const shipment = wh[idx];
-        const base = safeNum(shipment.gp, safeNum(shipment.meta?.spentGp, 0));
-        const payout = Math.round(base * (1 + caps.profitPct));
-
-        wh.splice(idx, 1); // remove shipment
-
-        const tNow = safeNum(runtimeState.state?.treasury?.gp, 0);
-        runtimeState.state.treasury.gp = tNow + payout;
-
-        wh.push({
-          type: "note",
-          qty: 1,
-          label: "Storehouse Sale Completed",
-          notes: `Sold Trade Shipment (base ${base}gp) for ${payout}gp (+${Math.round(caps.profitPct*100)}%). Player Level ${pl}.`
-        });
-
-        return;
-      }
-
-      wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:"No valid trade mode selected (buy/sell)." });
-    }
 
     // Future-proof: you can add more effect types here later.
   }
@@ -3219,47 +2994,9 @@ ${fns.length ? `
                       `;
                     }
 
-                  // Storehouse inline inputs (no prompts)
-                    let extraInputsHtml = "";
-                    const isStorehouseTrade = (String(f.id) === "storehouse" && String(fn.id) === "storehouse_trade");
-
-                    if (isStorehouseTrade) {
-                      const wh = (runtimeState.state?.warehouse?.items || []);
-                      const shipments = wh
-                        .filter(x => x && (x.type === "trade_shipment"))
-                        .map(x => ({
-                          id: String(x.id || ""),
-                          label: String(x.label || "Trade Shipment"),
-                          gp: safeNum(x.gp, safeNum(x.meta?.spentGp, 0))
-                        }))
-                        .filter(x => x.id);
-
-                      extraInputsHtml = `
-                        <div class="small muted" style="margin-top:8px;">
-                          <div class="bm_storehouseModeBlock" data-mode="buy">
-                            <label class="small muted" style="display:block;margin-bottom:6px;">Spend GP</label>
-                            <input class="bm_fnInput" data-key="spendGp" type="number" min="1" step="1" placeholder="e.g. 250" style="max-width:240px;">
-                          </div>
-
-                          <div class="bm_storehouseModeBlock" data-mode="sell" style="display:none;">
-                            <label class="small muted" style="display:block;margin-bottom:6px;">Shipment to sell</label>
-                            <select class="bm_fnInput" data-key="shipmentId" style="max-width:240px;">
-                              <option value="">(choose shipment)</option>
-                              ${shipments.length
-                                ? shipments.map(s => `<option value="${s.id}">${s.label} • ${s.gp}gp</option>`).join("")
-                                : `<option value="" disabled>(no trade shipments in warehouse)</option>`
-                              }
-                            </select>
-                          </div>
-                        </div>
-                      `;
-                    }
-  
                     return `
                       ${modeSelectHtml}
-                      ${extraInputsHtml}
                       <button class="bm_startFn"
-
                               data-fid="${f.id}"
                               data-fnid="${fn.id}"
                               ${disabled ? "disabled" : ""}>
@@ -3308,43 +3045,23 @@ ${fns.length ? `
 
 
   renderFacilities();
-    // Bind Bastion Manager handlers once (delegated on document so re-renders don't break clicks)
-if (!window.__bmDelegatedBound) {
-  window.__bmDelegatedBound = true;
+    // Bind Start buttons (delegated) once
+  if (!window.__bmStartBound) {
+    window.__bmStartBound = true;
 
-  // Handle Start + Upgrade clicks
-  document.addEventListener("click", (e) => {
-    // ----- START FUNCTION -----
-    const startBtn = e.target.closest(".bm_startFn");
-    if (startBtn) {
-      // Prefer the facility card's id (this matches runtimeState.facilities ids like dock_A)
-const card = startBtn.closest(".facility-card");
-const fid = (card && card.getAttribute("data-id"))
-  ? card.getAttribute("data-id")
-  : startBtn.getAttribute("data-fid");
+    facWrap.addEventListener("click", (e) => {
+      const btn = e.target.closest(".bm_startFn");
+      if (!btn) return;
 
-const fnid = startBtn.getAttribute("data-fnid");
+      const fid = btn.getAttribute("data-fid");
+      const fnid = btn.getAttribute("data-fnid");
 
-      const td = startBtn.closest("td");
-      const sel = td ? td.querySelector(".bm_modeSelect") : null;
-      const modeId = sel ? sel.value : null;
+      // Read dropdown mode if present for this function
+      const td = btn.closest("td");
+const sel = td ? td.querySelector(".bm_modeSelect") : null;
+const modeId = sel ? sel.value : null;
 
-      // Collect inline inputs (if any) for this function cell
-      const collectedInputs = {};
-      if (td) {
-        td.querySelectorAll(".bm_fnInput").forEach(el => {
-          const key = el.getAttribute("data-key");
-          if (!key) return;
-          const val = (el.value != null) ? String(el.value).trim() : "";
-          if (val !== "") collectedInputs[key] = val;
-        });
-      }
-
-      const r = startFunctionOrder(runtimeState, fid, fnid, {
-        craftingMode: modeId,
-        inputValues: collectedInputs
-      });
-
+const r = startFunctionOrder(runtimeState, fid, fnid, { craftingMode: modeId });
       if (!r?.ok) {
         alert(r?.msg || "Could not start function.");
         return;
@@ -3352,42 +3069,8 @@ const fnid = startBtn.getAttribute("data-fnid");
 
       saveBastionSave(runtimeState);
       renderBastionManager();
-      return;
-    }
-
-    // ----- UPGRADE FACILITY -----
-    const upBtn = e.target.closest(".bm_upgrade");
-    if (upBtn) {
-      const fid = upBtn.getAttribute("data-fid");
-      const r = startUpgrade(runtimeState, fid);
-
-      if (!r?.ok) {
-        alert(r?.msg || "Could not start upgrade.");
-        return;
-      }
-
-      saveBastionSave(runtimeState);
-      renderBastionManager();
-      return;
-    }
-  });
-
-  // Handle mode dropdown changes (Storehouse input show/hide)
-  document.addEventListener("change", (e) => {
-    const sel = e.target.closest(".bm_modeSelect");
-    if (!sel) return;
-
-    const td = sel.closest("td");
-    if (!td) return;
-
-    const mode = String(sel.value || "");
-    td.querySelectorAll(".bm_storehouseModeBlock").forEach(b => {
-      const m = b.getAttribute("data-mode");
-      b.style.display = (m === mode) ? "" : "none";
     });
-  });
-}
-
+  }
 
     // ----- Workshop Crafting (inside Workshop card) -----
   function normaliseToolKey(name) {
@@ -5038,3 +4721,5 @@ router();
 
 // Re-run whenever the hash changes (tabs/sidebar clicks)
 window.addEventListener("hashchange", router);
+
+
