@@ -3350,7 +3350,7 @@ if (td) {
 
 const r = startFunctionOrder(runtimeState, fid, fnid, {
   craftingMode: modeId,
-  inputValues
+  inputValues: collectedInputs
 });
 
       if (!r?.ok) {
