@@ -1690,23 +1690,20 @@ function startUpgrade(runtimeState, facilityId) {
   return { ok:true };
 }
 
-
 function startFunctionOrder(runtimeState, facilityId, fnId, opts = {}) {
-  const fac = findFacility(runtimeState, facilityId);
-  if (!fac) return { ok:false, msg:"Facility not found." };
+  const fac = (runtimeState.state.builtFacilities || []).find(x => x.id === facilityId);
+  if (!fac) return { ok:false, msg:"Facility not built." };
 
-  const lvl = safeNum(fac.currentLevel, 0);
+  const lvl = safeNum(fac.level, 1);
   const lvlData = facilityLevelData(fac, lvl);
-  const fns = lvlData?.functions || [];
-  const fn = fns.find(x => x.id === fnId);
-  if (!fn) return { ok:false, msg:"Function not found for current level." };
+  const fn = (lvlData?.functions || []).find(x => x.id === fnId);
+  if (!fn) return { ok:false, msg:"Function not found." };
 
   // ---- Mode selection (NO PROMPT) ----
   const modes = fn?.crafting?.modes;
   let chosenModeObj = null;
   let chosenCraftMode = null;
 
-  // If UI passed a mode id, use it; otherwise default to first mode.
   if (Array.isArray(modes) && modes.length) {
     const passed = (opts && opts.craftingMode != null) ? String(opts.craftingMode) : "";
     chosenModeObj =
@@ -1715,7 +1712,7 @@ function startFunctionOrder(runtimeState, facilityId, fnId, opts = {}) {
     chosenCraftMode = chosenModeObj?.id || null;
   }
 
-      // ---- Collect inputs ----
+  // ---- Collect inputs ----
   // NEW: if UI provided opts.inputValues, use them (NO PROMPTS).
   // Fallback: old prompt-based collection remains for legacy facilities.
   const inputValues = (opts && opts.inputValues && typeof opts.inputValues === "object")
@@ -1734,11 +1731,10 @@ function startFunctionOrder(runtimeState, facilityId, fnId, opts = {}) {
     }
   };
 
-  // If inputValues already provided, skip prompts entirely.
+  // Only prompt if UI did NOT provide inputs
   if (!(opts && opts.inputValues)) {
     collectInputsPrompt(fn.inputs);
     collectInputsPrompt(chosenModeObj?.inputs);
-  }
   }
 
   // ---- Build effective function data from the chosen mode (overrides) ----
@@ -1757,7 +1753,8 @@ function startFunctionOrder(runtimeState, facilityId, fnId, opts = {}) {
 
   // ---- Cost handling ----
   let cost = effCost;
-    // Storehouse Trade dynamic cost:
+
+  // Storehouse Trade dynamic cost:
   // - Buy costs "spendGp"
   // - Sell costs 0
   if (String(facilityId) === "storehouse" && String(fnId) === "storehouse_trade") {
@@ -1765,12 +1762,7 @@ function startFunctionOrder(runtimeState, facilityId, fnId, opts = {}) {
 
     if (mode === "buy") {
       const spend = safeNum(inputValues?.spendGp, 0);
-
-      if (spend <= 0) {
-        runtimeState.__bmError = "Storehouse Buy: enter a GP amount to spend.";
-return { ok:false, msg: runtimeState.__bmError };
-      }
-
+      if (spend <= 0) return { ok:false, msg:"Storehouse Buy: enter a GP amount to spend." };
       cost = spend;
     } else {
       cost = 0;
