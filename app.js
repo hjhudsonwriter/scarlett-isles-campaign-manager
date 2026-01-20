@@ -3338,24 +3338,13 @@ ${fns.length ? `
 const sel = td ? td.querySelector(".bm_modeSelect") : null;
 const modeId = sel ? sel.value : null;
 
-const inputValues = {};
-if (td) {
-  // gather inputs inside the same Action cell
-  td.querySelectorAll(".bm_fnInput").forEach(el => {
-    const key = el.getAttribute("data-key");
-    if (!key) return;
-    const val = (el.value != null) ? String(el.value).trim() : "";
-    if (val !== "") inputValues[key] = val;
-  });
-}
-
-const inputValues = {};
+const collectedInputs = {};
 if (td) {
   td.querySelectorAll(".bm_fnInput").forEach(el => {
     const key = el.getAttribute("data-key");
     if (!key) return;
     const val = (el.value != null) ? String(el.value).trim() : "";
-    if (val !== "") inputValues[key] = val;
+    if (val !== "") collectedInputs[key] = val;
   });
 }
 
