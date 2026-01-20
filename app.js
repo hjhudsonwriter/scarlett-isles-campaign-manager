@@ -1767,10 +1767,8 @@ function startFunctionOrder(runtimeState, facilityId, fnId, opts = {}) {
       const spend = safeNum(inputValues?.spendGp, 0);
 
       if (spend <= 0) {
-        return {
-          ok: false,
-          msg: "Storehouse Buy: enter a GP amount to spend."
-        };
+        runtimeState.__bmError = "Storehouse Buy: enter a GP amount to spend.";
+return { ok:false, msg: runtimeState.__bmError };
       }
 
       cost = spend;
