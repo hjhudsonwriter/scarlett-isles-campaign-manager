@@ -3317,8 +3317,13 @@ if (!window.__bmDelegatedBound) {
     // ----- START FUNCTION -----
     const startBtn = e.target.closest(".bm_startFn");
     if (startBtn) {
-      const fid = startBtn.getAttribute("data-fid");
-      const fnid = startBtn.getAttribute("data-fnid");
+      // Prefer the facility card's id (this matches runtimeState.facilities ids like dock_A)
+const card = startBtn.closest(".facility-card");
+const fid = (card && card.getAttribute("data-id"))
+  ? card.getAttribute("data-id")
+  : startBtn.getAttribute("data-fid");
+
+const fnid = startBtn.getAttribute("data-fnid");
 
       const td = startBtn.closest("td");
       const sel = td ? td.querySelector(".bm_modeSelect") : null;
