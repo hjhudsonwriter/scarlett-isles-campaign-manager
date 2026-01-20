@@ -3219,43 +3219,6 @@ ${fns.length ? `
                       `;
                     }
 
-                                        // Storehouse inline inputs (no prompts)
-                    let extraInputsHtml = "";
-                    const isStorehouseTrade = (String(f.id) === "storehouse" && String(fn.id) === "storehouse_trade");
-
-                    if (isStorehouseTrade) {
-                      const wh = (runtimeState.state?.warehouse?.items || []);
-                      const shipments = wh
-                        .filter(x => x && (x.type === "trade_shipment"))
-                        .map(x => ({
-                          id: String(x.id || ""),
-                          label: String(x.label || "Trade Shipment"),
-                          gp: safeNum(x.gp, safeNum(x.meta?.spentGp, 0))
-                        }))
-                        .filter(x => x.id);
-
-                      extraInputsHtml = `
-                        <div class="small muted" style="margin-top:10px;">
-                          <div class="bm_storehouseModeBlock" data-mode="buy">
-                            <label class="small muted" style="display:block;margin-bottom:6px;">Spend GP</label>
-                            <input class="bm_fnInput" data-key="spendGp" type="number" min="1" step="1"
-                                   placeholder="e.g. 250" style="max-width:240px;">
-                          </div>
-
-                          <div class="bm_storehouseModeBlock" data-mode="sell" style="display:none;">
-                            <label class="small muted" style="display:block;margin-bottom:6px;">Shipment to sell</label>
-                            <select class="bm_fnInput" data-key="shipmentId" style="max-width:240px;">
-                              <option value="">(choose shipment)</option>
-                              ${shipments.length
-                                ? shipments.map(s => `<option value="${s.id}">${s.label} • ${s.gp}gp</option>`).join("")
-                                : `<option value="" disabled>(no trade shipments in warehouse)</option>`
-                              }
-                            </select>
-                          </div>
-                        </div>
-                      `;
-                    }
-
                   // Storehouse inline inputs (no prompts)
                     let extraInputsHtml = "";
                     const isStorehouseTrade = (String(f.id) === "storehouse" && String(fn.id) === "storehouse_trade");
