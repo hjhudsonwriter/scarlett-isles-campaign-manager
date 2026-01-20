@@ -861,7 +861,7 @@ const SPECIAL_FACILITY_DEFS = {
   },
 
 
-    storehouse: {
+      storehouse: {
     label: "Storehouse",
     orderType: "trade",
     hirelings: 1,
@@ -871,7 +871,7 @@ const SPECIAL_FACILITY_DEFS = {
       label: "Trade: Buy or Sell Goods",
       orderType: "trade",
       durationTurns: 1,
-      costGP: 0, // cost is handled dynamically (buy spends GP; sell gains GP)
+      costGP: 0, // dynamic for BUY, handled at start
       crafting: {
         modes: [
           {
@@ -1715,7 +1715,7 @@ function startFunctionOrder(runtimeState, facilityId, fnId, opts = {}) {
     chosenCraftMode = chosenModeObj?.id || null;
   }
 
-    // ---- Collect inputs ----
+      // ---- Collect inputs ----
   // NEW: if UI provided opts.inputValues, use them (NO PROMPTS).
   // Fallback: old prompt-based collection remains for legacy facilities.
   const inputValues = (opts && opts.inputValues && typeof opts.inputValues === "object")
@@ -1738,6 +1738,7 @@ function startFunctionOrder(runtimeState, facilityId, fnId, opts = {}) {
   if (!(opts && opts.inputValues)) {
     collectInputsPrompt(fn.inputs);
     collectInputsPrompt(chosenModeObj?.inputs);
+  }
   }
 
   // ---- Build effective function data from the chosen mode (overrides) ----
@@ -1935,6 +1936,93 @@ function applyOrderEffects(runtimeState, order) {
         label: "Storehouse Trade Failed",
         notes: "No valid trade mode selected (buy/sell)."
       });
+    }
+
+        // Storehouse Trade (Buy/Sell) - structured logic
+    if (eff.type === "storehouse_trade") {
+      const pl = safeNum(runtimeState.state?.playerLevel, 1);
+
+      // DMG caps/profit by player level
+      const caps = (() => {
+        // Buy caps: 500 (L5), 2000 (L9), 5000 (L13)
+        // Profit: +10% (L5), +20% (L9), +50% (L13), +100% (L17)
+        if (pl >= 17) return { buyCap: 5000, profitPct: 1.00 };
+        if (pl >= 13) return { buyCap: 5000, profitPct: 0.50 };
+        if (pl >= 9)  return { buyCap: 2000, profitPct: 0.20 };
+        return          { buyCap: 500,  profitPct: 0.10 };
+      })();
+
+      runtimeState.state.warehouse = runtimeState.state.warehouse || { items: [], editable: true };
+      runtimeState.state.warehouse.items = Array.isArray(runtimeState.state.warehouse.items)
+        ? runtimeState.state.warehouse.items
+        : [];
+
+      const wh = runtimeState.state.warehouse.items;
+      const makeId = () => `wh_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
+      const mode = String(order?.craftingMode || "").toLowerCase();
+
+      if (mode === "buy") {
+        const spend = safeNum(order?.inputValues?.spendGp, 0);
+
+        if (spend <= 0) {
+          wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:"Buy selected but no Spend GP was entered." });
+          return;
+        }
+        if (spend > caps.buyCap) {
+          wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:`Buy exceeds cap: ${spend}gp > ${caps.buyCap}gp (Player Level ${pl}).` });
+          return;
+        }
+
+        wh.push({
+          id: makeId(),
+          type: "trade_shipment",
+          qty: 1,
+          gp: spend,
+          label: "Trade Shipment (Storehouse)",
+          notes: `Goods purchased up to value ${spend}gp. Cap at time: ${caps.buyCap}gp (PL ${pl}).`,
+          meta: { spentGp: spend, buyCapAtTime: caps.buyCap, playerLevelAtTime: pl },
+          sourceFacilityId: "storehouse",
+          sourceFunctionId: "storehouse_trade",
+          createdAt: new Date().toISOString()
+        });
+
+        return;
+      }
+
+      if (mode === "sell") {
+        const shipId = String(order?.inputValues?.shipmentId || "").trim();
+        if (!shipId) {
+          wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:"Sell selected but no shipment was chosen." });
+          return;
+        }
+
+        const idx = wh.findIndex(x => x && String(x.id || "") === shipId && x.type === "trade_shipment");
+        if (idx < 0) {
+          wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:"Selected shipment not found in Warehouse." });
+          return;
+        }
+
+        const shipment = wh[idx];
+        const base = safeNum(shipment.gp, safeNum(shipment.meta?.spentGp, 0));
+        const payout = Math.round(base * (1 + caps.profitPct));
+
+        wh.splice(idx, 1); // remove shipment
+
+        const tNow = safeNum(runtimeState.state?.treasury?.gp, 0);
+        runtimeState.state.treasury.gp = tNow + payout;
+
+        wh.push({
+          type: "note",
+          qty: 1,
+          label: "Storehouse Sale Completed",
+          notes: `Sold Trade Shipment (base ${base}gp) for ${payout}gp (+${Math.round(caps.profitPct*100)}%). Player Level ${pl}.`
+        });
+
+        return;
+      }
+
+      wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:"No valid trade mode selected (buy/sell)." });
     }
 
     // Future-proof: you can add more effect types here later.
@@ -3132,7 +3220,44 @@ ${fns.length ? `
                       `;
                     }
 
-                                      // Storehouse inline inputs (no prompts)
+                                        // Storehouse inline inputs (no prompts)
+                    let extraInputsHtml = "";
+                    const isStorehouseTrade = (String(f.id) === "storehouse" && String(fn.id) === "storehouse_trade");
+
+                    if (isStorehouseTrade) {
+                      const wh = (runtimeState.state?.warehouse?.items || []);
+                      const shipments = wh
+                        .filter(x => x && (x.type === "trade_shipment"))
+                        .map(x => ({
+                          id: String(x.id || ""),
+                          label: String(x.label || "Trade Shipment"),
+                          gp: safeNum(x.gp, safeNum(x.meta?.spentGp, 0))
+                        }))
+                        .filter(x => x.id);
+
+                      extraInputsHtml = `
+                        <div class="small muted" style="margin-top:10px;">
+                          <div class="bm_storehouseModeBlock" data-mode="buy">
+                            <label class="small muted" style="display:block;margin-bottom:6px;">Spend GP</label>
+                            <input class="bm_fnInput" data-key="spendGp" type="number" min="1" step="1"
+                                   placeholder="e.g. 250" style="max-width:240px;">
+                          </div>
+
+                          <div class="bm_storehouseModeBlock" data-mode="sell" style="display:none;">
+                            <label class="small muted" style="display:block;margin-bottom:6px;">Shipment to sell</label>
+                            <select class="bm_fnInput" data-key="shipmentId" style="max-width:240px;">
+                              <option value="">(choose shipment)</option>
+                              ${shipments.length
+                                ? shipments.map(s => `<option value="${s.id}">${s.label} • ${s.gp}gp</option>`).join("")
+                                : `<option value="" disabled>(no trade shipments in warehouse)</option>`
+                              }
+                            </select>
+                          </div>
+                        </div>
+                      `;
+                    }
+
+                  // Storehouse inline inputs (no prompts)
                     let extraInputsHtml = "";
                     const isStorehouseTrade = (String(f.id) === "storehouse" && String(fn.id) === "storehouse_trade");
 
@@ -3225,6 +3350,20 @@ ${fns.length ? `
   if (!window.__bmStartBound) {
     window.__bmStartBound = true;
 
+        facWrap.addEventListener("change", (e) => {
+      const sel = e.target.closest(".bm_modeSelect");
+      if (!sel) return;
+
+      const td = sel.closest("td");
+      if (!td) return;
+
+      const mode = String(sel.value || "");
+      td.querySelectorAll(".bm_storehouseModeBlock").forEach(b => {
+        const m = b.getAttribute("data-mode");
+        b.style.display = (m === mode) ? "" : "none";
+      });
+    });
+
     facWrap.addEventListener("click", (e) => {
       const btn = e.target.closest(".bm_startFn");
       if (!btn) return;
@@ -3240,6 +3379,16 @@ const modeId = sel ? sel.value : null;
 const inputValues = {};
 if (td) {
   // gather inputs inside the same Action cell
+  td.querySelectorAll(".bm_fnInput").forEach(el => {
+    const key = el.getAttribute("data-key");
+    if (!key) return;
+    const val = (el.value != null) ? String(el.value).trim() : "";
+    if (val !== "") inputValues[key] = val;
+  });
+}
+
+const inputValues = {};
+if (td) {
   td.querySelectorAll(".bm_fnInput").forEach(el => {
     const key = el.getAttribute("data-key");
     if (!key) return;
