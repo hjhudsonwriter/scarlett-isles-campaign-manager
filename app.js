@@ -1659,7 +1659,7 @@ function isUnderConstruction(runtimeState, facilityId) {
 
 
 function startUpgrade(runtimeState, facilityId) {
-  const fac = findFacility(runtimeState, facilityId);
+  const fac = findFacility({ facilities: runtimeState.facilities }, facilityId);
   if (!fac) return { ok:false, msg:"Facility not found." };
 
 
@@ -1697,7 +1697,7 @@ function startFunctionOrder(runtimeState, facilityId, fnId, opts = {}) {
 
   // Treat currentLevel <= 0 as "not built"
   const lvl = safeNum(fac.currentLevel, 0);
-  if (lvl <= 0) return { ok:false, msg:"Facility not built." };
+  if (lvl < 0) return { ok:false, msg:"Facility not built." };
 
   const lvlData = facilityLevelData(fac, lvl);
   const fn = (lvlData?.functions || []).find(x => x.id === fnId);
