@@ -1806,33 +1806,27 @@ function applyOrderEffects(runtimeState, order) {
   const effects = order?.effects;
   if (!effects) return;
 
-
   const list = Array.isArray(effects) ? effects : [effects];
-
 
   runtimeState.state.activeEffects = Array.isArray(runtimeState.state.activeEffects)
     ? runtimeState.state.activeEffects
     : [];
 
-
   for (const eff of list) {
     if (!eff || typeof eff !== "object") continue;
 
-
     // Store persistent "status-like" effects for the DM to track.
-    // Example use: Tellurian Rites temp HP after Long Rest for X days.
     if (eff.type === "status_effect_grant") {
       const beneficiary =
-  (eff.beneficiaryFromInputKey && order?.inputValues?.[eff.beneficiaryFromInputKey]) ||
-  eff.beneficiary ||
-  "Unnamed";
-      
+        (eff.beneficiaryFromInputKey && order?.inputValues?.[eff.beneficiaryFromInputKey]) ||
+        eff.beneficiary ||
+        "Unnamed";
+
       runtimeState.state.activeEffects.push({
         id: eff.effectId || "effect",
         label: eff.label || eff.effectId || "Effect",
         beneficiary,
         durationDays: safeNum(eff.durationDays, 1),
-        // Store formula text so we can display it in Warehouse/Effects panel
         tempHpFormula: eff.tempHpFormula || null,
         source: {
           facilityId: order.facilityId,
@@ -1841,10 +1835,11 @@ function applyOrderEffects(runtimeState, order) {
         },
         createdAt: new Date().toISOString()
       });
+
+      continue;
     }
 
-
-        // Storehouse Trade (Buy/Sell) - structured logic (no placeholders)
+    // Storehouse Trade (Buy/Sell) - structured logic (no placeholders)
     if (eff.type === "storehouse_trade") {
       const pl = safeNum(runtimeState.state?.playerLevel, 1);
 
@@ -1866,21 +1861,20 @@ function applyOrderEffects(runtimeState, order) {
         : [];
 
       const wh = runtimeState.state.warehouse.items;
-
       const makeId = () => `wh_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 
       if (mode === "buy") {
         const spend = safeNum(order?.inputValues?.spendGp, 0);
+
         if (spend <= 0) {
           wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:"Buy selected but no spend GP was provided." });
-          return;
+          continue;
         }
         if (spend > caps.buyCap) {
           wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:`Buy exceeds cap. Spend ${spend}gp > cap ${caps.buyCap}gp (Player Level ${pl}).` });
-          return;
+          continue;
         }
 
-        // Shipment goes into warehouse
         wh.push({
           id: makeId(),
           type: "trade_shipment",
@@ -1894,20 +1888,21 @@ function applyOrderEffects(runtimeState, order) {
           createdAt: new Date().toISOString()
         });
 
-        return;
+        continue;
       }
 
       if (mode === "sell") {
         const shipId = String(order?.inputValues?.shipmentId || "").trim();
+
         if (!shipId) {
           wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:"Sell selected but no shipment was chosen." });
-          return;
+          continue;
         }
 
         const idx = wh.findIndex(x => x && String(x.id || "") === shipId && x.type === "trade_shipment");
         if (idx < 0) {
           wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:"Selected shipment not found in Warehouse." });
-          return;
+          continue;
         }
 
         const shipment = wh[idx];
@@ -1929,105 +1924,16 @@ function applyOrderEffects(runtimeState, order) {
           notes: `Sold Trade Shipment (base ${base}gp) for ${payout}gp (+${Math.round(caps.profitPct*100)}%). Player Level ${pl}.`
         });
 
-        return;
-      }
-
-      // If mode is missing/unknown
-      wh.push({
-        type: "note",
-        qty: 1,
-        label: "Storehouse Trade Failed",
-        notes: "No valid trade mode selected (buy/sell)."
-      });
-    }
-
-      // DMG caps/profit by player level
-      const caps = (() => {
-        // Buy caps: 500 (L5), 2000 (L9), 5000 (L13)
-        // Profit: +10% (L5), +20% (L9), +50% (L13), +100% (L17)
-        if (pl >= 17) return { buyCap: 5000, profitPct: 1.00 };
-        if (pl >= 13) return { buyCap: 5000, profitPct: 0.50 };
-        if (pl >= 9)  return { buyCap: 2000, profitPct: 0.20 };
-        return          { buyCap: 500,  profitPct: 0.10 };
-      })();
-
-      runtimeState.state.warehouse = runtimeState.state.warehouse || { items: [], editable: true };
-      runtimeState.state.warehouse.items = Array.isArray(runtimeState.state.warehouse.items)
-        ? runtimeState.state.warehouse.items
-        : [];
-
-      const wh = runtimeState.state.warehouse.items;
-      const makeId = () => `wh_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-
-      const mode = String(order?.craftingMode || "").toLowerCase();
-
-      if (mode === "buy") {
-        const spend = safeNum(order?.inputValues?.spendGp, 0);
-
-        if (spend <= 0) {
-          wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:"Buy selected but no Spend GP was entered." });
-          return;
-        }
-        if (spend > caps.buyCap) {
-          wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:`Buy exceeds cap: ${spend}gp > ${caps.buyCap}gp (Player Level ${pl}).` });
-          return;
-        }
-
-        wh.push({
-          id: makeId(),
-          type: "trade_shipment",
-          qty: 1,
-          gp: spend,
-          label: "Trade Shipment (Storehouse)",
-          notes: `Goods purchased up to value ${spend}gp. Cap at time: ${caps.buyCap}gp (PL ${pl}).`,
-          meta: { spentGp: spend, buyCapAtTime: caps.buyCap, playerLevelAtTime: pl },
-          sourceFacilityId: "storehouse",
-          sourceFunctionId: "storehouse_trade",
-          createdAt: new Date().toISOString()
-        });
-
-        return;
-      }
-
-      if (mode === "sell") {
-        const shipId = String(order?.inputValues?.shipmentId || "").trim();
-        if (!shipId) {
-          wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:"Sell selected but no shipment was chosen." });
-          return;
-        }
-
-        const idx = wh.findIndex(x => x && String(x.id || "") === shipId && x.type === "trade_shipment");
-        if (idx < 0) {
-          wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:"Selected shipment not found in Warehouse." });
-          return;
-        }
-
-        const shipment = wh[idx];
-        const base = safeNum(shipment.gp, safeNum(shipment.meta?.spentGp, 0));
-        const payout = Math.round(base * (1 + caps.profitPct));
-
-        wh.splice(idx, 1); // remove shipment
-
-        const tNow = safeNum(runtimeState.state?.treasury?.gp, 0);
-        runtimeState.state.treasury.gp = tNow + payout;
-
-        wh.push({
-          type: "note",
-          qty: 1,
-          label: "Storehouse Sale Completed",
-          notes: `Sold Trade Shipment (base ${base}gp) for ${payout}gp (+${Math.round(caps.profitPct*100)}%). Player Level ${pl}.`
-        });
-
-        return;
+        continue;
       }
 
       wh.push({ type:"note", qty:1, label:"Storehouse Trade Failed", notes:"No valid trade mode selected (buy/sell)." });
+      continue;
     }
 
-    // Future-proof: you can add more effect types here later.
+    // Future-proof: add more effect types here later.
   }
 }
-
 
 function applyOutputsToWarehouse(runtimeState, outputs) {
   const items = runtimeState.state.warehouse.items;
