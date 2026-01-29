@@ -50,11 +50,12 @@ header{
   border-bottom:1px solid var(--border);
 }
 
-.wrap{max-width:1100px;margin:0 auto;padding:16px}
-.brand{
-  display:flex; align-items:center; gap:10px;
-  font-weight:800; letter-spacing:.5px;
+.wrap{
+  width: min(1600px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 16px;
 }
+
 .brand .sigil{
   width:30px;height:30px;border-radius:10px;
   background: linear-gradient(135deg, var(--accent), var(--accent2));
@@ -89,10 +90,13 @@ main{padding:18px 0}
 }
 
 .card{
-  background: rgba(23,28,34,.72);
-  border:1px solid var(--border);
-  border-radius:18px;
-  padding:14px;
+  background: rgba(10, 12, 16, .72);
+  border: 2px solid var(--border);
+  border-radius: 22px;
+  padding: 18px;
+  box-shadow:
+    0 10px 30px rgba(0,0,0,.35),
+    inset 0 1px 0 rgba(255,255,255,.04);
 }
 
 .sidebar h3{margin:0 0 10px 0; font-size:14px; color:var(--muted); text-transform:uppercase; letter-spacing: .12em}
@@ -184,6 +188,42 @@ input[type="number"], input[type="text"], textarea, select {
   padding:8px;
   vertical-align: top;
 }
+/* Bastion Manager – Warehouse readability */
+.table th{
+  font-size: 18px;
+  letter-spacing: .02em;
+}
+.table td{
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+/* Make table inputs readable */
+.table input[type="text"],
+.table input[type="number"]{
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  font-size: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: rgba(8,10,14,.72);
+  color: var(--text);
+  outline: none;
+}
+
+.table input[type="text"]::placeholder{
+  color: rgba(230, 226, 210, .45);
+}
+
+/* On narrow screens: allow horizontal scroll rather than squashing */
+.table{
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+}
+
 .table th{ text-align:left; opacity:.9; font-weight:600; }
 
 .pill{
