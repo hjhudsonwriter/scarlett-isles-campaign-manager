@@ -1636,7 +1636,6 @@ for (const sf of base.state.specialFacilities) {
   if (id) ensureSpecialFacilityCard(merged, merged, id);
 }
 
-
   // ensure arrays still arrays
   merged.state.warehouse = merged.state.warehouse || { items: [], editable: true };
   merged.state.warehouse.items = Array.isArray(merged.state.warehouse.items) ? merged.state.warehouse.items : [];
@@ -1658,6 +1657,18 @@ for (const sf of base.state.specialFacilities) {
     });
   }
 
+// --- Normalize core facilities so they behave even if saved at level 0 ---
+const CORE_MIN_LVL_1 = new Set(["dock", "watchtower", "armoury", "armory", "workshop", "barracks"]);
+if (Array.isArray(merged.facilities)) {
+  merged.facilities = merged.facilities.map(f => {
+    const baseId = String(baseFacilityId(f?.id)).toLowerCase();
+    if (CORE_MIN_LVL_1.has(baseId)) {
+      const cur = safeNum(f.currentLevel, 0);
+      if (cur < 1) return { ...f, currentLevel: 1 };
+    }
+    return f;
+  });
+}
 
   return merged;
 }
@@ -3169,7 +3180,7 @@ function renderFacilities(){
       : `<option value="">No options</option>`;
 
     const hasBarracksBtn = (baseId === "barracks");
-    const hasArmouryBtn = (baseId === "armoury");
+    const hasArmouryBtn = (baseId === "armoury" || baseId === "armory");
 
     const running = (runtimeState.state.ordersInProgress || [])
       .filter(o => baseFacilityId(o.facilityId) === baseId);
@@ -3212,6 +3223,21 @@ function renderFacilities(){
 }
 
 renderFacilities();
+  // --- Facility action buttons (Barracks / Armoury) ---
+facWrap.addEventListener("click", (e) => {
+  const btn = e.target.closest(".bm_defBtn");
+  if (!btn) return;
+
+  const fid = btn.dataset.fid;
+  const fnid = btn.dataset.fnid;
+
+  const r = startFunctionOrder(runtimeState, fid, fnid);
+  if (!r?.ok) alert(r?.msg || "Could not start that function.");
+
+  saveBastionSave(runtimeState);
+  renderBastionManager();
+});
+
 
 
     // ----- Workshop Crafting (inside Workshop card) -----
