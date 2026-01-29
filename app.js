@@ -2293,6 +2293,94 @@ function fmtJSON(obj) {
   try { return JSON.stringify(obj, null, 2); } catch { return String(obj); }
 }
 
+function ensureDefenseState(rs){
+  rs.state = rs.state || {};
+  rs.state.turnCount = Number(rs.state.turnCount || 0);
+
+  rs.state.roster = rs.state.roster || {};
+  rs.state.roster.defendersTotal = Number(rs.state.roster.defendersTotal || 0);
+  rs.state.roster.defendersArmed = !!rs.state.roster.defendersArmed;
+
+  // Track when actions were issued
+  if (rs.state.roster.recruitIssuedTurn == null) rs.state.roster.recruitIssuedTurn = null;
+  if (rs.state.roster.lastArmouryStockTurn == null) rs.state.roster.lastArmouryStockTurn = null;
+}
+
+function issueRecruitDefenders(rs, fid){
+  ensureDefenseState(rs);
+
+  // One action per turn (keeps it simple)
+  if (rs.state.roster.recruitIssuedTurn === rs.state.turnCount) {
+    alert("Recruit Defenders has already been issued this turn.");
+    return;
+  }
+
+  rs.state.roster.recruitIssuedTurn = rs.state.turnCount;
+  rs.state.log = rs.state.log || [];
+  rs.state.log.push({
+    t: Date.now(),
+    title: "Barracks",
+    text: "Recruit Defenders issued (completes next turn)."
+  });
+}
+
+function issueStockArmoury(rs, fid){
+  ensureDefenseState(rs);
+
+  // cost: 100 + (defenders x 100)
+  const defenders = Number(rs.state.roster.defendersTotal || 0);
+  const cost = 100 + (defenders * 100);
+
+  rs.state.treasury = rs.state.treasury || {};
+  rs.state.treasury.gp = Number(rs.state.treasury.gp || 0);
+
+  if (rs.state.treasury.gp < cost) {
+    alert(`Insufficient treasury. Stock Armoury costs ${cost}gp (100 + defenders×100).`);
+    return false;
+  }
+
+  // One stock per turn
+  if (rs.state.roster.lastArmouryStockTurn === rs.state.turnCount) {
+    alert("Stock Armoury has already been done this turn.");
+    return false;
+  }
+
+  rs.state.treasury.gp -= cost;
+  rs.state.roster.lastArmouryStockTurn = rs.state.turnCount;
+
+  rs.state.log = rs.state.log || [];
+  rs.state.log.push({
+    t: Date.now(),
+    title: "Armoury",
+    text: `Stock Armoury issued for ${cost}gp (completes next turn).`
+  });
+
+  return true;
+}
+function resolveDefenseTurnCompletion(rs){
+  ensureDefenseState(rs);
+
+  // If recruit was issued last turn, it completes now
+  if (rs.state.roster.recruitIssuedTurn === (rs.state.turnCount - 1)) {
+    const gained = 1 + Math.floor(Math.random() * 4); // 1d4
+    rs.state.roster.defendersTotal += gained;
+
+    rs.state.log = rs.state.log || [];
+    rs.state.log.push({
+      t: Date.now(),
+      title: "Barracks",
+      text: `Recruit Defenders completed: +${gained} defenders added.`
+    });
+
+    // Allow recruitment again on future turns
+    rs.state.roster.recruitIssuedTurn = null;
+  }
+
+  // Armed status ONLY if armoury was stocked last turn
+  rs.state.roster.defendersArmed =
+    (rs.state.roster.lastArmouryStockTurn === (rs.state.turnCount - 1));
+}
+
 
 async function renderBastionManager() {
   // Load config
@@ -2318,6 +2406,8 @@ __BASTION_SPEC__ = config;
   const saved = loadBastionSave();
   const runtimeState = ensureRuntimeState(config, saved);
   runtimeState.spec = __BASTION_SPEC__ || config;
+  window.__bmState = runtimeState;
+
 
 
   // Precompute
@@ -3084,36 +3174,39 @@ const label = `${nm} (L${min}+ • ${safeNum(c.buildCostGP, 0)}gp • ${safeNum(
 
 
   renderFacilities();
-    // Save level changes (DM manual control)
-  facWrap.querySelectorAll(".facLvlSelect").forEach(sel => {
-    sel.addEventListener("change", (e) => {
-      const card = e.target.closest(".facMini");
-      const fid = card?.dataset?.fid;
-      const fac = getFacilityById(runtimeState, fid);
-      if (!fac) return;
-
-      fac.currentLevel = safeNum(e.target.value, fac.currentLevel);
-      saveBastionSave(runtimeState);
-      renderBastionManager();
-    });
-  });
+    
     // Bind Bastion Manager handlers once (delegated on document so re-renders don't break clicks)
 if (!window.__bmDelegatedBound) {
   window.__bmDelegatedBound = true;
 
   // Handle Start + Upgrade clicks
   document.addEventListener("click", (e) => {
+    const runtimeState = window.__bmState;
+if (!runtimeState) return;
       const defBtn = e.target.closest(".bm_defBtn");
-  if (defBtn) {
-    const fid = defBtn.dataset.fid;
-    const action = defBtn.dataset.action;
+if (defBtn) {
+  const runtimeState = window.__bmState;
+  if (!runtimeState) return;
 
-    const r = startFunctionOrder(runtimeState, fid, action);
-    if (!r.ok) alert(r.msg || "Could not start function.");
+  const fid = defBtn.dataset.fid;
+  const action = defBtn.dataset.action;
+
+  if (action === "recruit_defenders") {
+    issueRecruitDefenders(runtimeState, fid);
     saveBastionSave(runtimeState);
     renderBastionManager();
     return;
   }
+
+  if (action === "stock_armoury") {
+    const ok = issueStockArmoury(runtimeState, fid);
+    if (!ok) return; // issueStockArmoury will alert why
+    saveBastionSave(runtimeState);
+    renderBastionManager();
+    return;
+  }
+}
+
     // ----- START FUNCTION -----
     const startBtn = e.target.closest(".bm_startFn");
     if (startBtn) {
@@ -3381,24 +3474,25 @@ const fnid = startBtn.getAttribute("data-fnid");
 
 
   // ----- Take Bastion Turn -----
-  must("bm_takeTurn").addEventListener("click", () => {
-    saveTopFields();
-    const maintain = !!document.getElementById("bm_maintain").checked;
+must("bm_takeTurn").addEventListener("click", () => {
+  saveTopFields();
+  const maintain = !!document.getElementById("bm_maintain").checked;
 
+  const result = advanceTurnPipeline(runtimeState, { maintainIssued: maintain });
+  resolveDefenseTurnCompletion(runtimeState);
 
-    const result = advanceTurnPipeline(runtimeState, { maintainIssued: maintain });
-    saveBastionSave(runtimeState);
+  saveBastionSave(runtimeState);
 
+  const out = opt("bm_turnResult");
+  if (out) {
+    out.innerHTML = `
+      Turn processed. Next upkeep was <b>${result.nextUpkeep} gp</b>.
+      ${result.didRoll ? `<br>Event roll: <b>${result.rolled.roll}</b> (${result.rolled.event?.label || "No event"})` : ""}
+    `;
+  }
 
-            const out = opt("bm_turnResult");
-    if (out) {
-      out.innerHTML = `
-        Turn processed. Next upkeep was <b>${result.nextUpkeep} gp</b>.
-        ${result.didRoll ? `<br>Event roll: <b>${result.rolled.roll}</b> (${result.rolled.event?.label || "No event"})` : ""}
-      `;
-    }
-    renderBastionManager();
-  });
+  renderBastionManager();
+});
 
 
     // ----- Spec selector (safe) -----
