@@ -5,7 +5,7 @@ Pelagos temples are heavy, low-built structures carved into stone or built near 
 Pelagos teaches inevitability. The sea does not argue, and neither should mortals when faced with forces beyond them. Survival comes from restraint, not mastery.
 
 ## Crest
-![Temple crest](../../assets/images/Pelagoscrest.png)
+![Temple crest](../../assets/images/pelagoscrest.png)
 
 ## Tenets
 - What is buried stays buried  
