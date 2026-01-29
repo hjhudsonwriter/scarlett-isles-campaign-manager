@@ -3084,6 +3084,19 @@ const label = `${nm} (L${min}+ • ${safeNum(c.buildCostGP, 0)}gp • ${safeNum(
 
 
   renderFacilities();
+    // Save level changes (DM manual control)
+  facWrap.querySelectorAll(".facLvlSelect").forEach(sel => {
+    sel.addEventListener("change", (e) => {
+      const card = e.target.closest(".facMini");
+      const fid = card?.dataset?.fid;
+      const fac = getFacilityById(runtimeState, fid);
+      if (!fac) return;
+
+      fac.currentLevel = safeNum(e.target.value, fac.currentLevel);
+      saveBastionSave(runtimeState);
+      renderBastionManager();
+    });
+  });
     // Bind Bastion Manager handlers once (delegated on document so re-renders don't break clicks)
 if (!window.__bmDelegatedBound) {
   window.__bmDelegatedBound = true;
