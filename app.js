@@ -191,7 +191,6 @@ const HEROES = [
 
 const TOOL_PAGES = [
   { id: "bastion", title: "Bastion Management", type: "bastion" },
-  { id: "roller", title: "Bastion Event Roller", type: "roller" },
   { id: "honour", title: "Honour Tracker", type: "honour" },
   { id: "explorer", title: "Scarlett Isles Explorer", type: "explorer" },
 ];
@@ -4925,7 +4924,6 @@ async function router() {
 
 
       if (item.type === "bastion") return await renderBastionManager();
-if (item.type === "roller") return await renderEventRoller();
 if (item.type === "honour") return renderHonourTracker();
 if (item.type === "explorer") return renderExplorer();
     }
