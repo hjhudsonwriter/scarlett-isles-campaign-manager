@@ -1720,118 +1720,67 @@ function startUpgrade(runtimeState, facilityId) {
   return { ok:true };
 }
 
-function startFunctionOrder(runtimeState, facilityId, fnId, opts = {}) {
-    // Facilities live on runtimeState.facilities (from the JSON spec)
-  const fac = findFacility(runtimeState, facilityId);
-  if (!fac) {
-  console.warn("Facility not found:", { facilityId, known: (runtimeState?.facilities || []).map(f=>f.id) });
-  return { ok:false, msg:"Facility not found." };
-}
+function startFunctionOrder(runtimeState, facilityId, fnId) {
+  const fac = getFacilityById(runtimeState, facilityId);
+  if (!fac) return { ok:false, msg:"Facility not found." };
 
-  // Treat currentLevel <= 0 as "not built"
-  const lvl = safeNum(fac.currentLevel, 0);
-  if (lvl < 0) return { ok:false, msg:"Facility not built." };
+  const baseId = baseFacilityId(fac.id);
 
-  const lvlData = facilityLevelData(fac, lvl);
-  const fn = (lvlData?.functions || []).find(x => x.id === fnId);
-  if (!fn) return { ok:false, msg:"Function not found." };
+  // Only 2 automated function buttons remain:
+  // - barracks: recruit_defenders
+  // - armoury: stock_armoury
+  const allowed = (baseId === "barracks" && fnId === "recruit_defenders")
+               || (baseId === "armoury"  && fnId === "stock_armoury");
 
-  // ---- Mode selection (NO PROMPT) ----
-  const modes = fn?.crafting?.modes;
-  let chosenModeObj = null;
-  let chosenCraftMode = null;
-
-  if (Array.isArray(modes) && modes.length) {
-    const passed = (opts && opts.craftingMode != null) ? String(opts.craftingMode) : "";
-    chosenModeObj =
-      (passed ? modes.find(m => String(m?.id || "") === passed) : null)
-      || modes[0];
-    chosenCraftMode = chosenModeObj?.id || null;
+  if (!allowed) {
+    return { ok:false, msg:"This function is dropdown-only now (no automation)." };
   }
 
-  // ---- Collect inputs ----
-  // NEW: if UI provided opts.inputValues, use them (NO PROMPTS).
-  // Fallback: old prompt-based collection remains for legacy facilities.
-  const inputValues = (opts && opts.inputValues && typeof opts.inputValues === "object")
-    ? deepClone(opts.inputValues)
-    : {};
-
-  const collectInputsPrompt = (inputsArr) => {
-    if (!Array.isArray(inputsArr)) return;
-    for (const inp of inputsArr) {
-      if (!inp || typeof inp !== "object") continue;
-      const key = inp.storeAs;
-      if (!key) continue;
-      const label = inp.label || key;
-      const v = window.prompt(label, inputValues[key] || "");
-      if (v != null && String(v).trim() !== "") inputValues[key] = String(v).trim();
-    }
-  };
-
-  // Only prompt if UI did NOT provide inputs
-  if (!(opts && opts.inputValues)) {
-    collectInputsPrompt(fn.inputs);
-    collectInputsPrompt(chosenModeObj?.inputs);
-  }
-
-  // ---- Build effective function data from the chosen mode (overrides) ----
-  const effLabel = (chosenModeObj?.label != null) ? chosenModeObj.label : fn.label;
-  const effDuration = safeNum(chosenModeObj?.durationTurns, safeNum(fn.durationTurns, 1));
-  const effCost = (chosenModeObj?.costGP != null) ? safeNum(chosenModeObj.costGP, 0) : safeNum(fn.costGP, 0);
-  const effOutputs = Array.isArray(chosenModeObj?.outputsToWarehouse)
-    ? chosenModeObj.outputsToWarehouse
-    : (Array.isArray(fn.outputsToWarehouse) ? fn.outputsToWarehouse : []);
-  const effNotes = Array.isArray(chosenModeObj?.notes) ? chosenModeObj.notes : (fn.notes || []);
-  const effEffects = Array.isArray(chosenModeObj?.effects) ? chosenModeObj.effects : (fn.effects || null);
-
-  // prevent duplicate same order in progress
-  const exists = (runtimeState.state.ordersInProgress || []).some(o => o.facilityId === facilityId && o.functionId === fnId);
+  // Prevent duplicate same order in progress
+  const exists = (runtimeState.state.ordersInProgress || [])
+    .some(o => baseFacilityId(o.facilityId) === baseId && o.functionId === fnId);
   if (exists) return { ok:false, msg:"That function is already active." };
 
-  // ---- Cost handling ----
-  let cost = effCost;
-
-  // Storehouse Trade dynamic cost:
-  // - Buy costs "spendGp"
-  // - Sell costs 0
-  if (String(facilityId) === "storehouse" && String(fnId) === "storehouse_trade") {
-    const mode = String(chosenCraftMode || "").toLowerCase();
-
-    if (mode === "buy") {
-      const spend = safeNum(inputValues?.spendGp, 0);
-      if (spend <= 0) return { ok:false, msg:"Storehouse Buy: enter a GP amount to spend." };
-      cost = spend;
-    } else {
-      cost = 0;
-    }
-  }
-
-  // Armoury "Stock" rule: 100 + 100 per defender, halved if Smithy OR Workshop exists
-  const isArmoury = (String(facilityId) === "armoury" || String(facilityId) === "armory");
-  const isStockFn = String(fnId).toLowerCase().includes("stock");
-  if (isArmoury && isStockFn) {
-    cost = computeArmouryStockCost(runtimeState);
-  }
-
   const treasury = safeNum(runtimeState.state?.treasury?.gp, 0);
-  if (treasury < cost) return { ok:false, msg:"Not enough GP for that function." };
-  runtimeState.state.treasury.gp = treasury - cost;
 
-  runtimeState.state.ordersInProgress.push({
-    facilityId,
-    functionId: fnId,
-    label: effLabel,
-    remainingTurns: effDuration,
-    outputsToWarehouse: effOutputs,
-    notes: effNotes,
-    rosterEffects: fn.rosterEffects || null,
-    crafting: fn.crafting || null,
-    craftingMode: chosenCraftMode,
-    effects: effEffects,
-    inputValues,
-  });
+  // --- Barracks: recruit defenders (1d4, 1 turn) ---
+  if (baseId === "barracks") {
+    runtimeState.state.ordersInProgress.push({
+      facilityId: fac.id,
+      functionId: fnId,
+      label: "Recruit Defenders",
+      remainingTurns: 1,
+      rosterEffects: [{ type:"defenders_add", dice:"1d4" }],
+      notes: ["Adds 1d4 defenders to the Bastion roster when the turn is taken."]
+    });
+    return { ok:true };
+  }
 
-  return { ok:true };
+  // --- Armoury: stock armoury (cost scales with defender count) ---
+  if (baseId === "armoury") {
+    const defenders = safeNum(runtimeState.state?.roster?.defenders?.count, 0);
+    const cost = 100 + (defenders * 100);
+
+    if (treasury < cost) return { ok:false, msg:`Not enough GP. Need ${cost} gp.` };
+    runtimeState.state.treasury.gp = treasury - cost;
+
+    // Mark: defenders will show "Armed" NEXT bastion turn only
+    runtimeState.state.armoryStockedForTurn = safeNum(runtimeState.state.turnCount, 0) + 1;
+
+    // (Optional) We still create a 1-turn order so you see it running/complete
+    runtimeState.state.ordersInProgress.push({
+      facilityId: fac.id,
+      functionId: fnId,
+      label: "Stock Armoury",
+      remainingTurns: 1,
+      rosterEffects: [],
+      notes: [`Cost paid: ${cost} gp. Defenders become Armed next Bastion Turn only.`]
+    });
+
+    return { ok:true };
+  }
+
+  return { ok:false, msg:"Unhandled function." };
 }
 
 
@@ -2294,6 +2243,14 @@ doneSpecial.forEach(x => {
 
   // 6) monthly events every 4 turns OR maintain issued
   runtimeState.state.turnCount = safeNum(runtimeState.state.turnCount, 0) + 1;
+    // --- Armoury "armed next turn only" logic ---
+  runtimeState.state.roster = runtimeState.state.roster || {};
+  runtimeState.state.roster.defenders = runtimeState.state.roster.defenders || {};
+  const currentTurn = safeNum(runtimeState.state.turnCount, 0);
+
+  const armedTurn = safeNum(runtimeState.state.armoryStockedForTurn, -999);
+  runtimeState.state.roster.defenders.armed = (armedTurn === currentTurn);
+
   const turnCount = runtimeState.state.turnCount;
 
 
@@ -3050,200 +3007,80 @@ const label = `${nm} (L${min}+ • ${safeNum(c.buildCostGP, 0)}gp • ${safeNum(
 
 
   function renderFacilities() {
-    facWrap.innerHTML = facilities.map(f => {
-      const lvl = safeNum(f.currentLevel, 0);
-      const lvlData = facilityLevelData(f, lvl);
-      const nextLvl = lvl + 1;
-      const nextData = facilityLevelData(f, nextLvl);
+  // Compact grid of facility cards
+  facWrap.innerHTML = facilities.map(f => {
+    const baseId = baseFacilityId(f.id);
+    const lvl = safeNum(f.currentLevel, 0);
+    const maxLvl = safeNum(f.maxLevel, lvl || 0);
 
+    const lvlData = facilityLevelData(f, lvl);
+    const desc =
+      (lvlData?.label)
+      || (Array.isArray(lvlData?.benefits) && lvlData.benefits[0])
+      || (Array.isArray(f.staffing?.notes) && f.staffing.notes[0])
+      || "—";
 
-      const underCon = constructions.find(c => c.facilityId === f.id);
-      const isBuilding = !!underCon;
+    const fns = (lvlData?.functions || []).map(fn => ({
+      id: fn.id,
+      label: fn.label || fn.id
+    }));
 
+    const isBarracks = (baseId === "barracks");
+    const isArmoury  = (baseId === "armoury");
 
-      const upgradeCost = safeNum(nextData?.construction?.costGP, 0);
-      const upgradeTurns = safeNum(nextData?.construction?.turns, 0);
-      const canUpgrade = nextData && !isBuilding && safeNum(runtimeState.state.treasury.gp, 0) >= upgradeCost;
+    // Image path (expects assets/facilities/<baseId>.png)
+    const imgSrc = `./assets/facilities/${baseId}.png`;
 
+    // Only 2 buttons remain:
+    // Barracks => recruit_defenders
+    // Armoury  => stock_armoury
+    const barracksFn = fns.find(x => x.id === "recruit_defenders");
+    const armouryFn  = fns.find(x => x.id === "stock_armoury");
 
-      const fns = lvlData?.functions || [];
-      const activeOrders = orders.filter(o => o.facilityId === f.id);
-
-
-      return `
-        <div class="card facCard" style="margin-top:12px;">
-          <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-            <div style="display:flex; gap:14px; align-items:center;">
-              <img class="facImg" src="${FACILITY_IMG(f.id)}" alt="${f.name}">
-              <div>
-                <h3 style="margin:0;">${f.name}</h3>
-                <div class="small muted">Level <b>${lvl}</b> / ${safeNum(f.maxLevel,lvl)}</div>
-                ${lvlData?.label ? `<div class="pill" style="margin-top:8px;">${lvlData.label}</div>` : ""}
-                ${isBuilding ? `<div class="pill" style="margin-top:8px;">Under Construction: <b>Level ${underCon.targetLevel}</b> • ${safeNum(underCon.remainingTurns,0)} turns left</div>` : ""}
-              </div>
-            </div>
-
-
-            <div style="min-width:280px;">
-              <div class="pill">Hirelings: <b>${safeNum(f.staffing?.hirelings, safeNum(f.staffing?.hirelingsBase, 0))}</b></div>
-              <div class="small muted" style="margin-top:8px;">
-                ${(f.staffing?.notes || []).map(n => `• ${n}`).join("<br>")}
-              </div>
-            </div>
+    return `
+      <div class="facMini" data-fid="${f.id}">
+        <div class="facMini_top">
+          <img class="facMini_img" src="${imgSrc}" alt="${f.name}">
+          <div class="facMini_meta">
+            <div class="facMini_name">${f.name}</div>
+            <div class="facMini_desc">${desc}</div>
           </div>
 
-
-          <hr />
-
-
-          <h4>Benefits</h4>
-          <div class="small muted">
-            ${(lvlData?.benefits || []).map(b => `• ${b}`).join("<br>") || "No benefits listed."}
+          <div class="facMini_level">
+            <label class="small muted">Level</label>
+            <select class="facLvlSelect">
+              ${Array.from({length: maxLvl + 1}, (_,n)=>n).map(n =>
+                `<option value="${n}" ${n===lvl ? "selected":""}>${n}/${maxLvl}</option>`
+              ).join("")}
+            </select>
           </div>
-
-
-          <hr />
-
-
-          <h4>Functions</h4>
-${fns.length ? `
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Function</th>
-        <th>Duration</th>
-        <th>Outputs</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${fns.map(fn => {
-        const active = activeOrders.find(o => o.functionId === fn.id);
-        const outputs = (fn.outputsToWarehouse || []).length
-          ? fn.outputsToWarehouse.map(o => `<code>${o.type || "item"}</code>`).join(" ")
-          : "<span class='small muted'>None</span>";
-
-        return `
-          <tr>
-            <td>
-              <b>${fn.label}</b><br>
-              <span class="small muted">${(fn.notes || []).join(" • ")}</span>
-            </td>
-            <td>${safeNum(fn.durationTurns,1)} turn(s)</td>
-            <td>${outputs}</td>
-            <td>
-              ${active
-                ? `<span class="pill">Active • ${safeNum(active.remainingTurns,0)} left</span>`
-                : (() => {
-                    const isArm = (String(f.id) === "armoury" || String(f.id) === "armory");
-                    const isStock = String(fn.id).toLowerCase().includes("stock");
-                    const dynCost = (isArm && isStock)
-                      ? computeArmouryStockCost(runtimeState)
-                      : safeNum(fn.costGP, 0);
-
-                    const treasuryNow = safeNum(runtimeState.state?.treasury?.gp, 0);
-                    const disabled = treasuryNow < dynCost;
-
-                    let modeSelectHtml = "";
-                    if (Array.isArray(fn?.crafting?.modes) && fn.crafting.modes.length) {
-                      modeSelectHtml = `
-                        <select class="bm_modeSelect"
-                                data-fid="${f.id}"
-                                data-fnid="${fn.id}"
-                                style="margin-right:10px; max-width:240px;">
-                          ${fn.crafting.modes.map(m =>
-                            `<option value="${m.id || ""}">${m.label || m.id}</option>`
-                          ).join("")}
-                        </select>
-                      `;
-                    }
-
-                  // Storehouse inline inputs (no prompts)
-                    let extraInputsHtml = "";
-                    const isStorehouseTrade = (String(f.id) === "storehouse" && String(fn.id) === "storehouse_trade");
-
-                    if (isStorehouseTrade) {
-                      const wh = (runtimeState.state?.warehouse?.items || []);
-                      const shipments = wh
-                        .filter(x => x && (x.type === "trade_shipment"))
-                        .map(x => ({
-                          id: String(x.id || ""),
-                          label: String(x.label || "Trade Shipment"),
-                          gp: safeNum(x.gp, safeNum(x.meta?.spentGp, 0))
-                        }))
-                        .filter(x => x.id);
-
-                      extraInputsHtml = `
-                        <div class="small muted" style="margin-top:8px;">
-                          <div class="bm_storehouseModeBlock" data-mode="buy">
-                            <label class="small muted" style="display:block;margin-bottom:6px;">Spend GP</label>
-                            <input class="bm_fnInput" data-key="spendGp" type="number" min="1" step="1" placeholder="e.g. 250" style="max-width:240px;">
-                          </div>
-
-                          <div class="bm_storehouseModeBlock" data-mode="sell" style="display:none;">
-                            <label class="small muted" style="display:block;margin-bottom:6px;">Shipment to sell</label>
-                            <select class="bm_fnInput" data-key="shipmentId" style="max-width:240px;">
-                              <option value="">(choose shipment)</option>
-                              ${shipments.length
-                                ? shipments.map(s => `<option value="${s.id}">${s.label} • ${s.gp}gp</option>`).join("")
-                                : `<option value="" disabled>(no trade shipments in warehouse)</option>`
-                              }
-                            </select>
-                          </div>
-                        </div>
-                      `;
-                    }
-  
-                    return `
-                      ${modeSelectHtml}
-                      ${extraInputsHtml}
-                      <button class="bm_startFn"
-
-                              data-fid="${f.id}"
-                              data-fnid="${fn.id}"
-                              ${disabled ? "disabled" : ""}>
-                        Start (${dynCost}gp)
-                      </button>
-                    `;
-                  })()
-              }
-            </td>
-          </tr>
-        `;
-      }).join("")}
-    </tbody>
-  </table>
-` : `<p class="small muted">No functions at this level.</p>`}
-
-
-
-          <hr />
-          <h4>Upgrade</h4>
-          ${nextData ? `
-            <div class="small muted">Next: <b>${nextData.label || `Level ${nextLvl}`}</b></div>
-
-
-            <div class="iconLine">
-              <div class="pill iconStat">
-                <img src="${UI_COIN_ICON}" alt="Cost">
-                <b>${upgradeCost}gp</b>
-              </div>
-              <div class="pill iconStat">
-                <img src="${UI_TIMER_ICON}" alt="Time">
-                <b>${upgradeTurns} turns</b>
-              </div>
-            </div>
-
-
-            <div class="btnRow" style="margin-top:10px;">
-              <button class="bm_upgrade" data-fid="${f.id}" ${canUpgrade ? "" : "disabled"}>Apply Upgrade</button>
-              ${!canUpgrade ? `<span class="small muted">${isBuilding ? "Already building." : (safeNum(runtimeState.state.treasury.gp,0) < upgradeCost ? "Insufficient treasury." : "")}</span>` : ""}
-            </div>
-          ` : `<p class="small muted">No further upgrades (max level).</p>`}
         </div>
-      `;
-    }).join("");
-  }
+
+        <div class="facMini_bottom">
+          <div class="facMini_drop">
+            <label class="small muted">Possible options (dropdown only)</label>
+            <select class="facFnSelect">
+              ${fns.length
+                ? fns.map(x => `<option value="${x.id}">${x.label}</option>`).join("")
+                : `<option value="">No options at this level</option>`
+              }
+            </select>
+          </div>
+
+          <div class="facMini_actions">
+            ${isBarracks && barracksFn ? `
+              <button class="bm_defBtn" data-action="recruit_defenders" data-fid="${f.id}">Recruit Defenders</button>
+            ` : ``}
+
+            ${isArmoury && armouryFn ? `
+              <button class="bm_defBtn" data-action="stock_armoury" data-fid="${f.id}">Stock Armoury</button>
+            ` : ``}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
 
 
   renderFacilities();
@@ -3253,6 +3090,17 @@ if (!window.__bmDelegatedBound) {
 
   // Handle Start + Upgrade clicks
   document.addEventListener("click", (e) => {
+      const defBtn = e.target.closest(".bm_defBtn");
+  if (defBtn) {
+    const fid = defBtn.dataset.fid;
+    const action = defBtn.dataset.action;
+
+    const r = startFunctionOrder(runtimeState, fid, action);
+    if (!r.ok) alert(r.msg || "Could not start function.");
+    saveBastionSave(runtimeState);
+    renderBastionManager();
+    return;
+  }
     // ----- START FUNCTION -----
     const startBtn = e.target.closest(".bm_startFn");
     if (startBtn) {
