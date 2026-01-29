@@ -1657,8 +1657,29 @@ function findFacility(root, facilityId) {
 
 
 function facilityLevelData(facility, lvl) {
-  if (!facility?.levels) return null;
-  return facility.levels[String(lvl)] || null;
+  // Normal facilities (have levels map)
+  if (facility?.levels) {
+    return facility.levels[String(lvl)] || null;
+  }
+
+  // Special facilities (defined in SPECIAL_FACILITY_DEFS, typically single-level)
+  const id = String(facility?.id || "");
+  const def = (typeof SPECIAL_FACILITY_DEFS !== "undefined") ? SPECIAL_FACILITY_DEFS[id] : null;
+
+  // If it's special: only available when built (level >= 1)
+  if (def) {
+    if (safeNum(lvl, 0) < 1) return null;
+
+    return {
+      label: def.label || def.name || id,
+      benefits: Array.isArray(def.benefits) ? def.benefits : [],
+      functions: Array.isArray(def.functions) ? def.functions : [],
+      staffing: def.staffing || null,
+      construction: def.construction || null
+    };
+  }
+
+  return null;
 }
 
 
