@@ -7,7 +7,7 @@ Aligned with Pelagos, Rowthorn doctrine values restraint, sealing, and burial. D
 To Rowthorn, the Heartwood is not a mystery — it is a mistake waiting to repeat itself.
 
 ## Sigil
-![Clan sigil](../../assets/images/RowthornSigil.png)
+![Clan sigil](../../assets/images/rowthornsigil.png)
 
 ## Key NPCs
 - **Maerys Vell** – Senior Tide-Speaker, cold, principled, and deeply suspicious of scholars.
