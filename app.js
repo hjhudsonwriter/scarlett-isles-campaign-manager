@@ -576,14 +576,47 @@ function rollDiceExpr(expr) {
 
 
 // --- Facility ID helpers (supports "barracks_D" style IDs) ---
-function baseFacilityId(id) {
-  const raw = String(id || "").trim().toLowerCase();
-  if (!raw) return "";
-  // "barracks_D" -> "barracks", "armoury_C" -> "armoury"
-  if (raw.includes("_")) return raw.split("_")[0];
-  return raw;
+function baseFacilityId(fid){
+  const s = String(fid||"");
+  const m = s.match(/^(.+?)(_[A-Z])?$/);
+  let base = m ? m[1].toLowerCase() : s.toLowerCase();
+
+  // Normalise common variant
+  if (base === "armory") base = "armoury";
+
+  return base;
 }
 
+function facilityIconDataUri(baseId){
+  // Simple inline SVG icons (no external files => no 404s)
+  const id = String(baseId || "facility").toLowerCase();
+
+  const glyph = (() => {
+    if (id === "dock") return "⚓";
+    if (id === "watchtower") return "🛡️";
+    if (id === "barracks") return "🪖";
+    if (id === "armoury") return "⚔️";
+    if (id === "workshop") return "🛠️";
+    if (id === "storehouse" || id === "warehouse") return "📦";
+    if (id === "garden") return "🌿";
+    return "🏰";
+  })();
+
+  const svg =
+`<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">
+  <defs>
+    <radialGradient id="g" cx="35%" cy="30%">
+      <stop offset="0" stop-color="#2b0b0f"/>
+      <stop offset="1" stop-color="#0b0a0f"/>
+    </radialGradient>
+  </defs>
+  <rect x="0" y="0" width="256" height="256" rx="48" fill="url(#g)"/>
+  <circle cx="128" cy="128" r="86" fill="rgba(0,0,0,.35)" stroke="rgba(212,175,55,.65)" stroke-width="10"/>
+  <text x="128" y="150" text-anchor="middle" font-size="92" font-family="serif">${glyph}</text>
+</svg>`;
+
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+}
 
 function getFacilityById(runtimeState, idOrBase) {
   const facilities = (runtimeState?.facilities || []);
@@ -3095,191 +3128,90 @@ const label = `${nm} (L${min}+ • ${safeNum(c.buildCostGP, 0)}gp • ${safeNum(
     });
   }
 
+function getAllFunctionOptions(fac){
+  // Pull ALL functions across ALL levels (dropdown-only), unique by id
+  const levels = fac?.levels || {};
+  const seen = new Map();
 
-  function renderFacilities() {
-  // Compact grid of facility cards
+  Object.keys(levels).forEach(k => {
+    const lvl = levels[k];
+    (lvl?.functions || []).forEach(fn => {
+      if (!fn?.id) return;
+      if (!seen.has(fn.id)) seen.set(fn.id, fn);
+    });
+  });
+
+  // Ensure the two defence actions always exist as options
+  const baseId = baseFacilityId(fac?.id);
+  if (baseId === "barracks" && !seen.has("recruit_defenders")) {
+    seen.set("recruit_defenders", { id:"recruit_defenders", label:"Recruit Defenders" });
+  }
+  if (baseId === "armoury" && !seen.has("stock_armoury")) {
+    seen.set("stock_armoury", { id:"stock_armoury", label:"Stock Armoury" });
+  }
+
+  return [...seen.values()];
+}
+
+function renderFacilities(){
   facWrap.innerHTML = facilities.map(f => {
     const baseId = baseFacilityId(f.id);
-    const lvl = safeNum(f.currentLevel, 0);
-    const maxLvl = safeNum(f.maxLevel, lvl || 0);
 
-    const lvlData = facilityLevelData(f, lvl);
-    const desc =
-      (lvlData?.label)
-      || (Array.isArray(lvlData?.benefits) && lvlData.benefits[0])
-      || (Array.isArray(f.staffing?.notes) && f.staffing.notes[0])
-      || "—";
+    // No more levels shown on pre-built facilities
+    const title = f.name || baseId;
+    const subtitle = (f.levels && f.levels["1"]?.label) ? f.levels["1"].label : (f.description || "");
 
-    const fns = (lvlData?.functions || []).map(fn => ({
-      id: fn.id,
-      label: fn.label || fn.id
-    }));
+    // Dropdown only for everything (you manage costs manually),
+    // BUT Barracks + Armoury still get a working button.
+    const opts = getAllFunctionOptions(f);
+    const optsHtml = opts.length
+      ? opts.map(fn => `<option value="${fn.id}">${fn.label || fn.id}</option>`).join("")
+      : `<option value="">No options</option>`;
 
-    const isBarracks = (baseId === "barracks");
-    const isArmoury  = (baseId === "armoury");
+    const hasBarracksBtn = (baseId === "barracks");
+    const hasArmouryBtn = (baseId === "armoury");
 
-    // Image path (expects assets/facilities/<baseId>.png)
-    const imgSrc = `./assets/facilities/${baseId}.png`;
+    const running = (runtimeState.state.ordersInProgress || [])
+      .filter(o => baseFacilityId(o.facilityId) === baseId);
 
-    // Only 2 buttons remain:
-    // Barracks => recruit_defenders
-    // Armoury  => stock_armoury
-    const barracksFn = fns.find(x => x.id === "recruit_defenders");
-    const armouryFn  = fns.find(x => x.id === "stock_armoury");
+    const runningHtml = running.length
+      ? `<div class="small muted" style="margin-top:8px;">
+           ${running.map(o => `• ${o.label} (${safeNum(o.remainingTurns,0)} turn(s) left)`).join("<br>")}
+         </div>`
+      : ``;
+
+    // Button labels + ids
+    const btnHtml = hasBarracksBtn
+      ? `<button class="bm_defBtn" data-fid="${f.id}" data-fnid="recruit_defenders">Recruit Defenders</button>`
+      : hasArmouryBtn
+        ? `<button class="bm_defBtn" data-fid="${f.id}" data-fnid="stock_armoury">Stock Armoury</button>`
+        : ``;
 
     return `
       <div class="facMini" data-fid="${f.id}">
-        <div class="facMini_top">
-          <img class="facMini_img" src="${imgSrc}" alt="${f.name}">
+        <div class="facMini_head">
+          <img class="facMini_icon" src="${facilityIconDataUri(baseId)}" alt="${title}">
           <div class="facMini_meta">
-            <div class="facMini_name">${f.name}</div>
-            <div class="facMini_desc">${desc}</div>
-          </div>
-
-          <div class="facMini_level">
-            <label class="small muted">Level</label>
-            <select class="facLvlSelect">
-              ${Array.from({length: maxLvl + 1}, (_,n)=>n).map(n =>
-                `<option value="${n}" ${n===lvl ? "selected":""}>${n}/${maxLvl}</option>`
-              ).join("")}
-            </select>
+            <div class="facMini_title">${title}</div>
+            <div class="facMini_sub">${subtitle || ""}</div>
           </div>
         </div>
 
-        <div class="facMini_bottom">
-          <div class="facMini_drop">
-            <label class="small muted">Possible options (dropdown only)</label>
-            <select class="facFnSelect">
-              ${fns.length
-                ? fns.map(x => `<option value="${x.id}">${x.label}</option>`).join("")
-                : `<option value="">No options at this level</option>`
-              }
-            </select>
-          </div>
+        <div class="facMini_body">
+          <div class="small muted" style="margin-bottom:6px;">Possible options (dropdown only)</div>
+          <select class="facFnSelect">
+            ${optsHtml}
+          </select>
 
-          <div class="facMini_actions">
-            ${isBarracks && barracksFn ? `
-              <button class="bm_defBtn" data-action="recruit_defenders" data-fid="${f.id}">Recruit Defenders</button>
-            ` : ``}
-
-            ${isArmoury && armouryFn ? `
-              <button class="bm_defBtn" data-action="stock_armoury" data-fid="${f.id}">Stock Armoury</button>
-            ` : ``}
-          </div>
+          ${btnHtml ? `<div style="margin-top:10px;">${btnHtml}</div>` : ``}
+          ${runningHtml}
         </div>
       </div>
     `;
   }).join("");
 }
 
-
-  renderFacilities();
-    
-    // Bind Bastion Manager handlers once (delegated on document so re-renders don't break clicks)
-if (!window.__bmDelegatedBound) {
-  window.__bmDelegatedBound = true;
-
-  // Handle Start + Upgrade clicks
-  document.addEventListener("click", (e) => {
-    const runtimeState = window.__bmState;
-if (!runtimeState) return;
-      const defBtn = e.target.closest(".bm_defBtn");
-if (defBtn) {
-  const runtimeState = window.__bmState;
-  if (!runtimeState) return;
-
-  const fid = defBtn.dataset.fid;
-  const action = defBtn.dataset.action;
-
-  if (action === "recruit_defenders") {
-    issueRecruitDefenders(runtimeState, fid);
-    saveBastionSave(runtimeState);
-    renderBastionManager();
-    return;
-  }
-
-  if (action === "stock_armoury") {
-    const ok = issueStockArmoury(runtimeState, fid);
-    if (!ok) return; // issueStockArmoury will alert why
-    saveBastionSave(runtimeState);
-    renderBastionManager();
-    return;
-  }
-}
-
-    // ----- START FUNCTION -----
-    const startBtn = e.target.closest(".bm_startFn");
-    if (startBtn) {
-      // Prefer the facility card's id (this matches runtimeState.facilities ids like dock_A)
-const card = startBtn.closest(".facility-card");
-const fid = (card && card.getAttribute("data-id"))
-  ? card.getAttribute("data-id")
-  : startBtn.getAttribute("data-fid");
-
-const fnid = startBtn.getAttribute("data-fnid");
-
-      const td = startBtn.closest("td");
-      const sel = td ? td.querySelector(".bm_modeSelect") : null;
-      const modeId = sel ? sel.value : null;
-
-      // Collect inline inputs (if any) for this function cell
-      const collectedInputs = {};
-      if (td) {
-        td.querySelectorAll(".bm_fnInput").forEach(el => {
-          const key = el.getAttribute("data-key");
-          if (!key) return;
-          const val = (el.value != null) ? String(el.value).trim() : "";
-          if (val !== "") collectedInputs[key] = val;
-        });
-      }
-
-      const r = startFunctionOrder(runtimeState, fid, fnid, {
-        craftingMode: modeId,
-        inputValues: collectedInputs
-      });
-
-      if (!r?.ok) {
-        alert(r?.msg || "Could not start function.");
-        return;
-      }
-
-      saveBastionSave(runtimeState);
-      renderBastionManager();
-      return;
-    }
-
-    // ----- UPGRADE FACILITY -----
-    const upBtn = e.target.closest(".bm_upgrade");
-    if (upBtn) {
-      const fid = upBtn.getAttribute("data-fid");
-      const r = startUpgrade(runtimeState, fid);
-
-      if (!r?.ok) {
-        alert(r?.msg || "Could not start upgrade.");
-        return;
-      }
-
-      saveBastionSave(runtimeState);
-      renderBastionManager();
-      return;
-    }
-  });
-
-  // Handle mode dropdown changes (Storehouse input show/hide)
-  document.addEventListener("change", (e) => {
-    const sel = e.target.closest(".bm_modeSelect");
-    if (!sel) return;
-
-    const td = sel.closest("td");
-    if (!td) return;
-
-    const mode = String(sel.value || "");
-    td.querySelectorAll(".bm_storehouseModeBlock").forEach(b => {
-      const m = b.getAttribute("data-mode");
-      b.style.display = (m === mode) ? "" : "none";
-    });
-  });
-}
+renderFacilities();
 
 
     // ----- Workshop Crafting (inside Workshop card) -----
