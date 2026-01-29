@@ -2296,6 +2296,11 @@ doneSpecial.forEach(x => {
   runtimeState.state.roster.defenders.armed = (armedTurn === currentTurn);
 
   const turnCount = runtimeState.state.turnCount;
+  // Update defender Armed/Unarmed status for THIS turn
+ensureRosterState(runtimeState);
+runtimeState.state.roster.defenders.armed =
+  safeNum(runtimeState.state.armoryStockedForTurn, -999) === turnCount;
+
 
 
   let didRoll = false;
