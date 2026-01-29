@@ -7,7 +7,7 @@ Their Tellurian faith emphasises patience, cycles, and inevitability. Where othe
 Many conflicts across the Isles have ended because Clan Slade chose the moment to intervene.
 
 ## Sigil
-![Clan sigil](../../assets/images/SladeSigil.png)
+![Clan sigil](../../assets/images/sladesigil.png)
 
 ## Key NPCs
 - **Lord-Observer Tavin Slade** – Soft-spoken leader who rarely reveals his true intentions.
