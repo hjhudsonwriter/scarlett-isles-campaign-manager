@@ -1641,8 +1641,18 @@ function parseJsonSafe(text) {
 }
 
 
-function findFacility(config, facilityId) {
-  return (config.facilities || []).find(f => f.id === facilityId) || null;
+function findFacility(root, facilityId) {
+  const id = String(facilityId || "");
+
+  const pools = [
+    ...(root?.facilities || []),
+    ...(root?.specialFacilities || []),
+    ...(root?.special_facilities || []),
+    ...(root?.state?.specialFacilities || []),
+    ...(root?.state?.special_facilities || []),
+  ];
+
+  return pools.find(f => String(f?.id) === id) || null;
 }
 
 
@@ -1692,7 +1702,10 @@ function startUpgrade(runtimeState, facilityId) {
 function startFunctionOrder(runtimeState, facilityId, fnId, opts = {}) {
     // Facilities live on runtimeState.facilities (from the JSON spec)
   const fac = findFacility(runtimeState, facilityId);
-  if (!fac) return { ok:false, msg:"Facility not found." };
+  if (!fac) {
+  console.warn("Facility not found:", { facilityId, known: (runtimeState?.facilities || []).map(f=>f.id) });
+  return { ok:false, msg:"Facility not found." };
+}
 
   // Treat currentLevel <= 0 as "not built"
   const lvl = safeNum(fac.currentLevel, 0);
@@ -2373,7 +2386,7 @@ __BASTION_SPEC__ = config;
     </div>
 
 
-    <div class="grid2" style="margin-top:12px;">
+   <div class="bmGrid" style="margin-top:12px;">
       <div class="card">
         <h2>State</h2>
         <div class="inputRow">
