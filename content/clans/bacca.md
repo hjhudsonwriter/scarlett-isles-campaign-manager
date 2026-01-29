@@ -7,7 +7,7 @@ Though aligned with Telluria, their faith is not scholarly or reverent. The eart
 Their fortresses are old, their traditions older, and their people are raised to endure rather than question.
 
 ## Sigil
-![Clan sigil](../../assets/images/BaccaSigil.png)
+![Clan sigil](../../assets/images/baccasigil.png)
 
 ## Key NPCs
 - **Thane Rurik Bacca** – Gruff and direct clan leader who values honourable combat and plain truth.
