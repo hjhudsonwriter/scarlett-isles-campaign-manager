@@ -362,6 +362,8 @@ button[disabled]{
   pointer-events:none;
 }
 
+
+
 /* Circular facility image */
 .facImg{
   width:88px;
@@ -427,6 +429,17 @@ button[disabled]{
 #bm_wh_save {
   font-size: 16px;
   padding: 10px 14px;
+}
+
+/* Warehouse readability */
+#bm_wh_rows input{
+  font-size: 16px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  min-height: 44px;
+}
+#bm_wh_rows td{
+  vertical-align: middle;
 }
 /* =========================
    Panel background images
@@ -751,4 +764,84 @@ button[disabled]{
   max-height: 520px;
   overflow: auto;
   padding-right: 6px;
+}
+
+/* Compact Bastion facility cards */
+#bm_facilities{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+.facMini{
+  border: 2px solid rgba(212, 175, 55, 0.55);
+  border-radius: 20px;
+  padding: 14px;
+  background: radial-gradient(1200px 400px at 20% 0%, rgba(140, 0, 0, 0.22), transparent 55%),
+              rgba(10, 11, 14, 0.82);
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+}
+
+.facMini_top{
+  display:flex;
+  gap: 12px;
+  align-items:center;
+}
+
+.facMini_img{
+  width: 74px;
+  height: 74px;
+  border-radius: 999px;
+  border: 2px solid rgba(212,175,55,.75);
+  object-fit: cover;
+  background: rgba(0,0,0,.35);
+}
+
+.facMini_meta{ flex: 1; min-width: 0; }
+.facMini_name{
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: .3px;
+}
+.facMini_desc{
+  font-size: 14px;
+  opacity: .9;
+  margin-top: 4px;
+}
+
+.facMini_level{
+  display:flex;
+  flex-direction:column;
+  gap: 6px;
+  align-items:flex-end;
+}
+
+.facMini_level select{
+  min-width: 110px;
+}
+
+.facMini_bottom{
+  display:flex;
+  gap: 12px;
+  margin-top: 12px;
+  align-items:flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.facMini_drop{ flex: 1; min-width: 200px; }
+.facMini_drop select{ width: 100%; }
+
+.facMini_actions{
+  display:flex;
+  gap: 10px;
+}
+
+.bm_defBtn{
+  border: 2px solid rgba(212,175,55,.55);
+  background: radial-gradient(600px 120px at 30% 0%, rgba(170, 0, 0, 0.45), rgba(40,10,10,.65));
+  color: #f3d37a;
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-weight: 700;
 }
