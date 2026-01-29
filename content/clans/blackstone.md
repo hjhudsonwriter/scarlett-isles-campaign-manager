@@ -8,7 +8,7 @@ Today, Blackstone leadership fears reckless intervention above all else. Fire, f
 
 ## Sigil
 
-![Clan sigil](/assets/images/BlackstoneSigil.png)
+![Clan sigil](/assets/images/blackstonesigil.png)
 
 ## Key NPCs
 
