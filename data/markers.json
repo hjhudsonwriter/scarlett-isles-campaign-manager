@@ -1,0 +1,27 @@
+{
+  "markersByMapId": {
+    "northern_province_east": [
+      {
+        "id": "nightwood_city",
+        "label": "Nightwood City",
+        "x": 0.62,
+        "y": 0.38,
+        "thumb": "assets/markers/marker_gold.png",
+        "submapImage": "assets/submaps/nightwood_city.png",
+        "description": "A dense ring-city beneath black boughs."
+      }
+    ],
+
+    "the_east_isle": [
+      {
+        "id": "rowthorn_hold",
+        "label": "Rowthorn Hold",
+        "x": 0.42,
+        "y": 0.54,
+        "thumb": "assets/markers/marker_gold.png",
+        "submapImage": "assets/submaps/rowthorn_hold.png",
+        "description": "A hillfast of thornwood and sea-wind."
+      }
+    ]
+  }
+}
